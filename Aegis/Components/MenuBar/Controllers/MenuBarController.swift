@@ -743,15 +743,35 @@ struct LayoutActionsButton: View {
         statusItem.isEnabled = false
         menu.addItem(statusItem)
 
-        // Yabai Version - fetch synchronously since it's quick
+        // Yabai Version
         let yabaiVersion = yabaiService.getYabaiVersion()
-        let yabaiVersionItem = NSMenuItem(title: "  Yabai Version: \(yabaiVersion)", action: nil, keyEquivalent: "")
+        let yabaiVersionItem = NSMenuItem(title: "  Yabai: v\(yabaiVersion)", action: nil, keyEquivalent: "")
         yabaiVersionItem.isEnabled = false
         menu.addItem(yabaiVersionItem)
 
-        // Aegis Version - read from bundle
+        // SA Status - check if scripting addition is loaded
+        let saStatus = YabaiSetupChecker.checkSA()
+        let saStatusItem: NSMenuItem
+        switch saStatus {
+        case .loaded:
+            saStatusItem = NSMenuItem(title: "  SA: Loaded", action: nil, keyEquivalent: "")
+            saStatusItem.isEnabled = false
+        case .notLoaded:
+            saStatusItem = NSMenuItem(title: "  SA: Not loaded (click to load)", action: #selector(LayoutActionsMenuTarget.loadSA), keyEquivalent: "")
+            saStatusItem.target = menuTarget
+            saStatusItem.isEnabled = true
+        case .notInstalled:
+            saStatusItem = NSMenuItem(title: "  SA: Not installed", action: nil, keyEquivalent: "")
+            saStatusItem.isEnabled = false
+        case .unknown:
+            saStatusItem = NSMenuItem(title: "  SA: Unknown", action: nil, keyEquivalent: "")
+            saStatusItem.isEnabled = false
+        }
+        menu.addItem(saStatusItem)
+
+        // Aegis Version
         let aegisVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
-        let aegisVersionItem = NSMenuItem(title: "  Aegis Version: \(aegisVersion)", action: nil, keyEquivalent: "")
+        let aegisVersionItem = NSMenuItem(title: "  Aegis: v\(aegisVersion)", action: nil, keyEquivalent: "")
         aegisVersionItem.isEnabled = false
         menu.addItem(aegisVersionItem)
 
@@ -768,7 +788,7 @@ struct LayoutActionsButton: View {
         case .notifyScriptMissing:
             linkStatusText = "Script missing"
         }
-        let linkStatusItem = NSMenuItem(title: "  Link Status: \(linkStatusText)", action: nil, keyEquivalent: "")
+        let linkStatusItem = NSMenuItem(title: "  Link: \(linkStatusText)", action: nil, keyEquivalent: "")
         linkStatusItem.isEnabled = false
         menu.addItem(linkStatusItem)
 
@@ -1096,6 +1116,25 @@ class LayoutActionsMenuTarget: NSObject {
         guard let layoutType = sender.representedObject as? String else { return }
         print("📐 Setting layout to \(layoutType)...")
         yabaiService?.executeYabai(args: ["-m", "space", "--layout", layoutType]) { _ in }
+    }
+
+    @objc func loadSA() {
+        print("🔐 Loading yabai scripting addition...")
+
+        // Use AppleScript to run sudo command with admin privileges prompt
+        let script = """
+        do shell script "/opt/homebrew/bin/yabai --load-sa" with administrator privileges
+        """
+
+        var error: NSDictionary?
+        if let appleScript = NSAppleScript(source: script) {
+            appleScript.executeAndReturnError(&error)
+            if let error = error {
+                print("❌ Failed to load SA: \(error)")
+            } else {
+                print("✅ SA loaded successfully")
+            }
+        }
     }
 
     // MARK: - Stack Window Actions

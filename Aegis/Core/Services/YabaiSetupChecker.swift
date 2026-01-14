@@ -10,8 +10,16 @@ struct YabaiSetupChecker {
         case notifyScriptMissing        // aegis-yabai-notify script not installed
     }
 
+    enum SAStatus {
+        case loaded                     // SA is loaded and working
+        case notLoaded                  // SA not loaded (needs sudo yabai --load-sa)
+        case notInstalled               // SA not installed at all
+        case unknown                    // Could not determine status
+    }
+
     private static let yabaiPath = "/opt/homebrew/bin/yabai"
     private static let notifyScriptPath = "/usr/local/bin/aegis-yabai-notify"
+    private static let saPath = "/Library/ScriptingAdditions/yabai.osax"
     private static let aegisMarker = "AEGIS_INTEGRATION_START"
 
     /// Check full setup status
@@ -72,6 +80,69 @@ struct YabaiSetupChecker {
             return output.contains("aegis_space_changed") || output.contains("aegis_window_focused")
         } catch {
             return false
+        }
+    }
+
+    /// Check if yabai scripting addition (SA) is loaded
+    static func checkSA() -> SAStatus {
+        // First check if SA is installed
+        guard FileManager.default.fileExists(atPath: saPath) else {
+            return .notInstalled
+        }
+
+        // Check if yabai is installed
+        guard FileManager.default.fileExists(atPath: yabaiPath) else {
+            return .unknown
+        }
+
+        // Try to query spaces - this requires SA to be loaded
+        // If SA is not loaded, yabai will return an error or empty result
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: yabaiPath)
+        task.arguments = ["-m", "query", "--spaces"]
+
+        let stdoutPipe = Pipe()
+        let stderrPipe = Pipe()
+        task.standardOutput = stdoutPipe
+        task.standardError = stderrPipe
+
+        do {
+            try task.run()
+            task.waitUntilExit()
+
+            let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+            let stderrOutput = String(decoding: stderrData, as: UTF8.self)
+
+            // Check for SA-specific error messages
+            if stderrOutput.contains("scripting-addition") ||
+               stderrOutput.contains("payload") ||
+               stderrOutput.contains("load-sa") {
+                return .notLoaded
+            }
+
+            // If command succeeded with exit code 0, SA is loaded
+            if task.terminationStatus == 0 {
+                return .loaded
+            }
+
+            // Non-zero exit but no SA error - might be other issue
+            return .notLoaded
+        } catch {
+            return .unknown
+        }
+    }
+
+    /// Get user-friendly description of SA status
+    static func saStatusDescription(_ status: SAStatus) -> String {
+        switch status {
+        case .loaded:
+            return "Scripting addition loaded"
+        case .notLoaded:
+            return "Scripting addition not loaded (run: sudo yabai --load-sa)"
+        case .notInstalled:
+            return "Scripting addition not installed"
+        case .unknown:
+            return "Scripting addition status unknown"
         }
     }
 

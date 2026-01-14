@@ -9,6 +9,7 @@ class StartupNotificationService: NSObject, UNUserNotificationCenterDelegate {
         // Get versions and status
         let aegisVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
         let status = YabaiSetupChecker.check()
+        let saStatus = YabaiSetupChecker.checkSA()
 
         let title = "Aegis v\(aegisVersion)"
         var lines: [String] = []
@@ -17,6 +18,17 @@ class StartupNotificationService: NSObject, UNUserNotificationCenterDelegate {
         case .ready:
             let yabaiVersion = getYabaiVersion()
             lines.append("Yabai: v\(yabaiVersion)")
+            // Add SA status
+            switch saStatus {
+            case .loaded:
+                lines.append("SA: Loaded ✓")
+            case .notLoaded:
+                lines.append("SA: Not loaded (run: sudo yabai --load-sa)")
+            case .notInstalled:
+                lines.append("SA: Not installed")
+            case .unknown:
+                lines.append("SA: Unknown")
+            }
             lines.append("The aegis-yabai link is active")
         case .yabaiNotInstalled:
             lines.append("Yabai: Not installed")
@@ -24,10 +36,18 @@ class StartupNotificationService: NSObject, UNUserNotificationCenterDelegate {
         case .signalsNotConfigured:
             let yabaiVersion = getYabaiVersion()
             lines.append("Yabai: v\(yabaiVersion)")
+            // Add SA status even when signals not configured
+            if saStatus == .notLoaded {
+                lines.append("SA: Not loaded (run: sudo yabai --load-sa)")
+            }
             lines.append("The aegis-yabai link is inactive")
         case .notifyScriptMissing:
             let yabaiVersion = getYabaiVersion()
             lines.append("Yabai: v\(yabaiVersion)")
+            // Add SA status even when script missing
+            if saStatus == .notLoaded {
+                lines.append("SA: Not loaded (run: sudo yabai --load-sa)")
+            }
             lines.append("The aegis-yabai link is inactive")
         }
 
