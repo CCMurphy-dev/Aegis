@@ -93,50 +93,27 @@ struct MenuBarView: View {
         self.onStackAllWindows = onStackAllWindows
     }
 
-    // Extra height below the menu bar for the blur fade-out
-    private let blurFadeHeight: CGFloat = 30
-
     var body: some View {
         ZStack(alignment: .top) {
-            // Background blur layer (behind everything) - MUST BE FIRST
-            // Uses hudWindow material for a lighter, more translucent blur effect
-            VisualEffectView(
-                material: .hudWindow,
-                blendingMode: .behindWindow
-            )
-            .frame(height: config.menuBarHeight + blurFadeHeight)
-            .mask(
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        .white,
-                        .white.opacity(0.8),
-                        .white.opacity(0.5),
-                        .white.opacity(0.2),
-                        .clear
-                    ]),
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .allowsHitTesting(false)
-
-            // Notch occlusion is handled by the fade mask on the scroll view
-            // No separate occlusion layer needed
+            // Background blur with gradient fade - full blur at top, transparent at bottom
+            // Blends smoothly into the desktop wallpaper
+            GradientBlurView(material: .hudWindow, blendingMode: .behindWindow)
+                .frame(height: config.menuBarHeight)
 
             GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    HStack(alignment: .center, spacing: 0) {
+                ZStack(alignment: .topLeading) {
+                    HStack(alignment: .top, spacing: 0) {
                         // Dynamic spacer that grows when button label is shown
                         Spacer()
                             .frame(width: config.menuBarEdgePadding + 32 + config.spaceIndicatorSpacing + (buttonLabelShowing ? 95 : 0))
                             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: buttonLabelShowing)
 
                         // Spaces (with scrolling if needed)
-                        ZStack(alignment: .leading) {
+                        ZStack(alignment: .topLeading) {
                         // Scrollable spaces area (full width)
                         ScrollViewReader { scrollProxy in
                             ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: config.spaceIndicatorSpacing) {
+                                HStack(alignment: .top, spacing: config.spaceIndicatorSpacing) {
                                     ForEach(viewModel.spaces) { space in
                                         // Use the windowIconsBySpace dictionary directly (it's @Published)
                                         let windowIcons = viewModel.windowIconsBySpace[space.index] ?? []
@@ -242,7 +219,8 @@ struct MenuBarView: View {
                         SystemStatusView()
                             .padding(.trailing, config.menuBarEdgePadding)
                     }
-                    .frame(maxHeight: .infinity, alignment: .center)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .padding(.top, 4)  // Small top padding to align with notch HUD elements
 
                     // Button on top layer to ensure it's interactive
                     HStack {
@@ -267,8 +245,7 @@ struct MenuBarView: View {
             }
             .frame(height: config.menuBarHeight)
         }
-        // Full window height includes the blur fade area below
-        .frame(height: config.menuBarHeight + blurFadeHeight, alignment: .top)
+        .frame(height: config.menuBarHeight)
     }
 
 }
@@ -310,6 +287,65 @@ struct VisualEffectView: NSViewRepresentable {
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
         nsView.material = material
         nsView.blendingMode = blendingMode
+    }
+}
+
+// MARK: - Gradient Blur View
+
+/// A blur view with a gradient mask that fades from full blur at top to transparent at bottom
+struct GradientBlurView: NSViewRepresentable {
+    let material: NSVisualEffectView.Material
+    let blendingMode: NSVisualEffectView.BlendingMode
+
+    func makeNSView(context: Context) -> NSView {
+        let containerView = NSView()
+        containerView.wantsLayer = true
+
+        // Create visual effect view for blur
+        let blurView = NSVisualEffectView()
+        blurView.material = material
+        blurView.blendingMode = blendingMode
+        blurView.state = .active
+        blurView.wantsLayer = true
+        blurView.autoresizingMask = [.width, .height]
+        containerView.addSubview(blurView)
+
+        // Create gradient mask - fades from opaque at top to transparent at bottom
+        // More gradual fade to keep blur visible longer
+        let gradientLayer = CAGradientLayer()
+        gradientLayer.colors = [
+            NSColor.white.cgColor,                         // Full opacity at top
+            NSColor.white.cgColor,                         // Maintain full opacity
+            NSColor.white.withAlphaComponent(0.8).cgColor,
+            NSColor.white.withAlphaComponent(0.4).cgColor,
+            NSColor.clear.cgColor                          // Transparent at bottom
+        ]
+        gradientLayer.locations = [0.0, 0.5, 0.7, 0.85, 1.0]
+        gradientLayer.startPoint = CGPoint(x: 0.5, y: 1.0)  // Top (layer coords: y=1 is top)
+        gradientLayer.endPoint = CGPoint(x: 0.5, y: 0.0)    // Bottom
+
+        blurView.layer?.mask = gradientLayer
+
+        // Store gradient layer for updates
+        context.coordinator.gradientLayer = gradientLayer
+        context.coordinator.blurView = blurView
+
+        return containerView
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        // Update gradient frame when view size changes
+        context.coordinator.gradientLayer?.frame = nsView.bounds
+        context.coordinator.blurView?.frame = nsView.bounds
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    class Coordinator {
+        var gradientLayer: CAGradientLayer?
+        var blurView: NSVisualEffectView?
     }
 }
 

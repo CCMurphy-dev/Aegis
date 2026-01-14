@@ -209,7 +209,8 @@ final class YabaiService {
         let excludedApps = AegisConfig.shared.excludedApps
         return dataQueue.sync {
             windows.values
-                .filter { $0.space == spaceIndex && !excludedApps.contains($0.app) }
+                // Filter to only real windows (AXWindow role), exclude popups/panels (AXGroup)
+                .filter { $0.space == spaceIndex && !excludedApps.contains($0.app) && $0.role == "AXWindow" }
                 .map { window in
                     WindowIcon(
                         id: window.id,
@@ -237,7 +238,7 @@ final class YabaiService {
         let excludedApps = AegisConfig.shared.excludedApps
         return dataQueue.sync {
             let apps = Set(windows.values
-                .filter { $0.space == spaceIndex && !excludedApps.contains($0.app) }
+                .filter { $0.space == spaceIndex && !excludedApps.contains($0.app) && $0.role == "AXWindow" }
                 .map { $0.app })
             return apps.compactMap { getAppIcon(for: $0) }
         }

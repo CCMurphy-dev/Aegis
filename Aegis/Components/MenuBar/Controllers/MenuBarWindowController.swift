@@ -14,7 +14,8 @@ class MenuBarWindowController {
     func createWindow<Content: View>(with content: Content) {
         guard let screen = NSScreen.main else { return }
 
-        // Window frame spans top of screen
+        // Menu bar window - only the interactive 40px area
+        // Clicks below this window naturally pass through to windows underneath
         let frame = NSRect(
             x: 0,
             y: screen.frame.height - config.menuBarHeight,

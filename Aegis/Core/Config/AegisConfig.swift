@@ -11,7 +11,8 @@ class AegisConfig: ObservableObject {
     // MARK: - Menu Bar Layout
 
     /// Height of the menu bar (controls MenuBarView frame)
-    @Published var menuBarHeight: CGFloat = 40
+    /// Default matches the hardware notch height for visual alignment
+    @Published var menuBarHeight: CGFloat = NSScreen.main?.safeAreaInsets.top ?? 37
 
     /// Padding from screen edges (affects button and system status placement)
     @Published var menuBarEdgePadding: CGFloat = 100
@@ -190,7 +191,7 @@ class AegisConfig: ObservableObject {
     // MARK: - Window Filtering
 
     /// Apps to exclude from showing in space indicators (by app name)
-    @Published var excludedApps: Set<String> = ["Finder"]
+    @Published var excludedApps: Set<String> = []
 
     // MARK: - Behavior Flags - Menu Bar
 
@@ -962,7 +963,7 @@ class AegisConfig: ObservableObject {
 
     func resetToDefaults() {
         // Reset all values to their default state
-        menuBarHeight = 40
+        menuBarHeight = NSScreen.main?.safeAreaInsets.top ?? 37
         menuBarEdgePadding = 100
         spaceIndicatorSpacing = 8
         systemIconSpacing = 12

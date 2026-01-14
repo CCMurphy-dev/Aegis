@@ -35,6 +35,7 @@ struct WindowInfo: Identifiable, Codable {
     var hasFocus: Bool
     var stackIndex: Int
     var isNativeFullscreen: Bool
+    var role: String  // "AXWindow" for real windows, "AXGroup" for popups/panels
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -45,6 +46,7 @@ struct WindowInfo: Identifiable, Codable {
         case hasFocus = "has-focus"
         case stackIndex = "stack-index"
         case isNativeFullscreen = "is-native-fullscreen"
+        case role
     }
 
     // Custom decoding to handle frame dictionary from yabai
@@ -58,6 +60,7 @@ struct WindowInfo: Identifiable, Codable {
         hasFocus = try container.decode(Bool.self, forKey: .hasFocus)
         stackIndex = try container.decode(Int.self, forKey: .stackIndex)
         isNativeFullscreen = try container.decode(Bool.self, forKey: .isNativeFullscreen)
+        role = try container.decode(String.self, forKey: .role)
 
         // Decode frame from yabai's dictionary format: {"x": 0, "y": 0, "w": 100, "h": 100}
         if let frameDict = try? container.decode([String: CGFloat].self, forKey: .frame),
@@ -82,6 +85,7 @@ struct WindowInfo: Identifiable, Codable {
         try container.encode(hasFocus, forKey: .hasFocus)
         try container.encode(stackIndex, forKey: .stackIndex)
         try container.encode(isNativeFullscreen, forKey: .isNativeFullscreen)
+        try container.encode(role, forKey: .role)
 
         if let frame = frame {
             let frameDict: [String: CGFloat] = [

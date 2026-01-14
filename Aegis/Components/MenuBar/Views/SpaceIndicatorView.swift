@@ -221,8 +221,8 @@ struct SpaceIndicatorView: View {
         .animation(.easeInOut(duration: 0.25), value: isActive)
         .onHover { isHovered = $0 }
         // Add invisible padding to expand drop zone
+        // Use asymmetric padding: no top padding to maintain alignment, bottom padding for drop zone
         .padding(.horizontal, 4)
-        .padding(.vertical, 8)
         .contentShape(Rectangle())  // Make the entire padded area droppable
         .onDrop(of: [.text], delegate: WindowDropDelegate(
             onDragEntered: {
