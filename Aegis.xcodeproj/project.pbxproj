@@ -116,6 +116,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 83DF29E22F13893700C8A7A1 /* Build configuration list for PBXNativeTarget "Aegis" */;
 			buildPhases = (
+				83AEGIS002F14000000000001 /* Update Version */,
 				83DF29BB2F13893600C8A7A1 /* Sources */,
 				83DF29BC2F13893600C8A7A1 /* Frameworks */,
 				83DF29BD2F13893600C8A7A1 /* Resources */,
@@ -242,6 +243,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		83AEGIS002F14000000000001 /* Update Version */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/VERSION",
+			);
+			name = "Update Version";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "# Read version from VERSION file and set MARKETING_VERSION\nVERSION=$(cat \"${SRCROOT}/VERSION\" | tr -d '[:space:]')\nif [ -n \"$VERSION\" ]; then\n    /usr/libexec/PlistBuddy -c \"Set :CFBundleShortVersionString $VERSION\" \"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\" 2>/dev/null || true\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		83DF29BB2F13893600C8A7A1 /* Sources */ = {
@@ -427,7 +450,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.2.2;
 				PRODUCT_BUNDLE_IDENTIFIER = Aegis.Aegis;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -467,7 +490,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.2.2;
 				PRODUCT_BUNDLE_IDENTIFIER = Aegis.Aegis;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -490,7 +513,7 @@
 				DEVELOPMENT_TEAM = 5M6H974PPY;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.2.2;
 				PRODUCT_BUNDLE_IDENTIFIER = Aegis.AegisTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -511,7 +534,7 @@
 				DEVELOPMENT_TEAM = 5M6H974PPY;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.2.2;
 				PRODUCT_BUNDLE_IDENTIFIER = Aegis.AegisTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -530,7 +553,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5M6H974PPY;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.2.2;
 				PRODUCT_BUNDLE_IDENTIFIER = Aegis.AegisUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -549,7 +572,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5M6H974PPY;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.2.2;
 				PRODUCT_BUNDLE_IDENTIFIER = Aegis.AegisUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;

@@ -655,10 +655,28 @@ struct LayoutActionsButton: View {
         yabaiVersionItem.isEnabled = false
         menu.addItem(yabaiVersionItem)
 
-        // Aegis Version
-        let aegisVersionItem = NSMenuItem(title: "  Aegis Version: 0.2.0", action: nil, keyEquivalent: "")
+        // Aegis Version - read from bundle
+        let aegisVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
+        let aegisVersionItem = NSMenuItem(title: "  Aegis Version: \(aegisVersion)", action: nil, keyEquivalent: "")
         aegisVersionItem.isEnabled = false
         menu.addItem(aegisVersionItem)
+
+        // Link Status - check yabai-aegis integration
+        let linkStatus = YabaiSetupChecker.check()
+        let linkStatusText: String
+        switch linkStatus {
+        case .ready:
+            linkStatusText = "Active"
+        case .yabaiNotInstalled:
+            linkStatusText = "Inactive (Yabai not installed)"
+        case .signalsNotConfigured:
+            linkStatusText = "Not configured"
+        case .notifyScriptMissing:
+            linkStatusText = "Script missing"
+        }
+        let linkStatusItem = NSMenuItem(title: "  Link Status: \(linkStatusText)", action: nil, keyEquivalent: "")
+        linkStatusItem.isEnabled = false
+        menu.addItem(linkStatusItem)
 
         menu.addItem(NSMenuItem.separator())
 

@@ -28,6 +28,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 🎬 DIAGNOSTICS: Uncomment to enable frame-by-frame animation logging
         notchHUDController?.enableAnimationDiagnostics(true)
+
+        // Show startup notification with status
+        StartupNotificationService.showStartupNotification()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
