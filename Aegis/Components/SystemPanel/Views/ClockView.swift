@@ -9,6 +9,7 @@ struct ClockView: View {
     
     var body: some View {
         Text(timeString)
+            .monospacedDigit()
             .onReceive(timer) { _ in
                 currentTime = Date()
             }

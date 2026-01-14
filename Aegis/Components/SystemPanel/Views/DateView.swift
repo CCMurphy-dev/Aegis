@@ -17,6 +17,7 @@ struct DateView: View {
     
     var body: some View {
         Text(dateString)
+            .monospacedDigit()
             .onReceive(timer) { _ in
                 currentDate = Date()
             }
