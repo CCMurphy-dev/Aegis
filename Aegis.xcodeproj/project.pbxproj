@@ -23,26 +23,45 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		83BA91442F16DDD700810CCB /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		83DF29BF2F13893600C8A7A1 /* Aegis.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Aegis.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		83DF29CE2F13893700C8A7A1 /* AegisTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AegisTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		83DF29D82F13893700C8A7A1 /* AegisUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AegisUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		83BA977C2F179C4800810CCB /* Exceptions for "Aegis" folder in "Embed Frameworks" phase from "Aegis" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			attributesByRelativePath = {
+				Resources/MediaRemoteAdapter.framework = (CodeSignOnCopy, RemoveHeadersOnCopy, );
+			};
+			buildPhase = 83BA91442F16DDD700810CCB /* Embed Frameworks */;
+			membershipExceptions = (
+				Resources/MediaRemoteAdapter.framework,
+			);
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		83DF29C12F13893600C8A7A1 /* Aegis */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				83BA977C2F179C4800810CCB /* Exceptions for "Aegis" folder in "Embed Frameworks" phase from "Aegis" target */,
+			);
 			path = Aegis;
-			sourceTree = "<group>";
-		};
-		83DF29D12F13893700C8A7A1 /* AegisTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = AegisTests;
-			sourceTree = "<group>";
-		};
-		83DF29DB2F13893700C8A7A1 /* AegisUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = AegisUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -76,8 +95,6 @@
 			isa = PBXGroup;
 			children = (
 				83DF29C12F13893600C8A7A1 /* Aegis */,
-				83DF29D12F13893700C8A7A1 /* AegisTests */,
-				83DF29DB2F13893700C8A7A1 /* AegisUITests */,
 				83DF29C02F13893600C8A7A1 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -102,6 +119,7 @@
 				83DF29BB2F13893600C8A7A1 /* Sources */,
 				83DF29BC2F13893600C8A7A1 /* Frameworks */,
 				83DF29BD2F13893600C8A7A1 /* Resources */,
+				83BA91442F16DDD700810CCB /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -130,9 +148,6 @@
 			dependencies = (
 				83DF29D02F13893700C8A7A1 /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				83DF29D12F13893700C8A7A1 /* AegisTests */,
-			);
 			name = AegisTests;
 			packageProductDependencies = (
 			);
@@ -152,9 +167,6 @@
 			);
 			dependencies = (
 				83DF29DA2F13893700C8A7A1 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				83DF29DB2F13893700C8A7A1 /* AegisUITests */,
 			);
 			name = AegisUITests;
 			packageProductDependencies = (
@@ -394,14 +406,21 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5M6H974PPY;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Aegis/Reference/mew-notch-main/MewNotch/Resources/Libs",
+					"$(PROJECT_DIR)/Aegis/mew-notch-main/MewNotch/Resources/Libs",
+					"$(PROJECT_DIR)/Aegis/Resources/Libs",
+					"$(PROJECT_DIR)/Aegis/Resources",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -416,6 +435,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Aegis/Aegis-Bridging-Header.h";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -426,14 +446,21 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5M6H974PPY;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Aegis/Reference/mew-notch-main/MewNotch/Resources/Libs",
+					"$(PROJECT_DIR)/Aegis/mew-notch-main/MewNotch/Resources/Libs",
+					"$(PROJECT_DIR)/Aegis/Resources/Libs",
+					"$(PROJECT_DIR)/Aegis/Resources",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -448,6 +475,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Aegis/Aegis-Bridging-Header.h";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 			};

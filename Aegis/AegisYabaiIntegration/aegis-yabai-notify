@@ -1,0 +1,15 @@
+#!/bin/bash
+# Aegis-Yabai FIFO Pipe Notification Script
+# This script sends yabai event names to Aegis via a FIFO pipe
+
+PIPE_PATH="$HOME/.config/aegis/yabai.pipe"
+
+# Check if pipe exists
+if [ ! -p "$PIPE_PATH" ]; then
+    exit 0
+fi
+
+# Send event type to the pipe (non-blocking)
+# The YABAI_* environment variables are set by yabai when calling this script
+# We use timeout to prevent hanging if Aegis isn't reading
+echo "$YABAI_EVENT_TYPE" 2>/dev/null | timeout 0.1s tee "$PIPE_PATH" > /dev/null 2>&1 &

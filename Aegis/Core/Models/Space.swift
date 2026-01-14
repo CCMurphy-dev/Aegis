@@ -1,0 +1,111 @@
+//
+//  Space.swift
+//  Aegis
+//
+//  Created by Christopher Murphy on 13/01/2026.
+//
+
+
+import Foundation
+import AppKit
+
+
+struct Space: Identifiable, Codable, Equatable {
+    var id: Int
+    var index: Int
+    var label: String?
+    var type: String  // "bsp", "float", "fullscreen", etc.
+    var focused: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case index
+        case label
+        case type
+        case focused = "has-focus"
+    }
+}
+
+struct WindowInfo: Identifiable, Codable {
+    var id: Int
+    var title: String
+    var app: String
+    var space: Int
+    var frame: CGRect?
+    var hasFocus: Bool
+    var stackIndex: Int
+    var isNativeFullscreen: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case app
+        case space
+        case frame
+        case hasFocus = "has-focus"
+        case stackIndex = "stack-index"
+        case isNativeFullscreen = "is-native-fullscreen"
+    }
+
+    // Custom decoding to handle frame dictionary from yabai
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = try container.decode(Int.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        app = try container.decode(String.self, forKey: .app)
+        space = try container.decode(Int.self, forKey: .space)
+        hasFocus = try container.decode(Bool.self, forKey: .hasFocus)
+        stackIndex = try container.decode(Int.self, forKey: .stackIndex)
+        isNativeFullscreen = try container.decode(Bool.self, forKey: .isNativeFullscreen)
+
+        // Decode frame from yabai's dictionary format: {"x": 0, "y": 0, "w": 100, "h": 100}
+        if let frameDict = try? container.decode([String: CGFloat].self, forKey: .frame),
+           let x = frameDict["x"],
+           let y = frameDict["y"],
+           let w = frameDict["w"],
+           let h = frameDict["h"] {
+            frame = CGRect(x: x, y: y, width: w, height: h)
+        } else {
+            frame = nil
+        }
+    }
+
+    // Custom encoding to maintain Codable conformance
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encode(app, forKey: .app)
+        try container.encode(space, forKey: .space)
+        try container.encode(hasFocus, forKey: .hasFocus)
+        try container.encode(stackIndex, forKey: .stackIndex)
+        try container.encode(isNativeFullscreen, forKey: .isNativeFullscreen)
+
+        if let frame = frame {
+            let frameDict: [String: CGFloat] = [
+                "x": frame.origin.x,
+                "y": frame.origin.y,
+                "w": frame.width,
+                "h": frame.height
+            ]
+            try container.encode(frameDict, forKey: .frame)
+        }
+    }
+}
+
+struct WindowIcon: Identifiable, Equatable {
+    let id: Int
+    let title: String
+    let app: String
+    let appName: String  // Display name for app
+    let icon: NSImage?
+    let frame: CGRect?
+    let hasFocus: Bool
+    let stackIndex: Int  // Used for stack indicator badge
+
+    static func == (lhs: WindowIcon, rhs: WindowIcon) -> Bool {
+        lhs.id == rhs.id && lhs.title == rhs.title && lhs.app == rhs.app
+    }
+}
