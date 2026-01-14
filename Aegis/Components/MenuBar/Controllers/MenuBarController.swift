@@ -1119,7 +1119,7 @@ class LayoutActionsMenuTarget: NSObject {
     }
 
     @objc func loadSA() {
-        print("🔐 Loading yabai scripting addition...")
+        logInfo("User requested SA load")
 
         // Use AppleScript to run sudo command with admin privileges prompt
         let script = """
@@ -1130,9 +1130,9 @@ class LayoutActionsMenuTarget: NSObject {
         if let appleScript = NSAppleScript(source: script) {
             appleScript.executeAndReturnError(&error)
             if let error = error {
-                print("❌ Failed to load SA: \(error)")
+                logError("Failed to load SA: \(error)")
             } else {
-                print("✅ SA loaded successfully")
+                logInfo("SA loaded successfully via user action")
             }
         }
     }

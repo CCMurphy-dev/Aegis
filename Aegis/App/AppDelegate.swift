@@ -13,7 +13,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var eventRouter: EventRouter?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        print("🚀 AppDelegate: Application launched")
+        let aegisVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        logInfo("Aegis v\(aegisVersion) starting")
 
         NSApp.setActivationPolicy(.accessory)
         setupServices()
@@ -28,9 +29,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Show startup notification with status
         StartupNotificationService.showStartupNotification()
+
+        logInfo("Startup complete")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        logInfo("Aegis shutting down")
         menuBarController?.hide()
         notchHUDController?.hide()
     }

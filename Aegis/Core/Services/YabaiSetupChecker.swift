@@ -26,19 +26,23 @@ struct YabaiSetupChecker {
     static func check() -> SetupStatus {
         // 1. Check if yabai is installed
         guard FileManager.default.fileExists(atPath: yabaiPath) else {
+            logWarning("Yabai not found at \(yabaiPath)")
             return .yabaiNotInstalled
         }
 
         // 2. Check if notify script exists
         guard FileManager.default.fileExists(atPath: notifyScriptPath) else {
+            logWarning("Notify script not found at \(notifyScriptPath)")
             return .notifyScriptMissing
         }
 
         // 3. Check if signals are registered (runtime check)
         guard areSignalsConfigured() else {
+            logWarning("Yabai signals not configured")
             return .signalsNotConfigured
         }
 
+        logInfo("Yabai setup check: ready")
         return .ready
     }
 
@@ -87,6 +91,7 @@ struct YabaiSetupChecker {
     static func checkSA() -> SAStatus {
         // First check if SA is installed
         guard FileManager.default.fileExists(atPath: saPath) else {
+            logInfo("SA not installed at \(saPath)")
             return .notInstalled
         }
 
@@ -117,17 +122,21 @@ struct YabaiSetupChecker {
             if stderrOutput.contains("scripting-addition") ||
                stderrOutput.contains("payload") ||
                stderrOutput.contains("load-sa") {
+                logWarning("SA not loaded: \(stderrOutput.trimmingCharacters(in: .whitespacesAndNewlines))")
                 return .notLoaded
             }
 
             // If command succeeded with exit code 0, SA is loaded
             if task.terminationStatus == 0 {
+                logInfo("SA check: loaded")
                 return .loaded
             }
 
             // Non-zero exit but no SA error - might be other issue
+            logWarning("SA check failed with exit code \(task.terminationStatus)")
             return .notLoaded
         } catch {
+            logError("SA check error: \(error)")
             return .unknown
         }
     }

@@ -33,6 +33,7 @@ final class YabaiService {
 
     init(eventRouter: EventRouter) {
         self.eventRouter = eventRouter
+        logInfo("YabaiService initializing")
 
         Task {
             await refreshAll()
@@ -40,6 +41,7 @@ final class YabaiService {
 
         setupFIFO()
         setupWorkspaceFallback()
+        logInfo("YabaiService ready")
     }
 
     deinit {
@@ -55,7 +57,10 @@ final class YabaiService {
         mkfifo(pipePath, 0o666)
 
         pipeFD = open(pipePath, O_RDONLY | O_NONBLOCK)
-        guard pipeFD >= 0 else { return }
+        guard pipeFD >= 0 else {
+            logError("Failed to open FIFO pipe at \(pipePath)")
+            return
+        }
 
         let source = DispatchSource.makeReadSource(fileDescriptor: pipeFD, queue: pipeQueue)
         pipeSource = source
@@ -69,6 +74,7 @@ final class YabaiService {
         }
 
         source.resume()
+        logDebug("FIFO pipe ready at \(pipePath)")
     }
 
     private func handlePipeRead() {
