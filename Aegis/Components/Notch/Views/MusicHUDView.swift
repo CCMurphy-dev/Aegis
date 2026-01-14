@@ -25,7 +25,7 @@ struct MusicHUDView: View {
 
     // How far the black background extends into the notch area to fill the gap
     // This only affects the background shape, not the content position
-    private let notchGapFill: CGFloat = 8
+    private let notchGapFill: CGFloat = 18
 
     // Whether track info is pinned (user clicked to toggle, disables auto-timer)
     @State private var trackInfoPinned = false

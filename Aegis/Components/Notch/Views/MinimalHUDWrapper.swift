@@ -35,7 +35,7 @@ struct MinimalHUDWrapper: View {
 
     // How far the black background extends into the notch area to fill the gap
     // This only affects the background shape, not the content position
-    private let notchGapFill: CGFloat = 8
+    private let notchGapFill: CGFloat = 18
 
     var body: some View {
         // Use symmetric max width for both sides to ensure proper centering
