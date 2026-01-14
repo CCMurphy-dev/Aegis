@@ -1,41 +1,60 @@
 # Aegis
 
-A sleek macOS menu bar replacement that integrates with [Yabai](https://github.com/koekeishiya/yabai) window manager, inspired by [Barik](https://github.com/mocki-toki/barik) and [Mew-Notch](https://github.com/monuk7735/mew-notch). Aegis provides visual workspace indicators, window management, system status monitoring, and a notch-area HUD for volume, brightness, and music playback.
+A sleek macOS menu bar replacement that integrates with [Yabai](https://github.com/koekeishiya/yabai) window manager. Aegis transforms your menu bar and notch area into a powerful control center for managing spaces, windows, and system status.
 
-![macOS 12.0+](https://img.shields.io/badge/macOS-12.0+-blue)
+Inspired by [Barik](https://github.com/mocki-toki/barik) and [Mew-Notch](https://github.com/monuk7735/mew-notch).
+
+![macOS 14.0+](https://img.shields.io/badge/macOS-14.0+-blue)
 ![Swift](https://img.shields.io/badge/Swift-5.9-orange)
 ![Yabai](https://img.shields.io/badge/Yabai-Required-green)
+![Version](https://img.shields.io/badge/version-0.2.3-brightgreen)
 
 ## Features
 
 ### Workspace Management
-- **Visual space indicators** - See all workspaces at a glance with active state highlighting
-- **Window icons** - App icons for windows in each space (configurable limit)
-- **Drag & drop** - Move windows between spaces by dragging icons
-- **Quick actions** - Click to focus spaces or windows
-- **Right-click expansion** - View full window titles
-- **Swipe to destroy** - Remove spaces with an upward swipe gesture
+- **Visual space indicators** - See all workspaces at a glance with numbered indicators and active state highlighting
+- **Window app icons** - Each space shows icons for windows it contains (configurable limit)
+- **Click to focus** - Click any space or window icon to instantly switch focus
+- **Drag & drop** - Move windows between spaces by dragging their icons
+- **Window stacking** - Badge indicators show stacked window counts
+- **Swipe to destroy** - Remove spaces with an upward swipe gesture (configurable)
+
+### Layout Actions
+Quick access to Yabai layout operations via scroll wheel or right-click menu:
+- Rotate layout (90°, 180°, 270°)
+- Flip layout (horizontal/vertical)
+- Balance windows equally
+- Toggle BSP/floating layout
+- Stack/unstack windows
+- Create/destroy spaces
 
 ### Notch HUD
-- **Volume display** - Shows current volume with mute state
-- **Brightness display** - Shows current display brightness
-- **Music playback** - Album art, track info, and visualizer
-- **Smooth animations** - Frame-locked interpolation at 60fps
+Dynamic notifications that appear from your MacBook's notch:
+- **Volume & Brightness** - Elegant progress bars when adjusting system levels
+- **Now Playing** - Album art, track info, and animated 5-bar visualizer
+- **Universal media support** - Works with Music.app, Spotify, Safari, YouTube, and more
+- **Smooth animations** - Spring physics with 60fps interpolation
 - **Smart auto-hide** - Configurable timeout (default 1.5s)
 
 ### System Status
-- **Battery** - Level with color-coded states and charging indicator
-- **Network** - WiFi signal strength (3 levels) or ethernet status
-- **Clock** - 24-hour time display
-- **Date** - Configurable format (long/short)
+Always-visible status indicators in the menu bar:
+- **Clock & Date** - Configurable format (long "Mon Jan 13" or short "13/01/26")
+- **WiFi** - Signal strength with 3-level indicators
+- **Battery** - Color-coded levels (green/yellow/orange/red) with charging indicator
+
+### Startup Notification
+On launch, Aegis displays a notification showing:
+- Aegis version
+- Yabai version
+- Link status (Active/Not configured/Inactive)
 
 ### Configuration
 - **100+ settings** - Fine-tune every aspect of the interface
-- **Animation tuning** - Spring physics parameters
+- **Animation tuning** - Spring physics parameters (response, damping)
 - **Layout control** - Sizes, spacing, padding, corner radii
 - **Color customization** - Opacity values for all states
 - **Behavior toggles** - Haptics, gestures, thresholds
-- **Persistent settings** - Saved across app restarts
+- **Persistent settings** - Saved automatically across restarts
 
 ## Screenshots
 
@@ -43,11 +62,12 @@ A sleek macOS menu bar replacement that integrates with [Yabai](https://github.c
 
 ## Requirements
 
-- **macOS 12.0+** (Monterey or later)
+- **macOS 14.0+** (Sonoma or later)
 - **Apple Silicon Mac** with notch (for full HUD features)
-- **[Yabai](https://github.com/koekeishiya/yabai)** window manager installed
-- **Accessibility permission** for window management
-- **Automation permission** for Yabai control
+- **[Yabai](https://github.com/koekeishiya/yabai)** window manager installed and running
+- **Accessibility permission** - For menu bar display and window management
+- **Automation permission** - For Yabai and Music.app control
+- **Notification permission** - For startup status notifications (optional)
 
 ## Installation
 
@@ -143,16 +163,33 @@ Access settings via **right-click → Settings** on any space indicator.
 
 ## Context Menu Actions
 
-Right-click on any space indicator to access:
+Right-click on the layout button (left side of menu bar) to access:
 
-- **Focus Left/Right** - Navigate workspaces
-- **Rotate/Flip Layout** - Change window arrangement
-- **Balance Windows** - Equalize window sizes
-- **Toggle Layout** - Switch between BSP and float
-- **Stack Windows** - Stack all windows in space
-- **Create/Destroy Space** - Manage workspaces
-- **Restart Yabai/skhd** - Quick service restart
-- **Settings** - Open preferences panel
+### Layout
+- Rotate (90°, 180°, 270°)
+- Flip (horizontal/vertical)
+- Balance windows
+- Toggle BSP/float
+
+### Windows
+- Focus next/previous
+- Swap left/right
+- Warp (north/south/east/west)
+- Toggle float/fullscreen
+- Send to space
+
+### Spaces
+- Focus left/right
+- Create/destroy space
+
+### System
+- Restart Yabai/skhd/Aegis
+- Open Settings
+
+### Status
+- Yabai version
+- Aegis version
+- Link status (Active/Not configured/etc.)
 
 ## Troubleshooting
 
@@ -160,17 +197,22 @@ Right-click on any space indicator to access:
 1. Ensure Yabai is running: `yabai -m query --spaces`
 2. Run the setup script to register signals
 3. Check that the FIFO pipe exists: `ls ~/.config/aegis/yabai.pipe`
+4. Check link status in context menu - should show "Active"
 
 ### Volume/brightness HUD doesn't appear
-1. Aegis suppresses native macOS HUDs
-2. Ensure Accessibility permission is granted
-3. Check Console.app for error messages
+1. Ensure Accessibility permission is granted
+2. Check Console.app for error messages
 
-### Notifications appear behind Aegis
-This was fixed in v0.2.0 - ensure you're running the latest version.
+### Startup notification is empty
+1. Check System Settings > Notifications > Aegis
+2. Ensure "Show Previews" is set to "Always" or "When Unlocked"
 
 ### Music HUD shows wrong album art
-Album art is now cached per-track. Restart Aegis if issues persist.
+Album art is cached per-track. Restart Aegis if issues persist.
+
+### Link status shows "Not configured"
+1. Run the setup script: `/path/to/Aegis.app/Contents/Resources/setup-aegis-yabai.sh`
+2. Restart Yabai: `yabai --restart-service`
 
 ## Building from Source
 
@@ -200,8 +242,15 @@ MIT License - see [LICENSE](LICENSE) for details.
 - [Yabai](https://github.com/koekeishiya/yabai) - The excellent tiling window manager that makes this possible
 - [skhd](https://github.com/koekeishiya/skhd) - Simple hotkey daemon for macOS
 - [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) - MediaRemote framework bridge for music integration
-[Barik](https://github.com/mocki-toki/barik) and [Mew-Notch](https://github.com/monuk7735/mew-notch) - For inspiration on the structure and implementation.
+- [Barik](https://github.com/mocki-toki/barik) and [Mew-Notch](https://github.com/monuk7735/mew-notch) - For inspiration
 
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for planned features including:
+- Sparkle auto-updates
+- Multi-monitor improvements
+- Custom themes
+- Keyboard shortcut customization UI
 
 ---
 
