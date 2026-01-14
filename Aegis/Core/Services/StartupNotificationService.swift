@@ -17,18 +17,18 @@ class StartupNotificationService: NSObject, UNUserNotificationCenterDelegate {
         case .ready:
             let yabaiVersion = getYabaiVersion()
             lines.append("Yabai: v\(yabaiVersion)")
-            lines.append("Link: Active")
+            lines.append("The aegis-yabai link is active")
         case .yabaiNotInstalled:
             lines.append("Yabai: Not installed")
-            lines.append("Link: Inactive")
+            lines.append("The aegis-yabai link is inactive")
         case .signalsNotConfigured:
             let yabaiVersion = getYabaiVersion()
             lines.append("Yabai: v\(yabaiVersion)")
-            lines.append("Link: Not configured")
+            lines.append("The aegis-yabai link is inactive")
         case .notifyScriptMissing:
             let yabaiVersion = getYabaiVersion()
             lines.append("Yabai: v\(yabaiVersion)")
-            lines.append("Link: Script missing")
+            lines.append("The aegis-yabai link is inactive")
         }
 
         let body = lines.joined(separator: "\n")
