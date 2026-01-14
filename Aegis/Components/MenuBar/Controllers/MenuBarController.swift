@@ -657,6 +657,77 @@ struct LayoutActionsButton: View {
         sendToSpaceItem.submenu = spaceSubmenu
         menu.addItem(sendToSpaceItem)
 
+        // MARK: - Stack Windows Submenu
+        let stackWindowsItem = NSMenuItem(title: "Stack Windows", action: nil, keyEquivalent: "")
+        let stackSubmenu = NSMenu()
+        stackSubmenu.autoenablesItems = false
+
+        // Get windows in current space for stacking selection
+        let spaceWindows = focusedSpace.map { yabaiService.getWindowIconsForSpace($0.index) } ?? []
+
+        if spaceWindows.count >= 2 {
+            // Create a submenu item for each window that can be the stack target
+            for targetWindow in spaceWindows {
+                let targetTitle = targetWindow.title.isEmpty ? targetWindow.appName : String(targetWindow.title.prefix(30))
+                let targetItem = NSMenuItem(title: targetTitle, action: nil, keyEquivalent: "")
+                // Set scaled icon for target window
+                if let icon = targetWindow.icon {
+                    let scaledIcon = NSImage(size: NSSize(width: 16, height: 16))
+                    scaledIcon.lockFocus()
+                    icon.draw(in: NSRect(x: 0, y: 0, width: 16, height: 16))
+                    scaledIcon.unlockFocus()
+                    targetItem.image = scaledIcon
+                }
+                let windowsToStackSubmenu = NSMenu()
+                windowsToStackSubmenu.autoenablesItems = false
+
+                // Add other windows that can be stacked onto this target
+                for sourceWindow in spaceWindows where sourceWindow.id != targetWindow.id {
+                    let sourceTitle = sourceWindow.title.isEmpty ? sourceWindow.appName : String(sourceWindow.title.prefix(40))
+                    let sourceItem = NSMenuItem(
+                        title: sourceTitle,
+                        action: #selector(LayoutActionsMenuTarget.stackWindowOnto(_:)),
+                        keyEquivalent: ""
+                    )
+                    sourceItem.target = menuTarget
+                    // Set scaled icon for source window
+                    if let icon = sourceWindow.icon {
+                        let scaledIcon = NSImage(size: NSSize(width: 16, height: 16))
+                        scaledIcon.lockFocus()
+                        icon.draw(in: NSRect(x: 0, y: 0, width: 16, height: 16))
+                        scaledIcon.unlockFocus()
+                        sourceItem.image = scaledIcon
+                    }
+                    // Store both window IDs: source to stack onto target
+                    sourceItem.representedObject = ["source": sourceWindow.id, "target": targetWindow.id]
+                    windowsToStackSubmenu.addItem(sourceItem)
+                }
+
+                // Add "Stack All Others" option
+                if spaceWindows.count > 2 {
+                    windowsToStackSubmenu.addItem(NSMenuItem.separator())
+                    let stackAllItem = NSMenuItem(
+                        title: "Stack All Others Here",
+                        action: #selector(LayoutActionsMenuTarget.stackAllOnto(_:)),
+                        keyEquivalent: ""
+                    )
+                    stackAllItem.target = menuTarget
+                    stackAllItem.representedObject = targetWindow.id
+                    windowsToStackSubmenu.addItem(stackAllItem)
+                }
+
+                targetItem.submenu = windowsToStackSubmenu
+                stackSubmenu.addItem(targetItem)
+            }
+        } else {
+            let noWindowsItem = NSMenuItem(title: "Need 2+ windows to stack", action: nil, keyEquivalent: "")
+            noWindowsItem.isEnabled = false
+            stackSubmenu.addItem(noWindowsItem)
+        }
+
+        stackWindowsItem.submenu = stackSubmenu
+        menu.addItem(stackWindowsItem)
+
         menu.addItem(NSMenuItem.separator())
 
         // MARK: - Space Management Section
@@ -1025,6 +1096,22 @@ class LayoutActionsMenuTarget: NSObject {
         guard let layoutType = sender.representedObject as? String else { return }
         print("📐 Setting layout to \(layoutType)...")
         yabaiService?.executeYabai(args: ["-m", "space", "--layout", layoutType]) { _ in }
+    }
+
+    // MARK: - Stack Window Actions
+
+    @objc func stackWindowOnto(_ sender: NSMenuItem) {
+        guard let windowIds = sender.representedObject as? [String: Int],
+              let sourceId = windowIds["source"],
+              let targetId = windowIds["target"] else { return }
+        print("📚 Stacking window \(sourceId) onto \(targetId)...")
+        yabaiService?.stackWindow(sourceId, onto: targetId)
+    }
+
+    @objc func stackAllOnto(_ sender: NSMenuItem) {
+        guard let targetId = sender.representedObject as? Int else { return }
+        print("📚 Stacking all windows onto \(targetId)...")
+        yabaiService?.stackAllWindowsOnto(targetId)
     }
 }
 

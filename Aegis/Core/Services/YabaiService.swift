@@ -433,6 +433,8 @@ final class YabaiService {
                     for window in sortedWindows.dropFirst() {
                         let output = try await command.run(["-m", "window", "\(window.id)", "--stack", "\(firstWindow.id)"])
                         print("✅ Stacked window \(window.id) onto \(firstWindow.id): \(output)")
+                        // Small delay to let Yabai process the stack before the next one
+                        try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
                     }
                 }
 
@@ -463,6 +465,42 @@ final class YabaiService {
             }
 
             await refreshWindows()
+        }
+    }
+
+    /// Stack a specific window onto another window
+    func stackWindow(_ sourceId: Int, onto targetId: Int) {
+        print("📚 Stacking window \(sourceId) onto \(targetId)")
+        Task {
+            do {
+                let output = try await command.run(["-m", "window", "\(sourceId)", "--stack", "\(targetId)"])
+                print("✅ Stack succeeded: \(output)")
+                await refreshWindows()
+            } catch {
+                print("❌ Stack window failed: \(error)")
+            }
+        }
+    }
+
+    /// Stack all windows in the current space onto a target window
+    func stackAllWindowsOnto(_ targetId: Int) {
+        print("📚 Stacking all windows onto \(targetId)")
+        Task {
+            do {
+                let focusedSpaceIndex = getFocusedSpaceIndexSync()
+                let spaceWindows = windows.values.filter { $0.space == focusedSpaceIndex && $0.id != targetId }
+
+                for window in spaceWindows {
+                    let output = try await command.run(["-m", "window", "\(window.id)", "--stack", "\(targetId)"])
+                    print("✅ Stacked window \(window.id) onto \(targetId): \(output)")
+                    // Small delay to let Yabai process each stack operation
+                    try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+                }
+
+                await refreshWindows()
+            } catch {
+                print("❌ Stack all windows failed: \(error)")
+            }
         }
     }
 
