@@ -2,7 +2,7 @@ import Foundation
 import AppKit
 
 /// Model for music playback info
-/// Used by MediaRemoteService to represent now playing information
+/// Used by MediaService to represent now playing information
 struct MusicInfo: Equatable {
     let title: String
     let artist: String

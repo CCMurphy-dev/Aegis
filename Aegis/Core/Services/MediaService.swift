@@ -6,7 +6,7 @@ import Combine
 /// Works with ALL media sources: Music, Spotify, Safari, Firefox, Chrome, YouTube, etc.
 ///
 /// Uses mediaremote-adapter (Perl script + framework) to bypass macOS 15.4+ entitlement restrictions
-class MediaRemoteService {
+class MediaService {
     private let eventRouter: EventRouter
     private var currentInfo: MusicInfo?
 
@@ -51,14 +51,14 @@ class MediaRemoteService {
         // Locate adapter files in bundle
         guard let scriptURL = Bundle.main.url(forResource: "mediaremote-adapter", withExtension: "pl"),
               let frameworkPath = Bundle.main.privateFrameworksPath?.appending("/MediaRemoteAdapter.framework") else {
-            print("❌ MediaRemoteService: Unable to locate mediaremote-adapter.pl or MediaRemoteAdapter.framework")
+            print("❌ MediaService: Unable to locate mediaremote-adapter.pl or MediaRemoteAdapter.framework")
             print("   Expected locations:")
             print("   - Script: Resources/mediaremote-adapter.pl")
             print("   - Framework: Frameworks/MediaRemoteAdapter.framework")
             return
         }
 
-        print("🎵 MediaRemoteService: Starting media monitoring")
+        print("🎵 MediaService: Starting media monitoring")
         print("   Script: \(scriptURL.path)")
         print("   Framework: \(frameworkPath)")
 
@@ -75,14 +75,14 @@ class MediaRemoteService {
 
         do {
             try process.run()
-            print("🎵 MediaRemoteService: Stream started successfully")
+            print("🎵 MediaService: Stream started successfully")
 
             // Read JSON lines from stream
             streamTask = Task { [weak self] in
                 await self?.processJSONStream(from: pipe)
             }
         } catch {
-            print("❌ MediaRemoteService: Failed to start stream: \(error)")
+            print("❌ MediaService: Failed to start stream: \(error)")
         }
     }
 
@@ -105,7 +105,7 @@ class MediaRemoteService {
             }
         } catch {
             if !Task.isCancelled {
-                print("❌ MediaRemoteService: Stream error: \(error)")
+                print("❌ MediaService: Stream error: \(error)")
             }
         }
     }
@@ -139,18 +139,18 @@ class MediaRemoteService {
                let image = NSImage(data: data) {
                 albumArt = image
                 cachedAlbumArt[trackId] = image  // Cache for this track
-                print("🎵 MediaRemoteService: Album art decoded and cached (\(data.count) bytes)")
+                print("🎵 MediaService: Album art decoded and cached (\(data.count) bytes)")
             } else {
-                print("⚠️ MediaRemoteService: Failed to decode/create album art")
+                print("⚠️ MediaService: Failed to decode/create album art")
             }
         } else {
             // No album art in payload - try to use cached version for THIS track only
             if let cached = cachedAlbumArt[trackId] {
                 albumArt = cached
-                print("🎵 MediaRemoteService: Using cached album art for \(title)")
+                print("🎵 MediaService: Using cached album art for \(title)")
             } else {
                 // No cached art for this track - leave as nil (don't show previous track's art)
-                print("⚠️ MediaRemoteService: No album art available for \(title)")
+                print("⚠️ MediaService: No album art available for \(title)")
             }
         }
 
@@ -174,16 +174,16 @@ class MediaRemoteService {
 
             // Log for debugging
             if trackChanged && isPlaying {
-                print("🎵 MediaRemoteService: Track changed - Now playing: \(title) by \(artist), isPlaying: \(isPlaying)")
+                print("🎵 MediaService: Track changed - Now playing: \(title) by \(artist), isPlaying: \(isPlaying)")
             } else if playbackStateChanged {
                 if isPlaying {
-                    print("🎵 MediaRemoteService: Playback resumed - \(title) by \(artist)")
+                    print("🎵 MediaService: Playback resumed - \(title) by \(artist)")
                 } else {
-                    print("🎵 MediaRemoteService: Playback stopped/paused - \(title) by \(artist)")
-                    print("🎵 MediaRemoteService: Publishing event with isPlaying=false to trigger HUD hide")
+                    print("🎵 MediaService: Playback stopped/paused - \(title) by \(artist)")
+                    print("🎵 MediaService: Publishing event with isPlaying=false to trigger HUD hide")
                 }
             } else if albumArtUpdated {
-                print("🎵 MediaRemoteService: Album art received for current track - updating")
+                print("🎵 MediaService: Album art received for current track - updating")
             }
 
             // Publish to event router
@@ -229,7 +229,7 @@ class MediaRemoteService {
     private func sendCommand(_ commandID: Int) {
         guard let scriptURL = Bundle.main.url(forResource: "mediaremote-adapter", withExtension: "pl"),
               let frameworkPath = Bundle.main.privateFrameworksPath?.appending("/MediaRemoteAdapter.framework") else {
-            print("❌ MediaRemoteService: Cannot send command - adapter not found")
+            print("❌ MediaService: Cannot send command - adapter not found")
             return
         }
 
@@ -240,7 +240,7 @@ class MediaRemoteService {
         do {
             try process.run()
         } catch {
-            print("❌ MediaRemoteService: Failed to send command \(commandID): \(error)")
+            print("❌ MediaService: Failed to send command \(commandID): \(error)")
         }
     }
 }

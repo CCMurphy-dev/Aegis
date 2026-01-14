@@ -214,13 +214,17 @@ struct MenuBarView: View {
                         }
 
                         Spacer()
-
-                        // Right: System status
-                        SystemStatusView()
-                            .padding(.trailing, config.menuBarEdgePadding)
                     }
                     .frame(maxHeight: .infinity, alignment: .top)
                     .padding(.top, 4)  // Small top padding to align with notch HUD elements
+
+                    // Right: System status - positioned on its own layer for proper vertical centering
+                    HStack {
+                        Spacer()
+                        SystemStatusView()
+                            .padding(.trailing, config.menuBarEdgePadding)
+                    }
+                    .frame(height: config.menuBarHeight, alignment: .center)
 
                     // Button on top layer to ensure it's interactive
                     HStack {
@@ -529,18 +533,15 @@ struct LayoutActionsButton: View {
         )
 
         // MARK: - Layout Actions Section
-        // Get current layout type for Toggle Layout label
         let currentLayoutType = focusedSpace?.type ?? "bsp"
-        let toggleLayoutLabel = currentLayoutType == "bsp" ? "Toggle Layout (bsp → float)" : "Toggle Layout (float → bsp)"
 
         for (index, action) in actions.enumerated() {
-            var label = action.label
-            // Update Toggle Layout to show current state
+            // Skip "Toggle Layout" - we'll add a submenu instead
             if index == 6 {
-                label = toggleLayoutLabel
+                continue
             }
 
-            let menuItem = NSMenuItem(title: "\(action.icon)  \(label)", action: #selector(LayoutActionsMenuTarget.executeAction(_:)), keyEquivalent: "")
+            let menuItem = NSMenuItem(title: "\(action.icon)  \(action.label)", action: #selector(LayoutActionsMenuTarget.executeAction(_:)), keyEquivalent: "")
             menuItem.target = menuTarget
             menuItem.tag = index
 
@@ -553,6 +554,28 @@ struct LayoutActionsButton: View {
 
             menu.addItem(menuItem)
         }
+
+        // MARK: - Layout Type Submenu (replaces Toggle Layout)
+        let layoutItem = NSMenuItem(title: "⇄  Layout", action: nil, keyEquivalent: "")
+        let layoutSubmenu = NSMenu()
+        layoutSubmenu.autoenablesItems = false
+
+        let layoutTypes = [
+            ("BSP", "bsp", "Binary space partitioning - tiles windows automatically"),
+            ("Float", "float", "Floating windows - manual positioning"),
+            ("Stack", "stack", "All windows stacked on top of each other")
+        ]
+
+        for (label, value, _) in layoutTypes {
+            let item = NSMenuItem(title: label, action: #selector(LayoutActionsMenuTarget.setLayout(_:)), keyEquivalent: "")
+            item.target = menuTarget
+            item.representedObject = value
+            item.state = currentLayoutType == value ? .on : .off
+            layoutSubmenu.addItem(item)
+        }
+
+        layoutItem.submenu = layoutSubmenu
+        menu.addItem(layoutItem)
 
         // Keep the target alive for the menu's lifetime
         objc_setAssociatedObject(menu, "menuTarget", menuTarget, .OBJC_ASSOCIATION_RETAIN)
@@ -996,6 +1019,12 @@ class LayoutActionsMenuTarget: NSObject {
                 self?.yabaiService?.executeYabai(args: ["-m", "space", "--focus", "\(spaceIndex)"]) { _ in }
             }
         }
+    }
+
+    @objc func setLayout(_ sender: NSMenuItem) {
+        guard let layoutType = sender.representedObject as? String else { return }
+        print("📐 Setting layout to \(layoutType)...")
+        yabaiService?.executeYabai(args: ["-m", "space", "--layout", layoutType]) { _ in }
     }
 }
 

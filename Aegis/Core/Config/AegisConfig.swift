@@ -191,7 +191,8 @@ class AegisConfig: ObservableObject {
     // MARK: - Window Filtering
 
     /// Apps to exclude from showing in space indicators (by app name)
-    @Published var excludedApps: Set<String> = []
+    /// Finder is excluded by default as it's not managed by Yabai
+    @Published var excludedApps: Set<String> = ["Finder"]
 
     // MARK: - Behavior Flags - Menu Bar
 

@@ -4,7 +4,7 @@ import Combine
 
 class NotchHUDController: ObservableObject {
     private let systemInfoService: SystemInfoService
-    private let musicService: MediaRemoteService
+    private let musicService: MediaService
     private let eventRouter: EventRouter
 
     // Separate windows for music and volume/brightness
@@ -39,7 +39,7 @@ class NotchHUDController: ObservableObject {
     private var notchDimensions: NotchDimensions?
 
     init(systemInfoService: SystemInfoService,
-         musicService: MediaRemoteService,
+         musicService: MediaService,
          eventRouter: EventRouter) {
         self.systemInfoService = systemInfoService
         self.musicService = musicService

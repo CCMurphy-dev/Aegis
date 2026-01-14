@@ -9,14 +9,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     var yabaiService: YabaiService?
     var systemInfoService: SystemInfoService?
-    var musicService: MediaRemoteService?
+    var musicService: MediaService?
     var eventRouter: EventRouter?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         print("🚀 AppDelegate: Application launched")
-
-        // ✅ Call the Automation permission function from AutomationPermission.swift
-        requestAutomationPermission()
 
         NSApp.setActivationPolicy(.accessory)
         setupServices()
@@ -47,7 +44,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         eventRouter = EventRouter()
         yabaiService = YabaiService(eventRouter: eventRouter!)
         systemInfoService = SystemInfoService(eventRouter: eventRouter!)
-        musicService = MediaRemoteService(eventRouter: eventRouter!)
+        musicService = MediaService(eventRouter: eventRouter!)
     }
 
     // MARK: - Setup Menu Bar
