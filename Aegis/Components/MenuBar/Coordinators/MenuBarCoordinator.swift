@@ -107,7 +107,7 @@ class MenuBarCoordinator {
             let isYabaiFullscreen = focusedSpace.type == "fullscreen"
 
             // Check if any window in the current space is in native fullscreen
-            let windowIcons = yabaiService.getAllWindowIconsForSpace(focusedSpace.index)
+            let windowIcons = yabaiService.getWindowIconsForSpace(focusedSpace.index)
             let hasNativeFullscreen = windowIcons.contains { window in
                 // Get the full WindowInfo to check isNativeFullscreen
                 if let windowInfo = yabaiService.getWindow(window.id) {

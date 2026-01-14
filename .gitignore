@@ -1,0 +1,20 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcscmblueprint
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Backups & Testing
+Aegis_backup/
+Aegis_backup_*/
+Reference/
+testing/
+
+# Secrets
+*.env
+credentials.json

@@ -90,14 +90,87 @@ echo "📋 Registered signals:"
 yabai -m signal --list | grep aegis
 
 echo ""
+echo "✅ Runtime setup complete!"
+echo ""
+
+# 7. Check if .yabairc needs updating for persistence
+YABAIRC="$HOME/.yabairc"
+AEGIS_MARKER="# AEGIS_INTEGRATION_START"
+
+if [ -f "$YABAIRC" ]; then
+    if grep -q "$AEGIS_MARKER" "$YABAIRC"; then
+        echo "✅ Aegis integration already in .yabairc (will persist across restarts)"
+    else
+        echo ""
+        echo "⚠️  IMPORTANT: Signals are registered but will be lost when yabai restarts."
+        echo ""
+        echo "To make this permanent, add to your ~/.yabairc:"
+        echo ""
+        echo "Would you like to automatically add Aegis integration to .yabairc? [y/N]"
+        read -r response
+        if [[ "$response" =~ ^[Yy]$ ]]; then
+            echo "" >> "$YABAIRC"
+            cat >> "$YABAIRC" << 'YABAI_EOF'
+
+# AEGIS_INTEGRATION_START
+# Aegis window manager integration - DO NOT EDIT THIS SECTION
+AEGIS_NOTIFY="/usr/local/bin/aegis-yabai-notify"
+yabai -m signal --remove aegis_space_changed 2>/dev/null || true
+yabai -m signal --remove aegis_space_destroyed 2>/dev/null || true
+yabai -m signal --remove aegis_window_focused 2>/dev/null || true
+yabai -m signal --remove aegis_window_created 2>/dev/null || true
+yabai -m signal --remove aegis_window_destroyed 2>/dev/null || true
+yabai -m signal --remove aegis_window_moved 2>/dev/null || true
+yabai -m signal --remove aegis_application_front_switched 2>/dev/null || true
+yabai -m signal --add event=space_changed action="YABAI_EVENT_TYPE=space_changed $AEGIS_NOTIFY" label=aegis_space_changed
+yabai -m signal --add event=space_destroyed action="YABAI_EVENT_TYPE=space_destroyed $AEGIS_NOTIFY" label=aegis_space_destroyed
+yabai -m signal --add event=window_focused action="YABAI_EVENT_TYPE=window_focused $AEGIS_NOTIFY" label=aegis_window_focused
+yabai -m signal --add event=window_created action="YABAI_EVENT_TYPE=window_created $AEGIS_NOTIFY" label=aegis_window_created
+yabai -m signal --add event=window_destroyed action="YABAI_EVENT_TYPE=window_destroyed $AEGIS_NOTIFY" label=aegis_window_destroyed
+yabai -m signal --add event=window_moved action="YABAI_EVENT_TYPE=window_moved $AEGIS_NOTIFY" label=aegis_window_moved
+yabai -m signal --add event=application_front_switched action="YABAI_EVENT_TYPE=application_front_switched $AEGIS_NOTIFY" label=aegis_application_front_switched
+# AEGIS_INTEGRATION_END
+YABAI_EOF
+            echo "✅ Added Aegis integration to ~/.yabairc"
+        else
+            echo ""
+            echo "Skipped. To add manually later, copy the snippet from:"
+            echo "  ~/.config/aegis/yabairc-snippet.sh"
+
+            # Save snippet for manual use
+            cat > "$CONFIG_DIR/yabairc-snippet.sh" << 'SNIPPET_EOF'
+# AEGIS_INTEGRATION_START
+# Aegis window manager integration - add this to your ~/.yabairc
+AEGIS_NOTIFY="/usr/local/bin/aegis-yabai-notify"
+yabai -m signal --remove aegis_space_changed 2>/dev/null || true
+yabai -m signal --remove aegis_space_destroyed 2>/dev/null || true
+yabai -m signal --remove aegis_window_focused 2>/dev/null || true
+yabai -m signal --remove aegis_window_created 2>/dev/null || true
+yabai -m signal --remove aegis_window_destroyed 2>/dev/null || true
+yabai -m signal --remove aegis_window_moved 2>/dev/null || true
+yabai -m signal --remove aegis_application_front_switched 2>/dev/null || true
+yabai -m signal --add event=space_changed action="YABAI_EVENT_TYPE=space_changed $AEGIS_NOTIFY" label=aegis_space_changed
+yabai -m signal --add event=space_destroyed action="YABAI_EVENT_TYPE=space_destroyed $AEGIS_NOTIFY" label=aegis_space_destroyed
+yabai -m signal --add event=window_focused action="YABAI_EVENT_TYPE=window_focused $AEGIS_NOTIFY" label=aegis_window_focused
+yabai -m signal --add event=window_created action="YABAI_EVENT_TYPE=window_created $AEGIS_NOTIFY" label=aegis_window_created
+yabai -m signal --add event=window_destroyed action="YABAI_EVENT_TYPE=window_destroyed $AEGIS_NOTIFY" label=aegis_window_destroyed
+yabai -m signal --add event=window_moved action="YABAI_EVENT_TYPE=window_moved $AEGIS_NOTIFY" label=aegis_window_moved
+yabai -m signal --add event=application_front_switched action="YABAI_EVENT_TYPE=application_front_switched $AEGIS_NOTIFY" label=aegis_application_front_switched
+# AEGIS_INTEGRATION_END
+SNIPPET_EOF
+            echo "  Snippet saved to: $CONFIG_DIR/yabairc-snippet.sh"
+        fi
+    fi
+else
+    echo "⚠️  No ~/.yabairc found. Signals will work now but won't persist."
+    echo "   Create a .yabairc and run this script again to make setup permanent."
+fi
+
+echo ""
 echo "✅ Setup complete!"
 echo ""
 echo "The FIFO pipe will be created automatically by Aegis when it starts."
 echo ""
-echo "Next steps:"
-echo "1. Rebuild and run Aegis (it will create the FIFO pipe)"
-echo "2. Test by switching spaces/windows - you should see instant updates!"
-echo ""
 echo "To verify the setup is working:"
 echo "  1. Run Aegis and check the logs for 'FIFO pipe monitoring active'"
-echo "  2. Switch spaces/windows and watch for 'Received yabai event' messages"
+echo "  2. Switch spaces/windows and watch for instant updates!"

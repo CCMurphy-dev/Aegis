@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import Cocoa
 
 struct MusicHUDView: View {
     @ObservedObject var viewModel: MusicHUDViewModel
@@ -26,9 +27,27 @@ struct MusicHUDView: View {
     // This only affects the background shape, not the content position
     private let notchGapFill: CGFloat = 8
 
+    // Whether track info is pinned (user clicked to toggle, disables auto-timer)
+    @State private var trackInfoPinned = false
+
+    // Whether to show the right panel (hidden when overlay HUD is active)
+    private var showRightPanel: Bool {
+        isVisible && !viewModel.isOverlayActive
+    }
+
+    // Whether to show track info (based on config + temporary override state)
+    private var shouldShowTrackInfo: Bool {
+        // If user has pinned or temporarily toggled, use local state
+        if trackInfoPinned || showingTrackInfo {
+            return showingTrackInfo
+        }
+        // Otherwise, use config default
+        return config.musicHUDRightPanelMode == .trackInfo
+    }
+
     // Right side content width (dynamic)
     private var rightContentWidth: CGFloat {
-        if showingTrackInfo {
+        if shouldShowTrackInfo {
             return calculateTrackInfoWidth()
         } else {
             return notchDimensions.height
@@ -42,6 +61,7 @@ struct MusicHUDView: View {
 
         ZStack {
             // BACKGROUND LAYER: Black shapes that extend into notch area to fill gaps
+            // Not interactive - clicks pass through
             HStack(spacing: 0) {
                 // Left background - extends right into notch area
                 HStack(spacing: 0) {
@@ -59,6 +79,7 @@ struct MusicHUDView: View {
                     .frame(width: notchDimensions.width - (notchGapFill * 2), height: notchDimensions.height)
 
                 // Right background - extends left into notch area
+                // Hidden when overlay HUD (volume/brightness) is active
                 HStack(spacing: 0) {
                     RightPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
                         .fill(Color.black)
@@ -66,15 +87,17 @@ struct MusicHUDView: View {
                     Spacer(minLength: 0)
                 }
                 .frame(width: sideMaxWidth + notchGapFill, alignment: .leading)
-                .opacity(isVisible ? 1 : 0)
-                .offset(x: isVisible ? 0 : -(notchDimensions.width / 2 + notchGapFill))
+                .opacity(showRightPanel ? 1 : 0)
+                .offset(x: showRightPanel ? 0 : -(notchDimensions.width / 2 + notchGapFill))
             }
             .frame(width: sideMaxWidth + notchDimensions.width + sideMaxWidth, height: notchDimensions.height)
             .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isVisible)
+            .animation(.spring(response: 0.25, dampingFraction: 0.8), value: viewModel.isOverlayActive)
+            .allowsHitTesting(false)
 
             // CONTENT LAYER: Positioned normally without overlap
             HStack(spacing: 0) {
-                // Left content container
+                // Left content container (album art - tap handled by separate interaction window)
                 HStack(spacing: 0) {
                     Spacer(minLength: 0)
                     AlbumArtView(albumArt: info.albumArt, isPlaying: info.isPlaying)
@@ -84,14 +107,16 @@ struct MusicHUDView: View {
                 .opacity(isVisible ? 1 : 0)
                 .offset(x: isVisible ? 0 : notchDimensions.width / 2)
 
-                // Notch spacer
+                // Notch spacer - clicks pass through
                 Color.clear
                     .frame(width: notchDimensions.width, height: notchDimensions.height)
+                    .allowsHitTesting(false)
 
-                // Right content container
+                // Right content container - shows visualizer or track info based on config
+                // Hidden when overlay HUD (volume/brightness) is active
                 HStack(spacing: 0) {
                     Group {
-                        if showingTrackInfo {
+                        if shouldShowTrackInfo {
                             TrackInfoView(info: info)
                         } else {
                             MusicVisualizerView(isPlaying: info.isPlaying)
@@ -101,9 +126,10 @@ struct MusicHUDView: View {
                     Spacer(minLength: 0)
                 }
                 .frame(width: sideMaxWidth, alignment: .leading)
-                .opacity(isVisible ? 1 : 0)
-                .offset(x: isVisible ? 0 : -notchDimensions.width / 2)
-                .animation(.spring(response: 0.25, dampingFraction: 0.8), value: showingTrackInfo)
+                .opacity(showRightPanel ? 1 : 0)
+                .offset(x: showRightPanel ? 0 : -notchDimensions.width / 2)
+                .animation(.spring(response: 0.25, dampingFraction: 0.8), value: shouldShowTrackInfo)
+                .animation(.spring(response: 0.25, dampingFraction: 0.8), value: viewModel.isOverlayActive)
             }
             .frame(width: sideMaxWidth + notchDimensions.width + sideMaxWidth, height: notchDimensions.height)
             .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isVisible)
@@ -111,12 +137,35 @@ struct MusicHUDView: View {
         // Total width: sideMaxWidth + notchWidth + sideMaxWidth (FIXED, never changes)
         .frame(width: sideMaxWidth + notchDimensions.width + sideMaxWidth, height: notchDimensions.height)
         .onChange(of: info.trackIdentifier) { _ in
-            showTrackInfo()
-        }
-        .onAppear {
-            if info.isPlaying {
+            // Reset pinned state when track changes so auto-display works for new songs
+            trackInfoPinned = false
+            // Only show temporary track info if config is set to visualizer mode
+            // (if already showing track info by config, no need for temporary display)
+            if config.musicHUDRightPanelMode == .visualizer {
                 showTrackInfo()
             }
+        }
+        .onAppear {
+            // Initialize based on config
+            if config.musicHUDRightPanelMode == .trackInfo {
+                showingTrackInfo = true
+                trackInfoPinned = true  // Don't auto-hide if config says track info
+            } else if info.isPlaying {
+                showTrackInfo()
+            }
+        }
+        .onChange(of: config.musicHUDRightPanelMode) { newMode in
+            // Respond to config changes
+            trackInfoPinned = false
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                showingTrackInfo = (newMode == .trackInfo)
+            }
+            if newMode == .trackInfo {
+                trackInfoPinned = true  // Pin it so it doesn't auto-hide
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .musicHUDToggleDisplay)) { _ in
+            toggleTrackInfoDisplay()
         }
     }
 
@@ -138,7 +187,24 @@ struct MusicHUDView: View {
         return min(max(paddedWidth, minWidth), maxWidth)
     }
 
+    /// Toggle between visualizer and track info display (user-initiated)
+    private func toggleTrackInfoDisplay() {
+        // Cancel any auto-timer
+        trackInfoTimer?.invalidate()
+        trackInfoTimer = nil
+
+        // Toggle and pin the state
+        trackInfoPinned = true
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+            showingTrackInfo.toggle()
+        }
+    }
+
+    /// Show track info temporarily (auto-triggered on track change)
     private func showTrackInfo() {
+        // Don't override if user has pinned the display
+        if trackInfoPinned { return }
+
         trackInfoTimer?.invalidate()
 
         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -151,6 +217,30 @@ struct MusicHUDView: View {
             }
         }
     }
+}
+
+// MARK: - Tap View for Interaction Window
+
+/// Invisible tap target for toggling visualizer/track info
+/// This is hosted in a separate small window over the album art
+struct MusicHUDTapView: View {
+    @ObservedObject var viewModel: MusicHUDViewModel
+
+    var body: some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .onTapGesture {
+                // Toggle the showTrackInfo state via notification
+                NotificationCenter.default.post(
+                    name: .musicHUDToggleDisplay,
+                    object: nil
+                )
+            }
+    }
+}
+
+extension Notification.Name {
+    static let musicHUDToggleDisplay = Notification.Name("musicHUDToggleDisplay")
 }
 
 /// Shape for LEFT panel - curved outer edges, inner edge curves outward to connect with notch
@@ -248,26 +338,43 @@ struct AlbumArtView: View {
     let albumArt: NSImage?
     let isPlaying: Bool
 
+    // Track the current album art for fade transitions
+    @State private var displayedArt: NSImage?
+    @State private var artOpacity: Double = 1.0
+
     var body: some View {
-        Group {
-            if let albumArt = albumArt {
-                Image(nsImage: albumArt)
+        ZStack {
+            // Black placeholder (always present, merges with notch)
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Color.black)
+
+            // Album art with fade transition
+            if let art = displayedArt {
+                Image(nsImage: art)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
-                    .id(albumArt) // Force view update when image changes
-            } else {
-                // Use Music.app icon as placeholder
-                Image(nsImage: NSWorkspace.shared.icon(forFile: "/System/Applications/Music.app"))
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .opacity(artOpacity)
             }
         }
         .frame(width: 22, height: 22)  // Match window icon size
         .scaleEffect(isPlaying ? 1.0 : 0.9)
-        .opacity(isPlaying ? 1.0 : 0.5)
         .animation(.easeOut(duration: 0.3), value: isPlaying)
+        .onChange(of: albumArt) { newArt in
+            // Fade out, swap, fade in
+            withAnimation(.easeOut(duration: 0.15)) {
+                artOpacity = 0
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                displayedArt = newArt
+                withAnimation(.easeIn(duration: 0.2)) {
+                    artOpacity = 1.0
+                }
+            }
+        }
+        .onAppear {
+            displayedArt = albumArt
+        }
     }
 }
 
@@ -275,20 +382,19 @@ struct AlbumArtView: View {
 struct MusicVisualizerView: View {
     let isPlaying: Bool
 
+    @ObservedObject private var config = AegisConfig.shared
     @State private var barHeights: [CGFloat] = [6, 10, 14, 10, 6]
     private let barCount = 5
     private let timer = Timer.publish(every: 0.2, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach(0..<barCount, id: \.self) { i in
-                Capsule()
-                    .fill(Color.white.opacity(0.6))
-                    .frame(width: 2, height: isPlaying ? barHeights[safe: i] ?? 8 : 3)
-                    .animation(
-                        .easeInOut(duration: 0.35),
-                        value: barHeights[safe: i]
-                    )
+        Group {
+            if config.visualizerUseBlurEffect {
+                // Blur effect mode: bars show blurred wallpaper
+                BlurVisualizerBars(barHeights: barHeights, isPlaying: isPlaying)
+            } else {
+                // Standard mode: solid white bars
+                SolidVisualizerBars(barHeights: barHeights, isPlaying: isPlaying)
             }
         }
         .frame(height: 22)  // Match window icon height
@@ -324,6 +430,75 @@ struct MusicVisualizerView: View {
 
     private func resetBars() {
         barHeights = [3, 3, 3, 3, 3]
+    }
+}
+
+// MARK: - Solid Visualizer Bars (default mode)
+private struct SolidVisualizerBars: View {
+    let barHeights: [CGFloat]
+    let isPlaying: Bool
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(0..<5, id: \.self) { i in
+                Capsule()
+                    .fill(Color.white.opacity(0.9))
+                    .frame(width: 2, height: isPlaying ? barHeights[safe: i] ?? 8 : 3)
+                    .animation(
+                        .easeInOut(duration: 0.35),
+                        value: barHeights[safe: i]
+                    )
+            }
+        }
+    }
+}
+
+// MARK: - Blur Visualizer Bars (transparent blur effect)
+private struct BlurVisualizerBars: View {
+    let barHeights: [CGFloat]
+    let isPlaying: Bool
+
+    // Calculate total width of all bars + spacing
+    private var totalWidth: CGFloat {
+        let barWidth: CGFloat = 2
+        let spacing: CGFloat = 2
+        return (barWidth * 5) + (spacing * 4)
+    }
+
+    var body: some View {
+        // Use a blur rectangle masked by the bar shapes
+        VisualizerBlurView()
+            .frame(width: totalWidth, height: 22)
+            .mask(
+                HStack(spacing: 2) {
+                    ForEach(0..<5, id: \.self) { i in
+                        Capsule()
+                            .frame(width: 2, height: isPlaying ? barHeights[safe: i] ?? 8 : 3)
+                            .animation(
+                                .easeInOut(duration: 0.35),
+                                value: barHeights[safe: i]
+                            )
+                    }
+                }
+            )
+    }
+}
+
+// MARK: - Visualizer Blur View (NSVisualEffectView wrapper)
+private struct VisualizerBlurView: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        // Use a light material that shows the wallpaper through
+        view.material = .hudWindow
+        view.blendingMode = .behindWindow
+        view.state = .active
+        view.wantsLayer = true
+        view.layer?.backgroundColor = NSColor.clear.cgColor
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        // No updates needed
     }
 }
 

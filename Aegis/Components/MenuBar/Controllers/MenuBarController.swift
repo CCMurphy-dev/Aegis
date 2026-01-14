@@ -93,29 +93,31 @@ struct MenuBarView: View {
         self.onStackAllWindows = onStackAllWindows
     }
 
+    // Extra height below the menu bar for the blur fade-out
+    private let blurFadeHeight: CGFloat = 30
+
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             // Background blur layer (behind everything) - MUST BE FIRST
+            // Uses hudWindow material for a lighter, more translucent blur effect
             VisualEffectView(
-                material: .menu,
+                material: .hudWindow,
                 blendingMode: .behindWindow
             )
-            .frame(height: config.menuBarHeight + 24)
-            .offset(y: 10)
+            .frame(height: config.menuBarHeight + blurFadeHeight)
             .mask(
                 LinearGradient(
-                    gradient: Gradient(stops: [
-                        .init(color: .white, location: 0.0),
-                        .init(color: .white, location: 0.3),
-                        .init(color: .white.opacity(0.6), location: 0.55),
-                        .init(color: .white.opacity(0.3), location: 0.75),
-                        .init(color: .clear, location: 1.0)
+                    gradient: Gradient(colors: [
+                        .white,
+                        .white.opacity(0.8),
+                        .white.opacity(0.5),
+                        .white.opacity(0.2),
+                        .clear
                     ]),
                     startPoint: .top,
                     endPoint: .bottom
                 )
             )
-            .clipped()
             .allowsHitTesting(false)
 
             // Notch occlusion is handled by the fade mask on the scroll view
@@ -260,11 +262,13 @@ struct MenuBarView: View {
 
                         Spacer()
                     }
-                    .frame(maxHeight: .infinity, alignment: .center)
+                    .frame(height: config.menuBarHeight, alignment: .center)
                 }
             }
+            .frame(height: config.menuBarHeight)
         }
-        .frame(height: config.menuBarHeight)
+        // Full window height includes the blur fade area below
+        .frame(height: config.menuBarHeight + blurFadeHeight, alignment: .top)
     }
 
 }
@@ -489,8 +493,18 @@ struct LayoutActionsButton: View {
         )
 
         // MARK: - Layout Actions Section
+        // Get current layout type for Toggle Layout label
+        let currentLayoutType = focusedSpace?.type ?? "bsp"
+        let toggleLayoutLabel = currentLayoutType == "bsp" ? "Toggle Layout (bsp → float)" : "Toggle Layout (float → bsp)"
+
         for (index, action) in actions.enumerated() {
-            let menuItem = NSMenuItem(title: "\(action.icon)  \(action.label)", action: #selector(LayoutActionsMenuTarget.executeAction(_:)), keyEquivalent: "")
+            var label = action.label
+            // Update Toggle Layout to show current state
+            if index == 6 {
+                label = toggleLayoutLabel
+            }
+
+            let menuItem = NSMenuItem(title: "\(action.icon)  \(label)", action: #selector(LayoutActionsMenuTarget.executeAction(_:)), keyEquivalent: "")
             menuItem.target = menuTarget
             menuItem.tag = index
 
@@ -599,16 +613,54 @@ struct LayoutActionsButton: View {
         statusItem.isEnabled = false
         menu.addItem(statusItem)
 
-        // Yabai Version
-        let yabaiVersionItem = NSMenuItem(title: "  Yabai Version: Checking...", action: nil, keyEquivalent: "")
+        // Yabai Version - fetch synchronously since it's quick
+        let yabaiVersion = yabaiService.getYabaiVersion()
+        let yabaiVersionItem = NSMenuItem(title: "  Yabai Version: \(yabaiVersion)", action: nil, keyEquivalent: "")
         yabaiVersionItem.isEnabled = false
         menu.addItem(yabaiVersionItem)
 
         // Aegis Version
-        let aegisVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
-        let aegisVersionItem = NSMenuItem(title: "  Aegis Version: \(aegisVersion)", action: nil, keyEquivalent: "")
+        let aegisVersionItem = NSMenuItem(title: "  Aegis Version: 0.2.0", action: nil, keyEquivalent: "")
         aegisVersionItem.isEnabled = false
         menu.addItem(aegisVersionItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        // MARK: - Display Options
+        let showMusicHUDItem = NSMenuItem(
+            title: "Show Now Playing",
+            action: #selector(LayoutActionsMenuTarget.toggleShowMusicHUD(_:)),
+            keyEquivalent: ""
+        )
+        showMusicHUDItem.target = menuTarget
+        showMusicHUDItem.state = AegisConfig.shared.showMusicHUD ? .on : .off
+        menu.addItem(showMusicHUDItem)
+
+        // Now Playing right panel mode submenu
+        let rightPanelItem = NSMenuItem(title: "Now Playing Display", action: nil, keyEquivalent: "")
+        let rightPanelSubmenu = NSMenu()
+        rightPanelSubmenu.autoenablesItems = false
+
+        let visualizerItem = NSMenuItem(
+            title: "Visualizer",
+            action: #selector(LayoutActionsMenuTarget.setRightPanelModeVisualizer(_:)),
+            keyEquivalent: ""
+        )
+        visualizerItem.target = menuTarget
+        visualizerItem.state = AegisConfig.shared.musicHUDRightPanelMode == .visualizer ? .on : .off
+        rightPanelSubmenu.addItem(visualizerItem)
+
+        let trackInfoItem = NSMenuItem(
+            title: "Track Info",
+            action: #selector(LayoutActionsMenuTarget.setRightPanelModeTrackInfo(_:)),
+            keyEquivalent: ""
+        )
+        trackInfoItem.target = menuTarget
+        trackInfoItem.state = AegisConfig.shared.musicHUDRightPanelMode == .trackInfo ? .on : .off
+        rightPanelSubmenu.addItem(trackInfoItem)
+
+        rightPanelItem.submenu = rightPanelSubmenu
+        menu.addItem(rightPanelItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -632,6 +684,13 @@ struct LayoutActionsButton: View {
         menu.items.last?.target = menuTarget
         menu.items.last?.isEnabled = true
 
+        menu.addItem(NSMenuItem.separator())
+
+        // MARK: - Quit
+        menu.addItem(NSMenuItem(title: "Quit Aegis", action: #selector(LayoutActionsMenuTarget.quitAegis), keyEquivalent: "q"))
+        menu.items.last?.target = menuTarget
+        menu.items.last?.isEnabled = true
+
         // Show menu aligned with the button
         if let event = NSApp.currentEvent, let window = event.window {
             let locationInWindow = event.locationInWindow
@@ -644,13 +703,6 @@ struct LayoutActionsButton: View {
             menu.popUp(positioning: nil, at: windowPoint, in: contentView)
         }
 
-        // Async check yabai version
-        DispatchQueue.global().async {
-            let version = yabaiService.getYabaiVersion()
-            DispatchQueue.main.async {
-                yabaiVersionItem.title = "  Yabai Version: \(version)"
-            }
-        }
     }
 
     private func checkYabaiStatus() -> String {
@@ -748,11 +800,32 @@ class LayoutActionsMenuTarget: NSObject {
         SettingsPanelController.shared.showSettings()
     }
 
+    @objc func toggleShowMusicHUD(_ sender: NSMenuItem) {
+        let config = AegisConfig.shared
+        config.showMusicHUD.toggle()
+        config.savePreferences()
+        print("🎵 Show Music HUD: \(config.showMusicHUD ? "ON" : "OFF")")
+    }
+
+    @objc func setRightPanelModeVisualizer(_ sender: NSMenuItem) {
+        let config = AegisConfig.shared
+        config.musicHUDRightPanelMode = .visualizer
+        config.savePreferences()
+        print("🎵 Music HUD Right Panel: Visualizer")
+    }
+
+    @objc func setRightPanelModeTrackInfo(_ sender: NSMenuItem) {
+        let config = AegisConfig.shared
+        config.musicHUDRightPanelMode = .trackInfo
+        config.savePreferences()
+        print("🎵 Music HUD Right Panel: Track Info")
+    }
+
     @objc func restartYabai() {
         print("🔄 Restarting yabai...")
         let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        task.arguments = ["yabai", "--restart-service"]
+        task.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/yabai")
+        task.arguments = ["--restart-service"]
         do {
             try task.run()
             print("✅ Yabai restart command sent")
@@ -780,14 +853,19 @@ class LayoutActionsMenuTarget: NSObject {
     @objc func restartSkhd() {
         print("🔄 Restarting skhd...")
         let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        task.arguments = ["skhd", "--restart-service"]
+        task.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/skhd")
+        task.arguments = ["--restart-service"]
         do {
             try task.run()
             print("✅ skhd restart command sent")
         } catch {
             print("❌ Failed to restart skhd: \(error)")
         }
+    }
+
+    @objc func quitAegis() {
+        print("👋 Quitting Aegis...")
+        NSApp.terminate(nil)
     }
 
     @objc func createNewSpace() {

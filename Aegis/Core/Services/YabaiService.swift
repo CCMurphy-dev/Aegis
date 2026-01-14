@@ -20,6 +20,10 @@ final class YabaiService {
 
     private let pipeQueue = DispatchQueue(label: "com.aegis.yabai.pipe")
 
+    // Debounce tracking to prevent multiple rapid refreshes causing UI flash
+    private var lastRefreshTime: Date = .distantPast
+    private let refreshDebounceInterval: TimeInterval = 0.3  // 300ms debounce
+
     private lazy var pipePath: String = {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         return "\(home)/.config/aegis/yabai.pipe"
@@ -90,32 +94,55 @@ final class YabaiService {
         )
     }
 
-    @objc private func appChanged() {
+    @objc private func appChanged(_ notification: Notification) {
         // App activation might indicate a space change (clicking window on another space)
-        // Refresh both spaces and windows to ensure focus state is accurate
-        Task { await refreshAll() }
+        // Skip if Aegis itself is being activated (happens when clicking on Aegis UI)
+        if let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+           app.bundleIdentifier == Bundle.main.bundleIdentifier {
+            print("🔄 [DEBUG] appChanged triggered (NSWorkspace) - SKIPPED (Aegis self-activation)")
+            return
+        }
+
+        print("🔄 [DEBUG] appChanged triggered (NSWorkspace)")
+        // Delay refresh to allow yabai to update its internal state
+        // Without this delay, yabai returns stale focused space data
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            Task { await self?.refreshAll(source: "appChanged") }
+        }
     }
 
     // MARK: - Events
 
     private func handleYabaiEvent(_ event: String) async {
+        print("🔄 [DEBUG] FIFO event: '\(event)'")
         switch event {
         case "space_changed", "space_created", "space_destroyed":
-            await refreshAll()
+            await refreshAll(source: "FIFO:\(event)")
         case "window_focused":
             // Window focus may change the active space (e.g., clicking a window on another space)
             // Refresh both spaces and windows to ensure focus state is accurate
-            await refreshAll()
+            await refreshAll(source: "FIFO:window_focused")
         case "window_created", "window_destroyed", "window_moved":
+            print("🔄 [DEBUG] refreshWindows from FIFO:\(event)")
             await refreshWindows()
         default:
-            await refreshAll()
+            await refreshAll(source: "FIFO:default(\(event))")
         }
     }
 
     // MARK: - Refresh
 
-    private func refreshAll() async {
+    private func refreshAll(source: String = "unknown") async {
+        // Debounce: skip if we refreshed very recently
+        let now = Date()
+        let timeSinceLast = now.timeIntervalSince(lastRefreshTime)
+        if timeSinceLast < refreshDebounceInterval {
+            print("🔄 [DEBUG] refreshAll SKIPPED (debounce) - source: \(source), timeSinceLast: \(String(format: "%.3f", timeSinceLast))s")
+            return
+        }
+        lastRefreshTime = now
+        print("🔄 [DEBUG] refreshAll EXECUTING - source: \(source)")
+
         await refreshSpaces()
         await refreshWindows()
     }
@@ -124,6 +151,13 @@ final class YabaiService {
         do {
             let json = try await command.run(["-m", "query", "--spaces"])
             let decoded = try JSONDecoder().decode([Space].self, from: Data(json.utf8))
+
+            // Debug: log which space yabai reports as focused
+            if let focusedSpace = decoded.first(where: { $0.focused }) {
+                print("🔄 [DEBUG] refreshSpaces: yabai reports space \(focusedSpace.index) as focused")
+            } else {
+                print("🔄 [DEBUG] refreshSpaces: NO focused space reported by yabai!")
+            }
 
             // Write to cache first, then publish event AFTER write completes
             // This prevents race condition where event fires before data is ready
@@ -172,9 +206,10 @@ final class YabaiService {
     }
 
     func getWindowIconsForSpace(_ spaceIndex: Int) -> [WindowIcon] {
-        dataQueue.sync {
+        let excludedApps = AegisConfig.shared.excludedApps
+        return dataQueue.sync {
             windows.values
-                .filter { $0.space == spaceIndex }
+                .filter { $0.space == spaceIndex && !excludedApps.contains($0.app) }
                 .map { window in
                     WindowIcon(
                         id: window.id,
@@ -198,14 +233,12 @@ final class YabaiService {
         }
     }
 
-    func getAllWindowIconsForSpace(_ spaceIndex: Int) -> [WindowIcon] {
-        // Same as getWindowIconsForSpace for now
-        getWindowIconsForSpace(spaceIndex)
-    }
-
     func getAppIconsForSpace(_ spaceIndex: Int) -> [NSImage] {
-        dataQueue.sync {
-            let apps = Set(windows.values.filter { $0.space == spaceIndex }.map { $0.app })
+        let excludedApps = AegisConfig.shared.excludedApps
+        return dataQueue.sync {
+            let apps = Set(windows.values
+                .filter { $0.space == spaceIndex && !excludedApps.contains($0.app) }
+                .map { $0.app })
             return apps.compactMap { getAppIcon(for: $0) }
         }
     }

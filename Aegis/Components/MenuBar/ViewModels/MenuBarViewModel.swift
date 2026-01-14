@@ -93,7 +93,7 @@ class MenuBarViewModel: ObservableObject {
     }
 
     func getAllWindowIcons(for space: Space) -> [WindowIcon] {
-        return yabaiService.getAllWindowIconsForSpace(space.index)
+        return yabaiService.getWindowIconsForSpace(space.index)
     }
 
     func getAppIcons(for space: Space) -> [NSImage] {

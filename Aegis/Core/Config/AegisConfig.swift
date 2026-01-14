@@ -187,6 +187,11 @@ class AegisConfig: ObservableObject {
     /// Shadow radius for system status
     @Published var systemStatusShadowRadius: CGFloat = 1
 
+    // MARK: - Window Filtering
+
+    /// Apps to exclude from showing in space indicators (by app name)
+    @Published var excludedApps: Set<String> = ["Finder"]
+
     // MARK: - Behavior Flags - Menu Bar
 
     /// Show app names under window titles when expanded
@@ -333,6 +338,27 @@ class AegisConfig: ObservableObject {
 
     /// Animation duration for visualizer bars
     @Published var visualizerAnimationDuration: Double = 0.3
+
+    /// Use transparent/blur effect for visualizer bars (shows wallpaper through bars)
+    /// Note: May impact performance on some systems
+    @Published var visualizerUseBlurEffect: Bool = false
+
+    /// Show the Now Playing music HUD when music is playing
+    @Published var showMusicHUD: Bool = true
+
+    /// What to show in the right panel of the music HUD
+    enum MusicHUDRightPanelMode: String, CaseIterable {
+        case visualizer = "visualizer"
+        case trackInfo = "trackInfo"
+    }
+
+    @Published var musicHUDRightPanelMode: MusicHUDRightPanelMode = .visualizer
+
+    /// Auto-hide music HUD after showing track info (only reappears on track change)
+    @Published var musicHUDAutoHide: Bool = false
+
+    /// Delay before auto-hiding music HUD (seconds)
+    @Published var musicHUDAutoHideDelay: TimeInterval = 5.0
 
     // MARK: - Notch HUD Icon & Text Settings
 
@@ -530,6 +556,11 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(visualizerBarMinHeight, forKey: "visualizerBarMinHeight")
         UserDefaults.standard.set(visualizerBarMaxHeight, forKey: "visualizerBarMaxHeight")
         UserDefaults.standard.set(visualizerAnimationDuration, forKey: "visualizerAnimationDuration")
+        UserDefaults.standard.set(visualizerUseBlurEffect, forKey: "visualizerUseBlurEffect")
+        UserDefaults.standard.set(showMusicHUD, forKey: "showMusicHUD")
+        UserDefaults.standard.set(musicHUDRightPanelMode.rawValue, forKey: "musicHUDRightPanelMode")
+        UserDefaults.standard.set(musicHUDAutoHide, forKey: "musicHUDAutoHide")
+        UserDefaults.standard.set(musicHUDAutoHideDelay, forKey: "musicHUDAutoHideDelay")
         UserDefaults.standard.set(notchHUDIconSize, forKey: "notchHUDIconSize")
         UserDefaults.standard.set(notchHUDValueFontSize, forKey: "notchHUDValueFontSize")
         UserDefaults.standard.set(notchHUDInnerPadding, forKey: "notchHUDInnerPadding")
@@ -860,6 +891,22 @@ class AegisConfig: ObservableObject {
         if let val = UserDefaults.standard.object(forKey: "visualizerAnimationDuration") as? Double {
             visualizerAnimationDuration = val
         }
+        if let val = UserDefaults.standard.object(forKey: "visualizerUseBlurEffect") as? Bool {
+            visualizerUseBlurEffect = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "showMusicHUD") as? Bool {
+            showMusicHUD = val
+        }
+        if let val = UserDefaults.standard.string(forKey: "musicHUDRightPanelMode"),
+           let mode = MusicHUDRightPanelMode(rawValue: val) {
+            musicHUDRightPanelMode = mode
+        }
+        if let val = UserDefaults.standard.object(forKey: "musicHUDAutoHide") as? Bool {
+            musicHUDAutoHide = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "musicHUDAutoHideDelay") as? Double {
+            musicHUDAutoHideDelay = val
+        }
         if let val = UserDefaults.standard.object(forKey: "notchHUDIconSize") as? Double {
             notchHUDIconSize = CGFloat(val)
         }
@@ -1021,6 +1068,11 @@ class AegisConfig: ObservableObject {
         visualizerBarMinHeight = 5
         visualizerBarMaxHeight = 20
         visualizerAnimationDuration = 0.3
+        visualizerUseBlurEffect = false
+        showMusicHUD = true
+        musicHUDRightPanelMode = .visualizer
+        musicHUDAutoHide = false
+        musicHUDAutoHideDelay = 5.0
         notchHUDIconSize = 13
         notchHUDValueFontSize = 13
         notchHUDInnerPadding = 8

@@ -13,9 +13,6 @@ class MediaRemoteService {
     // Cache album art per track to handle payloads without artwork
     private var cachedAlbumArt: [String: NSImage] = [:]
 
-    // Keep the last displayed album art to avoid showing placeholder during transitions
-    private var lastAlbumArt: NSImage?
-
     // Process running the mediaremote-adapter stream
     private var streamProcess: Process?
     private var streamTask: Task<Void, Never>?
@@ -121,7 +118,6 @@ class MediaRemoteService {
             // No media playing - clear current info
             if currentInfo != nil {
                 currentInfo = nil
-                lastAlbumArt = nil
                 eventRouter.publish(.musicPlaybackChanged, data: ["info": MusicInfo.placeholder])
             }
             return
@@ -143,25 +139,18 @@ class MediaRemoteService {
                let image = NSImage(data: data) {
                 albumArt = image
                 cachedAlbumArt[trackId] = image  // Cache for this track
-                lastAlbumArt = image  // Update last displayed art
                 print("🎵 MediaRemoteService: Album art decoded and cached (\(data.count) bytes)")
             } else {
                 print("⚠️ MediaRemoteService: Failed to decode/create album art")
             }
         } else {
-            // No album art in payload - try to use cached version
+            // No album art in payload - try to use cached version for THIS track only
             if let cached = cachedAlbumArt[trackId] {
                 albumArt = cached
-                lastAlbumArt = cached
                 print("🎵 MediaRemoteService: Using cached album art for \(title)")
             } else {
-                // No cached art for this track - use last displayed art during transition
-                if let lastArt = lastAlbumArt {
-                    albumArt = lastArt
-                    print("🎵 MediaRemoteService: Using last album art during transition for \(title)")
-                } else {
-                    print("⚠️ MediaRemoteService: No album art in payload, cache, or last display")
-                }
+                // No cached art for this track - leave as nil (don't show previous track's art)
+                print("⚠️ MediaRemoteService: No album art available for \(title)")
             }
         }
 
