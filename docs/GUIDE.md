@@ -446,7 +446,7 @@ Currently, Aegis uses system accent colors and a dark theme. Custom themes are o
 
 ## Getting Help
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/aegis/issues)
+- **Issues**: [GitHub Issues](https://github.com/CCMurphy-Dev/Aegis/issues)
 - **Yabai Help**: [Yabai Wiki](https://github.com/koekeishiya/yabai/wiki)
 
 ---
