@@ -66,6 +66,7 @@ struct MenuBarView: View {
     @State private var isScrolled: Bool = false
     @State private var draggedWindowId: Int?
     @State private var buttonLabelShowing: Bool = false
+    @State private var previousSpaceCount: Int = 0
 
     init(
         viewModel: MenuBarViewModel,
@@ -160,12 +161,22 @@ struct MenuBarView: View {
                             isScrolled = value < -5
                         }
                         .onChange(of: viewModel.spaces) { newSpaces in
-                            // Auto-scroll to focused space when spaces change
-                            if let focusedSpace = newSpaces.first(where: { $0.focused }) {
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    scrollProxy.scrollTo("\(focusedSpace.id)-\(viewModel.windowIconsVersion)", anchor: .center)
+                            // Only auto-scroll when spaces are added/removed (count changes)
+                            // Don't auto-scroll when just switching focus - preserve user's scroll position
+                            let newCount = newSpaces.count
+                            if newCount != previousSpaceCount {
+                                previousSpaceCount = newCount
+                                // Scroll to newly focused space when spaces change
+                                if let focusedSpace = newSpaces.first(where: { $0.focused }) {
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        scrollProxy.scrollTo("\(focusedSpace.id)-\(viewModel.windowIconsVersion)", anchor: .center)
+                                    }
                                 }
                             }
+                        }
+                        .onAppear {
+                            // Initialize the previous space count
+                            previousSpaceCount = viewModel.spaces.count
                         }
                     }
                     .offset(x: -(config.menuBarEdgePadding + config.spaceIndicatorSpacing + 32))  // Extend under button
