@@ -10,16 +10,16 @@ echo "🚀 Setting up Aegis <-> Yabai FIFO pipe integration..."
 # 1. Create config directory
 CONFIG_DIR="$HOME/.config/aegis"
 PIPE_PATH="$CONFIG_DIR/yabai.pipe"
-NOTIFY_SCRIPT="/usr/local/bin/aegis-yabai-notify"
+NOTIFY_SCRIPT="$CONFIG_DIR/aegis-yabai-notify"
 
 echo "📁 Creating config directory at $CONFIG_DIR"
 mkdir -p "$CONFIG_DIR"
 echo "✅ Config directory ready"
 
-# 2. Create the notification script
+# 2. Create the notification script (no sudo required - user directory)
 echo "📝 Creating notification script at $NOTIFY_SCRIPT"
 
-sudo tee "$NOTIFY_SCRIPT" > /dev/null << 'EOF'
+cat > "$NOTIFY_SCRIPT" << 'EOF'
 #!/bin/bash
 # Aegis-Yabai FIFO Pipe Notification Script
 # This script sends yabai event names to Aegis via a FIFO pipe
@@ -37,8 +37,8 @@ fi
 echo "$YABAI_EVENT_TYPE" 2>/dev/null | timeout 0.1s tee "$PIPE_PATH" > /dev/null 2>&1 &
 EOF
 
-# Make it executable
-sudo chmod +x "$NOTIFY_SCRIPT"
+# Make it executable (no sudo needed)
+chmod +x "$NOTIFY_SCRIPT"
 echo "✅ Created notification script"
 
 # 3. Check if yabai is installed
@@ -114,7 +114,7 @@ if [ -f "$YABAIRC" ]; then
 
 # AEGIS_INTEGRATION_START
 # Aegis window manager integration - DO NOT EDIT THIS SECTION
-AEGIS_NOTIFY="/usr/local/bin/aegis-yabai-notify"
+AEGIS_NOTIFY="$HOME/.config/aegis/aegis-yabai-notify"
 yabai -m signal --remove aegis_space_changed 2>/dev/null || true
 yabai -m signal --remove aegis_space_destroyed 2>/dev/null || true
 yabai -m signal --remove aegis_window_focused 2>/dev/null || true
@@ -141,7 +141,7 @@ YABAI_EOF
             cat > "$CONFIG_DIR/yabairc-snippet.sh" << 'SNIPPET_EOF'
 # AEGIS_INTEGRATION_START
 # Aegis window manager integration - add this to your ~/.yabairc
-AEGIS_NOTIFY="/usr/local/bin/aegis-yabai-notify"
+AEGIS_NOTIFY="$HOME/.config/aegis/aegis-yabai-notify"
 yabai -m signal --remove aegis_space_changed 2>/dev/null || true
 yabai -m signal --remove aegis_space_destroyed 2>/dev/null || true
 yabai -m signal --remove aegis_window_focused 2>/dev/null || true

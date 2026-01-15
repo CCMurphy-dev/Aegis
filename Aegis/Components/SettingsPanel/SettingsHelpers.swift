@@ -300,6 +300,74 @@ struct SettingsUpdateButton: View {
     }
 }
 
+/// Yabai setup button for running/re-running yabai integration setup
+struct SettingsYabaiSetupButton: View {
+    @State private var setupStatus: YabaiSetupChecker.SetupStatus = .ready
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Yabai Integration")
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.9))
+
+                Text(statusText)
+                    .font(.system(size: 10))
+                    .foregroundColor(statusColor)
+            }
+
+            Spacer()
+
+            Button(action: {
+                showSetupWindow()
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: setupStatus == .ready ? "checkmark.circle" : "wrench.and.screwdriver")
+                        .font(.system(size: 11, weight: .medium))
+                    Text(setupStatus == .ready ? "Configured" : "Run Setup")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundColor(setupStatus == .ready ? .green : .orange)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(setupStatus == .ready ? Color.green.opacity(0.15) : Color.orange.opacity(0.15))
+                )
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+        .padding(.vertical, 4)
+        .onAppear {
+            setupStatus = YabaiSetupChecker.check()
+        }
+    }
+
+    private var statusText: String {
+        switch setupStatus {
+        case .ready:
+            return "FIFO pipe integration is active"
+        case .yabaiNotInstalled:
+            return "Yabai not installed"
+        case .notifyScriptMissing:
+            return "Setup script not installed"
+        case .signalsNotConfigured:
+            return "Yabai signals not configured"
+        }
+    }
+
+    private var statusColor: Color {
+        setupStatus == .ready ? .green.opacity(0.8) : .orange.opacity(0.8)
+    }
+
+    private func showSetupWindow() {
+        // Get the app delegate to show the setup window
+        if let appDelegate = NSApp.delegate as? AppDelegate {
+            appDelegate.showSetupWindow(status: setupStatus)
+        }
+    }
+}
+
 /// Collapsible section container
 struct SettingsCollapsibleSection<Content: View>: View {
     let title: String

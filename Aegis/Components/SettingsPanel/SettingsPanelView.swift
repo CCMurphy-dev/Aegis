@@ -103,6 +103,9 @@ struct SettingsPanelView: View {
             // Update button
             SettingsUpdateButton(updater: updater)
 
+            // Yabai Setup button
+            SettingsYabaiSetupButton()
+
             SettingsDivider()
 
             // Appearance

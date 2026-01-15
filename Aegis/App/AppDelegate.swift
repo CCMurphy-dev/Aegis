@@ -12,6 +12,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var musicService: MediaService?
     var eventRouter: EventRouter?
 
+    private var setupWindowController: YabaiSetupWindowController?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         let aegisVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
         logInfo("Aegis v\(aegisVersion) starting")
@@ -33,7 +35,56 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Sync launch at login setting with actual system state
         LaunchAtLoginService.shared.syncWithConfig()
 
+        // Check if yabai setup is needed and show setup window
+        checkAndShowSetupIfNeeded()
+
         logInfo("Startup complete")
+    }
+
+    // MARK: - Setup Check
+
+    private func checkAndShowSetupIfNeeded() {
+        // Skip if user has dismissed setup before
+        if UserDefaults.standard.bool(forKey: "aegis.setup.dismissed") {
+            logInfo("Setup check: previously dismissed by user")
+            return
+        }
+
+        let status = YabaiSetupChecker.check()
+
+        // Only show setup window if not ready
+        guard status != .ready else {
+            logInfo("Setup check: yabai integration is ready")
+            return
+        }
+
+        logInfo("Setup check: showing setup window (status: \(status))")
+
+        // Delay slightly to let the app fully launch first
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.showSetupWindow(status: status)
+        }
+    }
+
+    func showSetupWindow(status: YabaiSetupChecker.SetupStatus? = nil) {
+        let currentStatus = status ?? YabaiSetupChecker.check()
+
+        setupWindowController = YabaiSetupWindowController(
+            status: currentStatus,
+            onDismiss: { [weak self] in
+                // Mark as dismissed so we don't show again
+                UserDefaults.standard.set(true, forKey: "aegis.setup.dismissed")
+                self?.setupWindowController = nil
+            },
+            onRetry: { [weak self] in
+                self?.setupWindowController = nil
+                // Re-check after a brief delay
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    self?.checkAndShowSetupIfNeeded()
+                }
+            }
+        )
+        setupWindowController?.showModal()
     }
 
     func applicationWillTerminate(_ notification: Notification) {

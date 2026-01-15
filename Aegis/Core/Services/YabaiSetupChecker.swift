@@ -18,7 +18,10 @@ struct YabaiSetupChecker {
     }
 
     private static let yabaiPath = "/opt/homebrew/bin/yabai"
-    private static let notifyScriptPath = "/usr/local/bin/aegis-yabai-notify"
+    private static var notifyScriptPath: String {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        return "\(home)/.config/aegis/aegis-yabai-notify"
+    }
     private static let saPath = "/Library/ScriptingAdditions/yabai.osax"
     private static let aegisMarker = "AEGIS_INTEGRATION_START"
 
@@ -193,7 +196,7 @@ struct YabaiSetupChecker {
         return """
         # AEGIS_INTEGRATION_START
         # Aegis window manager integration - add this to your ~/.yabairc
-        AEGIS_NOTIFY="/usr/local/bin/aegis-yabai-notify"
+        AEGIS_NOTIFY="$HOME/.config/aegis/aegis-yabai-notify"
         yabai -m signal --remove aegis_space_changed 2>/dev/null || true
         yabai -m signal --remove aegis_space_destroyed 2>/dev/null || true
         yabai -m signal --remove aegis_window_focused 2>/dev/null || true
