@@ -7,8 +7,10 @@ class SystemStatusMonitor: ObservableObject {
     @Published var batteryLevel: Float = 1.0
     @Published var isCharging: Bool = false
     @Published var networkStatus: NetworkStatus = .disconnected
+    @Published var focusStatus: FocusStatus = .disabled
 
     private let batteryMonitor = BatteryStatusMonitor()
+    private let focusMonitor = FocusStatusMonitor()
     private let networkMonitor = NWPathMonitor()
     private let queue = DispatchQueue(label: "SystemStatusMonitorQueue")
 
@@ -16,6 +18,9 @@ class SystemStatusMonitor: ObservableObject {
         // Bind battery monitor
         batteryMonitor.$level.assign(to: &$batteryLevel)
         batteryMonitor.$isCharging.assign(to: &$isCharging)
+
+        // Bind focus monitor
+        focusMonitor.$focusStatus.assign(to: &$focusStatus)
 
         // Setup network monitoring
         networkMonitor.pathUpdateHandler = { [weak self] path in
