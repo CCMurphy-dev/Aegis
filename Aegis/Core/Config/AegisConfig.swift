@@ -206,7 +206,7 @@ class AegisConfig: ObservableObject {
     @Published var enableLayoutActionHaptics: Bool = true
 
     /// Launch Aegis automatically when macOS starts
-    @Published var launchAtLogin: Bool = false {
+    @Published var launchAtLogin: Bool = true {
         didSet {
             LaunchAtLoginService.shared.setLaunchAtLogin(launchAtLogin)
         }
