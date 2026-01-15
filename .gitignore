@@ -24,3 +24,4 @@ credentials.json
 
 # Wiki staging (publish via separate wiki repo)
 wiki/
+default.profraw

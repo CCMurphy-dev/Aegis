@@ -8,6 +8,28 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 0.6.0</title>
+            <sparkle:version>0.6.0</sparkle:version>
+            <sparkle:shortVersionString>0.6.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Wed, 15 Jan 2025 23:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 0.6.0</h2>
+                <ul>
+                    <li><strong>Bluetooth Device HUD</strong> - Shows device name, icon, and battery level when AirPods/headphones connect</li>
+                    <li><strong>Focus Mode HUD</strong> - Notch displays Focus mode name and icon when enabled/disabled</li>
+                    <li><strong>Scroll Fix</strong> - Space indicator scroll position no longer resets when switching spaces</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v0.6.0/Aegis.app.zip"
+                length="1949326"
+                type="application/octet-stream"
+                sparkle:edSignature="/16gxUpD8zkRmAVApyEsp2+KOp9Fsjp4O25oMhL741TZSlJbS4a68+l3k2f3Jr7r54BdUUee57gHssoglBW3Aw==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 0.5.2</title>
             <sparkle:version>0.5.2</sparkle:version>
             <sparkle:shortVersionString>0.5.2</sparkle:shortVersionString>
@@ -28,8 +50,6 @@
                 type="application/octet-stream"
                 sparkle:edSignature="VrEn33QyKqVXhUotzwHN0k1xicLd6MDsQ3oJRjDHiQiyRjk1swTqQsjksbc3bB1FQtmMfDyU/q/1Fy4nWhN4Cg==" />
         </item>
-
-        <!-- Previous Releases -->
         <item>
             <title>Version 0.5.1</title>
             <sparkle:version>0.5.1</sparkle:version>

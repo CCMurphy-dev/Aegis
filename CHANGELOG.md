@@ -5,6 +5,22 @@ All notable changes to Aegis will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2025-01-15
+
+### Added
+- Bluetooth device connection HUD
+  - Shows device name, icon, and battery level when AirPods/headphones connect
+  - Animated battery ring indicator
+  - Separate notifications for connect/disconnect events
+- Focus mode HUD in notch display
+  - Shows Focus mode name and icon when enabled/disabled
+  - Displays specific mode (e.g., "Study / Off") when turning off
+  - Uses actual SF Symbols from Focus configuration
+
+### Fixed
+- Space indicator scroll position no longer resets when switching spaces
+  - Scroll position now preserved when clicking spaces behind the notch
+
 ## [0.5.2] - 2025-01-15
 
 ### Added
