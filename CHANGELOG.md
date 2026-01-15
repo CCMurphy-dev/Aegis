@@ -5,6 +5,17 @@ All notable changes to Aegis will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2025-01-15
+
+### Added
+- Launch at Login setting (enabled by default)
+- Simplified Settings panel with essential settings upfront
+- Collapsible Advanced Settings section for power users
+
+### Changed
+- Settings panel reorganized: ~12 essential settings visible, 70+ advanced options collapsed
+- Removed tab-based navigation in favor of single scrollable view
+
 ## [0.3.0] - 2025-01-14
 
 ### Added
