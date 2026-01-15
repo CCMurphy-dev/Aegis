@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SystemStatusView: View {
-    @StateObject private var statusMonitor = SystemStatusMonitor()
+    @ObservedObject private var statusMonitor = SystemStatusMonitor.shared
     @ObservedObject private var config = AegisConfig.shared
 
     var body: some View {
@@ -17,8 +17,9 @@ struct SystemStatusView: View {
                 }
             } else {
                 // Icon only - use frame width animation with clipping
+                // Width 16 accommodates wider icons like book.fill (Study mode)
                 FocusStatusIconView(focusStatus: statusMonitor.focusStatus)
-                    .frame(width: statusMonitor.focusStatus.isEnabled ? 12 : 0, alignment: .leading)
+                    .frame(width: statusMonitor.focusStatus.isEnabled ? 16 : 0, alignment: .leading)
                     .clipped()
             }
 

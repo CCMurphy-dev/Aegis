@@ -377,6 +377,12 @@ class AegisConfig: ObservableObject {
     /// Delay before auto-hiding device connection HUD (seconds)
     @Published var deviceHUDAutoHideDelay: TimeInterval = 3.0
 
+    /// Show HUD when Focus mode changes
+    @Published var showFocusHUD: Bool = true
+
+    /// Delay before auto-hiding Focus mode HUD (seconds)
+    @Published var focusHUDAutoHideDelay: TimeInterval = 2.0
+
     // MARK: - Notch HUD Icon & Text Settings
 
     /// Font size for notch HUD icons (volume, brightness)
@@ -583,6 +589,8 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(musicHUDAutoHideDelay, forKey: "musicHUDAutoHideDelay")
         UserDefaults.standard.set(showDeviceHUD, forKey: "showDeviceHUD")
         UserDefaults.standard.set(deviceHUDAutoHideDelay, forKey: "deviceHUDAutoHideDelay")
+        UserDefaults.standard.set(showFocusHUD, forKey: "showFocusHUD")
+        UserDefaults.standard.set(focusHUDAutoHideDelay, forKey: "focusHUDAutoHideDelay")
         UserDefaults.standard.set(notchHUDIconSize, forKey: "notchHUDIconSize")
         UserDefaults.standard.set(notchHUDValueFontSize, forKey: "notchHUDValueFontSize")
         UserDefaults.standard.set(notchHUDInnerPadding, forKey: "notchHUDInnerPadding")
@@ -936,6 +944,12 @@ class AegisConfig: ObservableObject {
         if let val = UserDefaults.standard.object(forKey: "deviceHUDAutoHideDelay") as? Double {
             deviceHUDAutoHideDelay = val
         }
+        if let val = UserDefaults.standard.object(forKey: "showFocusHUD") as? Bool {
+            showFocusHUD = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "focusHUDAutoHideDelay") as? Double {
+            focusHUDAutoHideDelay = val
+        }
         if let val = UserDefaults.standard.object(forKey: "notchHUDIconSize") as? Double {
             notchHUDIconSize = CGFloat(val)
         }
@@ -1107,6 +1121,8 @@ class AegisConfig: ObservableObject {
         musicHUDAutoHideDelay = 5.0
         showDeviceHUD = true
         deviceHUDAutoHideDelay = 3.0
+        showFocusHUD = true
+        focusHUDAutoHideDelay = 2.0
         notchHUDIconSize = 13
         notchHUDValueFontSize = 13
         notchHUDInnerPadding = 8

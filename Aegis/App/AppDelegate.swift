@@ -11,6 +11,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var systemInfoService: SystemInfoService?
     var musicService: MediaService?
     var bluetoothService: BluetoothDeviceService?
+    var focusMonitor: FocusStatusMonitor?
     var eventRouter: EventRouter?
 
     private var setupWindowController: YabaiSetupWindowController?
@@ -105,6 +106,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         systemInfoService = SystemInfoService(eventRouter: eventRouter!)
         musicService = MediaService(eventRouter: eventRouter!)
         bluetoothService = BluetoothDeviceService(eventRouter: eventRouter!)
+        focusMonitor = FocusStatusMonitor(eventRouter: eventRouter!)
+
+        // Wire up SystemStatusMonitor.shared to receive focus events
+        // This avoids duplicate file system watchers
+        SystemStatusMonitor.shared.subscribeToFocusEvents(eventRouter: eventRouter!)
+        SystemStatusMonitor.shared.setInitialFocusStatus(focusMonitor!.focusStatus)
     }
 
     // MARK: - Setup Menu Bar
@@ -188,6 +195,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         router.subscribe(to: .bluetoothDeviceDisconnected) { [weak self] data in
             guard let device = data["device"] as? BluetoothDeviceInfo else { return }
             self?.notchHUDController?.showDeviceDisconnected(device: device)
+        }
+
+        router.subscribe(to: .focusChanged) { [weak self] data in
+            let isEnabled = data["isEnabled"] as? Bool ?? false
+            let focusName = data["focusName"] as? String
+            let symbolName = data["symbolName"] as? String
+            let status = FocusStatus(isEnabled: isEnabled, focusName: focusName, symbolName: symbolName)
+            self?.notchHUDController?.showFocusChanged(status: status)
         }
     }
 }

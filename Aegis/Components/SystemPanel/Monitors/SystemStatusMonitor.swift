@@ -10,17 +10,17 @@ class SystemStatusMonitor: ObservableObject {
     @Published var focusStatus: FocusStatus = .disabled
 
     private let batteryMonitor = BatteryStatusMonitor()
-    private let focusMonitor = FocusStatusMonitor()
     private let networkMonitor = NWPathMonitor()
     private let queue = DispatchQueue(label: "SystemStatusMonitorQueue")
 
-    init() {
+    /// Shared instance that subscribes to the app's EventRouter
+    /// This avoids duplicate file system watchers for Focus status
+    static let shared = SystemStatusMonitor()
+
+    private init() {
         // Bind battery monitor
         batteryMonitor.$level.assign(to: &$batteryLevel)
         batteryMonitor.$isCharging.assign(to: &$isCharging)
-
-        // Bind focus monitor
-        focusMonitor.$focusStatus.assign(to: &$focusStatus)
 
         // Setup network monitoring
         networkMonitor.pathUpdateHandler = { [weak self] path in
@@ -29,6 +29,22 @@ class SystemStatusMonitor: ObservableObject {
             }
         }
         networkMonitor.start(queue: queue)
+    }
+
+    /// Subscribe to EventRouter for focus changes
+    /// Called once from AppDelegate after EventRouter is set up
+    func subscribeToFocusEvents(eventRouter: EventRouter) {
+        eventRouter.subscribe(to: .focusChanged) { [weak self] data in
+            let isEnabled = data["isEnabled"] as? Bool ?? false
+            let focusName = data["focusName"] as? String
+            let symbolName = data["symbolName"] as? String
+            self?.focusStatus = FocusStatus(isEnabled: isEnabled, focusName: focusName, symbolName: symbolName)
+        }
+    }
+
+    /// Set initial focus status (called once at startup, before events start flowing)
+    func setInitialFocusStatus(_ status: FocusStatus) {
+        self.focusStatus = status
     }
 
     private func updateNetworkStatus(path: NWPath) {

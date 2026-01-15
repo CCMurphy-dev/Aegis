@@ -14,6 +14,7 @@ enum AppEvent: CaseIterable {
     case bluetoothDeviceConnected
     case bluetoothDeviceDisconnected
     case audioOutputDeviceChanged  // Fired when default audio output changes
+    case focusChanged  // Fired when Focus mode changes (enabled/disabled/switched)
 }
 
 // MARK: - Event Router
