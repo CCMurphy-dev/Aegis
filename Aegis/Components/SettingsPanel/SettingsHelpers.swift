@@ -257,6 +257,49 @@ struct SettingsActionButton: View {
     }
 }
 
+/// Update button for checking for app updates via Sparkle
+struct SettingsUpdateButton: View {
+    @ObservedObject var updater: UpdaterService
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Check for Updates")
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.9))
+
+                Text("Current version: v\(updater.currentVersion)")
+                    .font(.system(size: 10))
+                    .foregroundColor(.white.opacity(0.6))
+            }
+
+            Spacer()
+
+            Button(action: {
+                updater.checkForUpdates()
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 11, weight: .medium))
+                    Text("Check Now")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundColor(.blue)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.blue.opacity(0.15))
+                )
+            }
+            .buttonStyle(PlainButtonStyle())
+            .disabled(!updater.canCheckForUpdates)
+            .opacity(updater.canCheckForUpdates ? 1.0 : 0.5)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
 /// Collapsible section container
 struct SettingsCollapsibleSection<Content: View>: View {
     let title: String

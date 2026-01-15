@@ -4,6 +4,7 @@ import SwiftUI
 /// Simplified view with essential settings and expandable Advanced section
 struct SettingsPanelView: View {
     @ObservedObject var config = AegisConfig.shared
+    @ObservedObject var updater = UpdaterService.shared
     @Environment(\.presentationMode) var presentationMode
 
     @State private var showAdvanced = false
@@ -98,6 +99,9 @@ struct SettingsPanelView: View {
                 description: "Display Focus mode name alongside icon",
                 isOn: $config.showFocusName
             )
+
+            // Update button
+            SettingsUpdateButton(updater: updater)
 
             SettingsDivider()
 

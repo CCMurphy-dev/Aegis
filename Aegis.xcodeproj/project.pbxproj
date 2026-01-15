@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		833A42582F1921F7006F4B26 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 83SPARKLE022F15000000002 /* Sparkle */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		83DF29CF2F13893700C8A7A1 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -71,6 +75,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				833A42582F1921F7006F4B26 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -131,6 +136,7 @@
 			);
 			name = Aegis;
 			packageProductDependencies = (
+				83SPARKLE022F15000000002 /* Sparkle */,
 			);
 			productName = Aegis;
 			productReference = 83DF29BF2F13893600C8A7A1 /* Aegis.app */;
@@ -208,6 +214,9 @@
 			);
 			mainGroup = 83DF29B62F13893600C8A7A1;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				83SPARKLE012F15000000001 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 83DF29C02F13893600C8A7A1 /* Products */;
 			projectDirPath = "";
@@ -444,7 +453,8 @@
 					"$(PROJECT_DIR)/Aegis/Resources/Libs",
 					"$(PROJECT_DIR)/Aegis/Resources",
 				);
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Aegis/Info.plist";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -484,7 +494,8 @@
 					"$(PROJECT_DIR)/Aegis/Resources/Libs",
 					"$(PROJECT_DIR)/Aegis/Resources",
 				);
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Aegis/Info.plist";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -624,6 +635,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		83SPARKLE012F15000000001 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.6.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		83SPARKLE022F15000000002 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 83SPARKLE012F15000000001 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 83DF29B72F13893600C8A7A1 /* Project object */;
 }

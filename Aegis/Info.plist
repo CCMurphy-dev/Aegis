@@ -26,5 +26,13 @@
     <string>Aegis needs accessibility access to display the menu bar and notch HUD</string>
     <key>LSUIElement</key>
     <true/>
+
+    <!-- Sparkle Update Configuration -->
+    <key>SUFeedURL</key>
+    <string>https://raw.githubusercontent.com/CCMurphy-Dev/Aegis/main/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>sSDyUFMilvP5XcNnCpxccfrYe5R+UEqIKe+NG8zzW1I=</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
 </dict>
 </plist>
