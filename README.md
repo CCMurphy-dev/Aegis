@@ -8,6 +8,9 @@ Inspired by [Barik](https://github.com/mocki-toki/barik) and [Mew-Notch](https:/
 ![Swift](https://img.shields.io/badge/Swift-5.9-orange)
 ![Yabai](https://img.shields.io/badge/Yabai-Required-green)
 ![Version](https://img.shields.io/badge/version-0.2.3-brightgreen)
+[GitHub release](https://img.shields.io/github/v/release/yourusername/Aegis)
+![GitHub commits](https://img.shields.io/github/commits-since/yourusername/Aegis/v0.3.0)
+
 
 ## Features
 
@@ -81,10 +84,10 @@ Follow the [Yabai wiki](https://github.com/koekeishiya/yabai/wiki) for initial s
 
 ### 2. Install Aegis
 
-Download the latest release from the [Releases](https://github.com/yourusername/aegis/releases) page, or build from source:
+Download the latest release from the [Releases](https://github.com/aegis/releases) page, or build from source:
 
 ```bash
-git clone https://github.com/yourusername/aegis.git
+git clone https://github.com/aegis.git
 cd aegis
 open Aegis.xcodeproj
 # Build and run in Xcode
