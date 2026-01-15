@@ -9,7 +9,7 @@
         <!-- Latest Release -->
         <item>
             <title>Version 0.5.1</title>
-            <sparkle:version>3</sparkle:version>
+            <sparkle:version>0.5.1</sparkle:version>
             <sparkle:shortVersionString>0.5.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <pubDate>Wed, 15 Jan 2025 00:00:00 +0000</pubDate>
@@ -23,15 +23,15 @@
             ]]></description>
             <enclosure
                 url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v0.5.1/Aegis.app.zip"
-                length="1836748"
+                length="1836760"
                 type="application/octet-stream"
-                sparkle:edSignature="K0xt36HhF7FSZi0JON96NH7cyGVfIJSpR1ze42LIyXh6WiTgjI0GYNqPeYLFoZpj/xFiDKW9sclV+CCv7H92Ag==" />
+                sparkle:edSignature="SakJidRrjJxvbRmEvpwgeqp+IMQwuhAt8RsIewriR5XK1OmDmflkHQm1x6LvoLDrsqgY3M3Ka7woFrLBHlzmCQ==" />
         </item>
 
         <!-- Previous Releases -->
         <item>
             <title>Version 0.5.0</title>
-            <sparkle:version>2</sparkle:version>
+            <sparkle:version>0.5.0</sparkle:version>
             <sparkle:shortVersionString>0.5.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <pubDate>Wed, 15 Jan 2025 00:00:00 +0000</pubDate>
@@ -52,7 +52,7 @@
 
         <item>
             <title>Version 0.4.0</title>
-            <sparkle:version>1</sparkle:version>
+            <sparkle:version>0.4.0</sparkle:version>
             <sparkle:shortVersionString>0.4.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <pubDate>Wed, 15 Jan 2025 00:00:00 +0000</pubDate>

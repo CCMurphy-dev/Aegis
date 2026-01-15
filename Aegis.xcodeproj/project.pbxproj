@@ -271,7 +271,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "# Read version from VERSION file and sync to Info.plist\nVERSION=$(cat \"${SRCROOT}/VERSION\" | tr -d '[:space:]')\nif [ -n \"$VERSION\" ]; then\n    # Update the built app's Info.plist\n    /usr/libexec/PlistBuddy -c \"Set :CFBundleShortVersionString $VERSION\" \"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\" 2>/dev/null || true\n    # Also update the source Info.plist to keep them in sync\n    /usr/libexec/PlistBuddy -c \"Set :CFBundleShortVersionString $VERSION\" \"${SRCROOT}/Aegis/Info.plist\" 2>/dev/null || true\nfi\n";
+			shellScript = "# Read version from VERSION file and sync to Info.plist\nVERSION=$(cat \"${SRCROOT}/VERSION\" | tr -d '[:space:]')\nif [ -n \"$VERSION\" ]; then\n    # Update the built app's Info.plist (both version strings)\n    /usr/libexec/PlistBuddy -c \"Set :CFBundleShortVersionString $VERSION\" \"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\" 2>/dev/null || true\n    /usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $VERSION\" \"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\" 2>/dev/null || true\n    # Also update the source Info.plist to keep them in sync\n    /usr/libexec/PlistBuddy -c \"Set :CFBundleShortVersionString $VERSION\" \"${SRCROOT}/Aegis/Info.plist\" 2>/dev/null || true\n    /usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $VERSION\" \"${SRCROOT}/Aegis/Info.plist\" 2>/dev/null || true\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
