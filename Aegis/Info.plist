@@ -29,7 +29,7 @@
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUFeedURL</key>
-	<string>https://raw.githubusercontent.com/CCMurphy-Dev/Aegis/main/appcast.xml</string>
+	<string>https://raw.githubusercontent.com/CCMurphy-Dev/Aegis/main/Distribution/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>UyhEw6f6ji8ECuxiOBkRrqBLnn7U09L0WGlyw/s966w=</string>
 </dict>
