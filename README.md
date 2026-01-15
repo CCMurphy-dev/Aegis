@@ -57,8 +57,8 @@ open Aegis.xcodeproj
 ## Documentation
 
 - **[User Guide](docs/GUIDE.md)** - Full documentation, configuration, and troubleshooting
-- **[Architecture](ARCHITECTURE.md)** - Technical overview for developers
 - **[Changelog](CHANGELOG.md)** - Version history
+- **[Architecture](docs/ARCHITECTURE.md)** - Technical overview for developers
 
 ## License
 
