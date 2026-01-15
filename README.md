@@ -4,8 +4,8 @@ A macOS menu bar replacement for [Yabai](https://github.com/koekeishiya/yabai) w
 
 ![macOS 14.0+](https://img.shields.io/badge/macOS-14.0+-blue)
 ![Swift](https://img.shields.io/badge/Swift-5.9-orange)
-![Yabai](https://img.shields.io/badge/Yabai-Required-green)
-![GitHub release](https://img.shields.io/github/v/release/CCMurphy-Dev/Aegis)
+[![Yabai](https://img.shields.io/badge/Yabai-Required-green)](https://github.com/asmvik/yabai)
+[![GitHub release](https://img.shields.io/github/v/release/CCMurphy-Dev/Aegis)](https://github.com/CCMurphy-Dev/Aegis/releases)
 [![Downloads](https://img.shields.io/github/downloads/CCMurphy-Dev/Aegis/total)](https://github.com/CCMurphy-Dev/Aegis/releases)
 
 *Screenshot coming soon*
