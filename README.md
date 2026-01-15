@@ -6,7 +6,7 @@ A macOS menu bar replacement for [Yabai](https://github.com/koekeishiya/yabai) w
 ![Swift](https://img.shields.io/badge/Swift-5.9-orange)
 ![Yabai](https://img.shields.io/badge/Yabai-Required-green)
 ![GitHub release](https://img.shields.io/github/v/release/CCMurphy-Dev/Aegis)
-[![Downloads](https://img.shields.io/github/downloads/CCMurphy-Dev/Aegis/total.svg)](https://github.com/CCMurphy-Dev/Aegis/releases)
+![Downloads](https://img.shields.io/github/downloads/CCMurphy-Dev/Aegis/total)
 
 *Screenshot coming soon*
 
