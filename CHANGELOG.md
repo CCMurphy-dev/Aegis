@@ -5,6 +5,13 @@ All notable changes to Aegis will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2025-01-15
+
+### Fixed
+- Version numbers now display correctly across the app (startup notification, context menu, settings panel)
+- Sparkle update window now appears above the Settings panel
+- Auto-sync version from VERSION file to Info.plist on build
+
 ## [0.5.0] - 2025-01-15
 
 ### Added
