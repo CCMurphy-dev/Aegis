@@ -21,3 +21,6 @@ credentials.json
 
 # Sparkle signing keys (KEEP PRIVATE KEY SECURE!)
 .sparkle-keys/sparkle_private.pem
+
+# Wiki staging (publish via separate wiki repo)
+wiki/

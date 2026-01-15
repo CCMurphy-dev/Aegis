@@ -26,6 +26,8 @@
 	<string>Aegis needs accessibility access to display the menu bar and notch HUD</string>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Aegis needs to control Music.app and monitor system state</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Aegis displays notifications when Bluetooth devices connect or disconnect</string>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUFeedURL</key>

@@ -18,9 +18,20 @@ struct MusicHUDView: View {
         viewModel.info
     }
 
-    // Fixed max width for both side containers (ensures symmetry for centering)
+    // Panel widths - match Volume/Brightness HUD for consistency
+    // Left side (album art): fixed square size
+    private var leftPanelWidth: CGFloat {
+        notchDimensions.height
+    }
+
+    // Right side (visualizer or track info): match progress bar width
+    private var rightPanelWidth: CGFloat {
+        config.notchHUDProgressBarWidth + 16
+    }
+
+    // Use symmetric max width for centering (same pattern as MinimalHUDWrapper)
     private var sideMaxWidth: CGFloat {
-        notchDimensions.height * 4
+        max(leftPanelWidth, rightPanelWidth)
     }
 
     // How far the black background extends into the notch area to fill the gap
@@ -45,13 +56,9 @@ struct MusicHUDView: View {
         return config.musicHUDRightPanelMode == .trackInfo
     }
 
-    // Right side content width (dynamic)
+    // Right side content width (fixed to match progress bar)
     private var rightContentWidth: CGFloat {
-        if shouldShowTrackInfo {
-            return calculateTrackInfoWidth()
-        } else {
-            return notchDimensions.height
-        }
+        rightPanelWidth
     }
 
     var body: some View {
@@ -115,17 +122,18 @@ struct MusicHUDView: View {
                 // Right content container - shows visualizer or track info based on config
                 // Hidden when overlay HUD (volume/brightness) is active
                 HStack(spacing: 0) {
-                    Group {
-                        if shouldShowTrackInfo {
-                            TrackInfoView(info: info)
-                        } else {
-                            MusicVisualizerView(isPlaying: info.isPlaying)
-                        }
+                    if shouldShowTrackInfo {
+                        // Track info: left-aligned
+                        TrackInfoView(info: info)
+                            .frame(width: rightContentWidth, height: notchDimensions.height)
+                        Spacer(minLength: 0)
+                    } else {
+                        // Visualizer: centered
+                        MusicVisualizerView(isPlaying: info.isPlaying)
+                            .frame(width: rightContentWidth, height: notchDimensions.height)
                     }
-                    .frame(width: rightContentWidth, height: notchDimensions.height)
-                    Spacer(minLength: 0)
                 }
-                .frame(width: sideMaxWidth, alignment: .leading)
+                .frame(width: sideMaxWidth, alignment: shouldShowTrackInfo ? .leading : .center)
                 .opacity(showRightPanel ? 1 : 0)
                 .offset(x: showRightPanel ? 0 : -notchDimensions.width / 2)
                 .animation(.spring(response: 0.25, dampingFraction: 0.8), value: shouldShowTrackInfo)
@@ -167,24 +175,6 @@ struct MusicHUDView: View {
         .onReceive(NotificationCenter.default.publisher(for: .musicHUDToggleDisplay)) { _ in
             toggleTrackInfoDisplay()
         }
-    }
-
-    /// Calculate the width needed for track info based on text content
-    private func calculateTrackInfoWidth() -> CGFloat {
-        let titleFont = NSFont.systemFont(ofSize: 11, weight: .medium)
-        let artistFont = NSFont.systemFont(ofSize: 9, weight: .regular)
-
-        let titleWidth = info.title.width(using: titleFont)
-        let artistWidth = info.artist.width(using: artistFont)
-
-        let textWidth = max(titleWidth, artistWidth)
-
-        // Add padding and clamp to reasonable bounds
-        let paddedWidth = textWidth + 16
-        let minWidth = notchDimensions.height  // At least as wide as visualizer
-        let maxWidth = sideMaxWidth  // Max width of container
-
-        return min(max(paddedWidth, minWidth), maxWidth)
     }
 
     /// Toggle between visualizer and track info display (user-initiated)
@@ -534,10 +524,3 @@ extension Array {
     }
 }
 
-// Helper extension for string width measurement
-private extension String {
-    func width(using font: NSFont) -> CGFloat {
-        let attributes = [NSAttributedString.Key.font: font]
-        return (self as NSString).size(withAttributes: attributes).width
-    }
-}

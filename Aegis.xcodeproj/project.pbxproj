@@ -454,7 +454,7 @@
 					"$(PROJECT_DIR)/Aegis/Resources",
 				);
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = "Aegis/Info.plist";
+				INFOPLIST_FILE = Aegis/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -495,7 +495,7 @@
 					"$(PROJECT_DIR)/Aegis/Resources",
 				);
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = "Aegis/Info.plist";
+				INFOPLIST_FILE = Aegis/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

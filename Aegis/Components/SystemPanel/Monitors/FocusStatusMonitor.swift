@@ -17,14 +17,20 @@ class FocusStatusMonitor: ObservableObject {
 
     private var directoryMonitorSource: DispatchSourceFileSystemObject?
     private var directoryDescriptor: Int32 = -1
+    private weak var eventRouter: EventRouter?
+
+    /// Tracks the last active focus mode so we can show which one was disabled
+    private var lastActiveFocus: (name: String?, symbol: String?)?
 
     private let dndDirectory = NSHomeDirectory() + "/Library/DoNotDisturb/DB"
     private let assertionsPath = NSHomeDirectory() + "/Library/DoNotDisturb/DB/Assertions.json"
     private let modeConfigPath = NSHomeDirectory() + "/Library/DoNotDisturb/DB/ModeConfigurations.json"
 
-    init() {
-        // Initial check
-        updateFocusStatus()
+    init(eventRouter: EventRouter? = nil) {
+        self.eventRouter = eventRouter
+
+        // Initial check (don't publish event on init - only on changes)
+        updateFocusStatus(publishEvent: false)
 
         // Monitor the DoNotDisturb/DB directory for any changes
         // This is more reliable than monitoring individual files
@@ -53,7 +59,7 @@ class FocusStatusMonitor: ObservableObject {
         directoryMonitorSource?.setEventHandler { [weak self] in
             // Small delay to ensure file writes are complete
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                self?.updateFocusStatus()
+                self?.updateFocusStatus(publishEvent: true)
             }
         }
 
@@ -75,7 +81,7 @@ class FocusStatusMonitor: ObservableObject {
 
     // MARK: - Status Updates
 
-    private func updateFocusStatus() {
+    private func updateFocusStatus(publishEvent: Bool) {
         var isEnabled = false
         var focusName: String?
         var symbolName: String?
@@ -102,13 +108,36 @@ class FocusStatusMonitor: ObservableObject {
             }
         }
 
-        let newStatus = FocusStatus(isEnabled: isEnabled, focusName: focusName, symbolName: symbolName)
+        // Build status - when disabling, include info about what was disabled
+        let newStatus: FocusStatus
+        if isEnabled {
+            // Store for later when focus is disabled
+            lastActiveFocus = (name: focusName, symbol: symbolName)
+            newStatus = FocusStatus(isEnabled: true, focusName: focusName, symbolName: symbolName)
+        } else {
+            // Include the previous focus info so HUD can show "Study Off" instead of just "Focus Off"
+            newStatus = FocusStatus(
+                isEnabled: false,
+                focusName: lastActiveFocus?.name,
+                symbolName: lastActiveFocus?.symbol
+            )
+        }
+
         if focusStatus != newStatus {
             focusStatus = newStatus
             if isEnabled {
                 logInfo("Focus enabled: \(focusName ?? "Unknown") (symbol: \(symbolName ?? "none"))")
             } else {
-                logInfo("Focus disabled")
+                logInfo("Focus disabled: was \(lastActiveFocus?.name ?? "Unknown")")
+            }
+
+            // Publish event for NotchHUDController to pick up
+            if publishEvent {
+                eventRouter?.publish(.focusChanged, data: [
+                    "isEnabled": newStatus.isEnabled,
+                    "focusName": newStatus.focusName as Any,
+                    "symbolName": newStatus.symbolName as Any
+                ])
             }
         }
     }
