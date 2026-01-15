@@ -286,6 +286,12 @@ struct MenuBarSettingsSection: View {
                 isOn: $config.enableLayoutActionHaptics
             )
 
+            SettingsToggle(
+                label: "Launch at Login",
+                description: "Start Aegis automatically when macOS starts",
+                isOn: $config.launchAtLogin
+            )
+
             SettingsDivider()
 
             SettingsSectionHeader(title: "Auto-Hide Delays", icon: "clock")

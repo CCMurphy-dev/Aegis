@@ -205,6 +205,13 @@ class AegisConfig: ObservableObject {
     /// Enable haptic feedback on layout actions
     @Published var enableLayoutActionHaptics: Bool = true
 
+    /// Launch Aegis automatically when macOS starts
+    @Published var launchAtLogin: Bool = false {
+        didSet {
+            LaunchAtLoginService.shared.setLaunchAtLogin(launchAtLogin)
+        }
+    }
+
     // MARK: - Behavior Settings - Auto-Hide & Delays
 
     /// Delay before window icon expansion auto-collapses

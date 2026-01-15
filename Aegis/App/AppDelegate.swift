@@ -30,6 +30,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Show startup notification with status
         StartupNotificationService.showStartupNotification()
 
+        // Sync launch at login setting with actual system state
+        LaunchAtLoginService.shared.syncWithConfig()
+
         logInfo("Startup complete")
     }
 
