@@ -5,12 +5,15 @@ import Foundation
 /// Event types that can occur in the app
 enum AppEvent: CaseIterable {
     case spaceChanged
-    case windowsChanged         
+    case windowsChanged
     case volumeChanged
     case brightnessChanged
     case musicPlaybackChanged
     case musicTrackChanged
     case systemStateChanged
+    case bluetoothDeviceConnected
+    case bluetoothDeviceDisconnected
+    case audioOutputDeviceChanged  // Fired when default audio output changes
 }
 
 // MARK: - Event Router

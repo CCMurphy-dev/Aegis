@@ -10,6 +10,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var yabaiService: YabaiService?
     var systemInfoService: SystemInfoService?
     var musicService: MediaService?
+    var bluetoothService: BluetoothDeviceService?
     var eventRouter: EventRouter?
 
     private var setupWindowController: YabaiSetupWindowController?
@@ -103,6 +104,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         yabaiService = YabaiService(eventRouter: eventRouter!)
         systemInfoService = SystemInfoService(eventRouter: eventRouter!)
         musicService = MediaService(eventRouter: eventRouter!)
+        bluetoothService = BluetoothDeviceService(eventRouter: eventRouter!)
     }
 
     // MARK: - Setup Menu Bar
@@ -176,6 +178,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         router.subscribe(to: .musicPlaybackChanged) { [weak self] data in
             guard let info = data["info"] as? MusicInfo else { return }
             self?.notchHUDController?.showMusic(info: info)
+        }
+
+        router.subscribe(to: .bluetoothDeviceConnected) { [weak self] data in
+            guard let device = data["device"] as? BluetoothDeviceInfo else { return }
+            self?.notchHUDController?.showDeviceConnected(device: device)
+        }
+
+        router.subscribe(to: .bluetoothDeviceDisconnected) { [weak self] data in
+            guard let device = data["device"] as? BluetoothDeviceInfo else { return }
+            self?.notchHUDController?.showDeviceDisconnected(device: device)
         }
     }
 }

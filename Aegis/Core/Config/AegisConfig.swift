@@ -369,6 +369,14 @@ class AegisConfig: ObservableObject {
     /// Delay before auto-hiding music HUD (seconds)
     @Published var musicHUDAutoHideDelay: TimeInterval = 5.0
 
+    // MARK: - Device Connection HUD Settings
+
+    /// Show HUD when Bluetooth devices connect/disconnect
+    @Published var showDeviceHUD: Bool = true
+
+    /// Delay before auto-hiding device connection HUD (seconds)
+    @Published var deviceHUDAutoHideDelay: TimeInterval = 3.0
+
     // MARK: - Notch HUD Icon & Text Settings
 
     /// Font size for notch HUD icons (volume, brightness)
@@ -573,6 +581,8 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(musicHUDRightPanelMode.rawValue, forKey: "musicHUDRightPanelMode")
         UserDefaults.standard.set(musicHUDAutoHide, forKey: "musicHUDAutoHide")
         UserDefaults.standard.set(musicHUDAutoHideDelay, forKey: "musicHUDAutoHideDelay")
+        UserDefaults.standard.set(showDeviceHUD, forKey: "showDeviceHUD")
+        UserDefaults.standard.set(deviceHUDAutoHideDelay, forKey: "deviceHUDAutoHideDelay")
         UserDefaults.standard.set(notchHUDIconSize, forKey: "notchHUDIconSize")
         UserDefaults.standard.set(notchHUDValueFontSize, forKey: "notchHUDValueFontSize")
         UserDefaults.standard.set(notchHUDInnerPadding, forKey: "notchHUDInnerPadding")
@@ -920,6 +930,12 @@ class AegisConfig: ObservableObject {
         if let val = UserDefaults.standard.object(forKey: "musicHUDAutoHideDelay") as? Double {
             musicHUDAutoHideDelay = val
         }
+        if let val = UserDefaults.standard.object(forKey: "showDeviceHUD") as? Bool {
+            showDeviceHUD = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "deviceHUDAutoHideDelay") as? Double {
+            deviceHUDAutoHideDelay = val
+        }
         if let val = UserDefaults.standard.object(forKey: "notchHUDIconSize") as? Double {
             notchHUDIconSize = CGFloat(val)
         }
@@ -1089,6 +1105,8 @@ class AegisConfig: ObservableObject {
         musicHUDRightPanelMode = .visualizer
         musicHUDAutoHide = false
         musicHUDAutoHideDelay = 5.0
+        showDeviceHUD = true
+        deviceHUDAutoHideDelay = 3.0
         notchHUDIconSize = 13
         notchHUDValueFontSize = 13
         notchHUDInnerPadding = 8

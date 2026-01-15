@@ -22,7 +22,15 @@ class SystemInfoService {
 
     // Track previous non-zero volume to detect mute via volume = 0
     private var previousNonZeroVolume: Float = 0.5
-    
+
+    // For Bluetooth devices that don't expose volume - track estimated volume
+    private var estimatedBluetoothVolume: Float = 0.5
+    private var estimatedBluetoothMuted: Bool = false
+    private var deviceSupportsVolumeProperty = true
+
+    // Suppress volume events briefly after device switch to avoid spurious HUD displays
+    private var suppressVolumeEventsUntil: Date = .distantPast
+
     init(eventRouter: EventRouter) {
         self.eventRouter = eventRouter
 
@@ -30,10 +38,35 @@ class SystemInfoService {
         suppressNativeHUD()
 
         // Start monitoring
+        setupDefaultDeviceChangeMonitoring()
         setupVolumeMonitoring()
         setupBrightnessMonitoring()
         setupBatteryMonitoring()
         setupKeyEventMonitoring()
+    }
+
+    // MARK: - Default Device Change Monitoring
+
+    private func setupDefaultDeviceChangeMonitoring() {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        AudioObjectAddPropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            DispatchQueue.main
+        ) { [weak self] _, _ in
+            print("🔊 Default audio output device changed - re-registering volume listener")
+            // Suppress volume events for 1 second to avoid spurious HUD (e.g., mute animation on disconnect)
+            self?.suppressVolumeEventsUntil = Date().addingTimeInterval(1.0)
+            self?.setupVolumeMonitoring()
+
+            // Notify other services that audio output changed (used by BluetoothDeviceService to detect disconnects faster)
+            self?.eventRouter.publish(.audioOutputDeviceChanged, data: [:])
+        }
     }
     
     // Suppress the native macOS HUD overlays
@@ -80,21 +113,42 @@ class SystemInfoService {
         )
 
         guard status == noErr else {
+            print("🔊 setupVolumeMonitoring: Failed to get default output device")
             return
         }
 
         audioDeviceID = deviceID
+        print("🔊 setupVolumeMonitoring: Using audio device ID \(deviceID)")
+
+        // Check what properties this device supports
+        var volumeAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyVolumeScalar,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        let hasVolumeProperty = AudioObjectHasProperty(audioDeviceID, &volumeAddress)
+        deviceSupportsVolumeProperty = hasVolumeProperty
+        print("🔊 setupVolumeMonitoring: Device has volume property: \(hasVolumeProperty)")
+
+        // If switching to a device without volume property, reset estimated volume
+        if !hasVolumeProperty {
+            estimatedBluetoothVolume = 0.5  // Start at 50%
+            print("🔊 setupVolumeMonitoring: Using estimated volume for Bluetooth device")
+        }
 
         // Register for volume change notifications
         address.mSelector = kAudioDevicePropertyVolumeScalar
         address.mScope = kAudioDevicePropertyScopeOutput
 
-        AudioObjectAddPropertyListenerBlock(
-            audioDeviceID,
-            &address,
-            DispatchQueue.main
-        ) { [weak self] _, _ in
-            self?.volumeDidChange()
+        if hasVolumeProperty {
+            AudioObjectAddPropertyListenerBlock(
+                audioDeviceID,
+                &address,
+                DispatchQueue.main
+            ) { [weak self] _, _ in
+                self?.volumeDidChange()
+            }
         }
 
         // Register for mute change notifications
@@ -123,12 +177,42 @@ class SystemInfoService {
             }
         }
 
-        // Get initial volume
-        volumeDidChange()
+        // For Bluetooth devices that don't expose volume property,
+        // we need to rely on key event monitoring (handleMediaKeyEvent)
+        // Get initial volume state (but don't publish event - avoid HUD on device switch)
+        updateCurrentVolumeState()
+    }
+
+    /// Update internal volume state without publishing event (used during device setup)
+    private func updateCurrentVolumeState() {
+        guard let volume = getCurrentVolume() else {
+            print("🔊 updateCurrentVolumeState: Failed to get volume for device \(audioDeviceID)")
+            return
+        }
+
+        let isMuted = getIsMuted()
+        currentState.volume = volume
+        currentState.isMuted = isMuted
+
+        if volume > 0.01 {
+            previousNonZeroVolume = volume
+        }
+
+        print("🔊 updateCurrentVolumeState: volume=\(volume), muted=\(isMuted) (no HUD)")
     }
 
     private func volumeDidChange() {
-        guard let volume = getCurrentVolume() else { return }
+        // Check if we're in suppression window (e.g., device just changed)
+        if Date() < suppressVolumeEventsUntil {
+            print("🔊 volumeDidChange: Suppressed (device switch in progress)")
+            return
+        }
+
+        guard let volume = getCurrentVolume() else {
+            print("🔊 volumeDidChange: Failed to get current volume for device \(audioDeviceID)")
+            return
+        }
+        print("🔊 volumeDidChange: volume=\(volume) for device \(audioDeviceID)")
 
         // Check hardware mute first
         let isMuted = getIsMuted()
@@ -303,20 +387,45 @@ class SystemInfoService {
         let keyPressed = ((keyFlags & 0xFF00) >> 8) == 0xA
         let keyRepeat = (keyFlags & 0x1) == 0x1
 
+        print("🔊 handleMediaKeyEvent: keyCode=\(keyCode), keyPressed=\(keyPressed), keyRepeat=\(keyRepeat)")
+
         // Only respond to key press (not release) and not repeats
         guard keyPressed && !keyRepeat else {
             return
         }
 
-        // Key codes: 0 = vol up, 1 = vol down, 2 = brightness up, 3 = brightness down
+        // Key codes: 0 = vol up, 1 = vol down, 2 = brightness up, 3 = brightness down, 7 = mute
         switch keyCode {
         case 0, 1:  // Volume up/down
-            // Trigger volumeDidChange which will read current volume and publish event
-            // This ensures HUD shows even if volume didn't change (at max/min)
-            DispatchQueue.main.async {
-                self.volumeDidChange()
+            print("🔊 handleMediaKeyEvent: Volume key detected (deviceSupportsVolume: \(deviceSupportsVolumeProperty))")
+
+            if deviceSupportsVolumeProperty {
+                // Normal path - read actual volume from CoreAudio
+                DispatchQueue.main.async {
+                    self.volumeDidChange()
+                }
+            } else {
+                // Bluetooth device without volume property - estimate volume
+                DispatchQueue.main.async {
+                    self.handleBluetoothVolumeKey(isVolumeUp: keyCode == 0)
+                }
+            }
+        case 7:  // Mute toggle
+            print("🔊 handleMediaKeyEvent: Mute key detected (deviceSupportsVolume: \(deviceSupportsVolumeProperty))")
+
+            if deviceSupportsVolumeProperty {
+                // Normal path - read actual mute state from CoreAudio
+                DispatchQueue.main.async {
+                    self.volumeDidChange()
+                }
+            } else {
+                // Bluetooth device - toggle mute state
+                DispatchQueue.main.async {
+                    self.handleBluetoothMuteKey()
+                }
             }
         case 2, 3:  // Brightness up/down
+            print("🔊 handleMediaKeyEvent: Brightness key detected, triggering brightnessDidChange")
             // Trigger brightnessDidChange which will read current brightness and publish event
             DispatchQueue.main.async {
                 self.brightnessDidChange()
@@ -324,6 +433,42 @@ class SystemInfoService {
         default:
             break
         }
+    }
+
+    /// Handle volume key press for Bluetooth devices that don't expose volume property
+    private func handleBluetoothVolumeKey(isVolumeUp: Bool) {
+        // macOS typically changes volume by ~6.25% per key press (1/16th)
+        let volumeStep: Float = 0.0625
+
+        if isVolumeUp {
+            estimatedBluetoothVolume = min(1.0, estimatedBluetoothVolume + volumeStep)
+        } else {
+            estimatedBluetoothVolume = max(0.0, estimatedBluetoothVolume - volumeStep)
+        }
+
+        print("🔊 handleBluetoothVolumeKey: \(isVolumeUp ? "UP" : "DOWN") -> estimated volume: \(estimatedBluetoothVolume)")
+
+        // Unmute if adjusting volume while muted
+        if estimatedBluetoothMuted {
+            estimatedBluetoothMuted = false
+        }
+
+        // Publish volume event with estimated value
+        currentState.volume = estimatedBluetoothVolume
+        currentState.isMuted = false
+        eventRouter.publish(.volumeChanged, data: ["level": estimatedBluetoothVolume, "isMuted": false])
+    }
+
+    /// Handle mute key press for Bluetooth devices
+    private func handleBluetoothMuteKey() {
+        estimatedBluetoothMuted.toggle()
+
+        print("🔊 handleBluetoothMuteKey: muted = \(estimatedBluetoothMuted)")
+
+        currentState.isMuted = estimatedBluetoothMuted
+        // When muted, show level as 0; when unmuted, show the estimated volume
+        let displayLevel: Float = estimatedBluetoothMuted ? 0.0 : estimatedBluetoothVolume
+        eventRouter.publish(.volumeChanged, data: ["level": displayLevel, "isMuted": estimatedBluetoothMuted])
     }
 
     // Public getters
