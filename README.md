@@ -17,6 +17,7 @@ A macOS menu bar replacement for [Yabai](https://github.com/koekeishiya/yabai) w
 - **Notch HUD** - Volume, brightness, and now-playing music with smooth animations
 - **System status** - Battery, WiFi, Focus mode, clock in the menu bar
 - **Customizable** - Simple settings panel with advanced options
+- **Auto-updates** - Built-in update checking via Sparkle
 
 ## Quick Start
 
@@ -69,6 +70,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 - [Yabai](https://github.com/koekeishiya/yabai) - Tiling window manager
 - [skhd](https://github.com/koekeishiya/skhd) - Hotkey daemon
+- [Sparkle](https://github.com/sparkle-project/Sparkle) - Auto-update framework
 - [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) - Music integration
 - [Barik](https://github.com/mocki-toki/barik) & [Mew-Notch](https://github.com/monuk7735/mew-notch) - Inspiration
 
