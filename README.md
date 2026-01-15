@@ -15,7 +15,7 @@ A macOS menu bar replacement for [Yabai](https://github.com/koekeishiya/yabai) w
 - **Layout controls** - Rotate, flip, balance, stack windows via scroll wheel or menu
 - **Notch HUD** - Volume, brightness, and now-playing music with smooth animations
 - **System status** - Battery, WiFi, clock in the menu bar
-- **100+ settings** - Fully customizable appearance and behavior
+- **Customizable** - Simple settings panel with advanced options
 
 ## Quick Start
 
