@@ -8,6 +8,28 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 0.5.1</title>
+            <sparkle:version>3</sparkle:version>
+            <sparkle:shortVersionString>0.5.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Wed, 15 Jan 2025 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 0.5.1</h2>
+                <ul>
+                    <li><strong>Version Display Fix</strong> - Version numbers now display correctly across the app</li>
+                    <li><strong>Sparkle Window Fix</strong> - Update window now appears above the Settings panel</li>
+                    <li><strong>Build Improvement</strong> - Auto-sync version from VERSION file on build</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v0.5.1/Aegis.app.zip"
+                length="1836748"
+                type="application/octet-stream"
+                sparkle:edSignature="K0xt36HhF7FSZi0JON96NH7cyGVfIJSpR1ze42LIyXh6WiTgjI0GYNqPeYLFoZpj/xFiDKW9sclV+CCv7H92Ag==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 0.5.0</title>
             <sparkle:version>2</sparkle:version>
             <sparkle:shortVersionString>0.5.0</sparkle:shortVersionString>
@@ -28,7 +50,6 @@
                 sparkle:edSignature="sLNKsNTt7vOQKd9rt99xRKWHWsgL3+W9TzZeTM0+4ciDjEg4leV7FRbBN09WYE/zpiIguVXmfDBmMztWRo+JBg==" />
         </item>
 
-        <!-- Previous Release -->
         <item>
             <title>Version 0.4.0</title>
             <sparkle:version>1</sparkle:version>
