@@ -39,11 +39,15 @@ cd Aegis
 open Aegis.xcodeproj
 ```
 
-### 3. Run Setup
+### 3. Run Setup (Optional)
+
+On first launch, Aegis will prompt you to run the setup if needed. Alternatively, run manually:
 
 ```bash
-/Applications/Aegis.app/Contents/Resources/setup-aegis-yabai.sh
+~/.config/aegis/setup-aegis-yabai.sh
 ```
+
+This configures the FIFO pipe integration for instant space/window updates.
 
 ### 4. Grant Permissions
 

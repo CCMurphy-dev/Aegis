@@ -8,6 +8,29 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 0.5.2</title>
+            <sparkle:version>0.5.2</sparkle:version>
+            <sparkle:shortVersionString>0.5.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Wed, 15 Jan 2025 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 0.5.2</h2>
+                <ul>
+                    <li><strong>Setup Prompt</strong> - First launch shows setup window if yabai integration not configured</li>
+                    <li><strong>Settings Integration</strong> - "Yabai Integration" status button in Settings panel</li>
+                    <li><strong>No Sudo Required</strong> - Notify script moved to ~/.config/aegis/ (no admin privileges needed)</li>
+                    <li><strong>Cleaner Config</strong> - All Aegis files now in ~/.config/aegis/ for easy management</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v0.5.2/Aegis.app.zip"
+                length="1867416"
+                type="application/octet-stream"
+                sparkle:edSignature="VrEn33QyKqVXhUotzwHN0k1xicLd6MDsQ3oJRjDHiQiyRjk1swTqQsjksbc3bB1FQtmMfDyU/q/1Fy4nWhN4Cg==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 0.5.1</title>
             <sparkle:version>0.5.1</sparkle:version>
             <sparkle:shortVersionString>0.5.1</sparkle:shortVersionString>
@@ -27,8 +50,6 @@
                 type="application/octet-stream"
                 sparkle:edSignature="SakJidRrjJxvbRmEvpwgeqp+IMQwuhAt8RsIewriR5XK1OmDmflkHQm1x6LvoLDrsqgY3M3Ka7woFrLBHlzmCQ==" />
         </item>
-
-        <!-- Previous Releases -->
         <item>
             <title>Version 0.5.0</title>
             <sparkle:version>0.5.0</sparkle:version>

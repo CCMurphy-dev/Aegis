@@ -5,6 +5,17 @@ All notable changes to Aegis will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2025-01-15
+
+### Added
+- Setup prompt on first launch when yabai integration not configured
+- "Yabai Integration" status button in Settings panel
+- Setup window with copy command and open Terminal buttons
+
+### Changed
+- Moved notify script from /usr/local/bin to ~/.config/aegis/ (no sudo required)
+- All Aegis config files now in ~/.config/aegis/ for easy management
+
 ## [0.5.1] - 2025-01-15
 
 ### Fixed
