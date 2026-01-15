@@ -5,6 +5,17 @@ All notable changes to Aegis will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-01-15
+
+### Added
+- Focus mode indicator in system status panel
+  - Displays macOS Focus mode icon using actual SF Symbol from user's config
+  - Animated slide in/out matching NotchHUD style
+  - Optional Focus name display alongside icon (configurable in settings)
+- Critical battery indicator (red when ≤10%)
+- Text shadow on battery percentage for improved readability
+- "Show Focus Name" toggle in settings
+
 ## [0.3.2] - 2025-01-15
 
 ### Fixed
