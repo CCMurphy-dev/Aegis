@@ -418,6 +418,9 @@ class AegisConfig: ObservableObject {
     /// Battery level threshold for critical (below this = red/critical)
     @Published var batteryCriticalThreshold: Double = 0.1
 
+    /// Show Focus mode name alongside the symbol
+    @Published var showFocusName: Bool = false
+
     // MARK: - SystemStatus / Date Settings
 
     enum DateFormat: String, CaseIterable {
@@ -587,6 +590,7 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(batteryMediumThreshold, forKey: "batteryMediumThreshold")
         UserDefaults.standard.set(batteryLowThreshold, forKey: "batteryLowThreshold")
         UserDefaults.standard.set(batteryCriticalThreshold, forKey: "batteryCriticalThreshold")
+        UserDefaults.standard.set(showFocusName, forKey: "showFocusName")
         UserDefaults.standard.set(dateFormat.rawValue, forKey: "dateFormat")
     }
 
@@ -963,6 +967,9 @@ class AegisConfig: ObservableObject {
         if let val = UserDefaults.standard.object(forKey: "batteryCriticalThreshold") as? Double {
             batteryCriticalThreshold = val
         }
+        if let val = UserDefaults.standard.object(forKey: "showFocusName") as? Bool {
+            showFocusName = val
+        }
         if let val = UserDefaults.standard.string(forKey: "dateFormat"),
            let format = DateFormat(rawValue: val) {
             dateFormat = format
@@ -1098,6 +1105,7 @@ class AegisConfig: ObservableObject {
         batteryMediumThreshold = 0.5
         batteryLowThreshold = 0.25
         batteryCriticalThreshold = 0.1
+        showFocusName = false
         dateFormat = .long
 
         savePreferences()

@@ -93,6 +93,12 @@ struct SettingsPanelView: View {
                 selection: $config.dateFormat
             )
 
+            SettingsToggle(
+                label: "Show Focus Name",
+                description: "Display Focus mode name alongside icon",
+                isOn: $config.showFocusName
+            )
+
             SettingsDivider()
 
             // Appearance
