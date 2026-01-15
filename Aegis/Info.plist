@@ -31,7 +31,7 @@
     <key>SUFeedURL</key>
     <string>https://raw.githubusercontent.com/CCMurphy-Dev/Aegis/main/appcast.xml</string>
     <key>SUPublicEDKey</key>
-    <string>sSDyUFMilvP5XcNnCpxccfrYe5R+UEqIKe+NG8zzW1I=</string>
+    <string>UyhEw6f6ji8ECuxiOBkRrqBLnn7U09L0WGlyw/s966w=</string>
     <key>SUEnableAutomaticChecks</key>
     <true/>
 </dict>
