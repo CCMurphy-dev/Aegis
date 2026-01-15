@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <channel>
+        <title>Aegis Updates</title>
+        <link>https://github.com/CCMurphy-Dev/Aegis</link>
+        <description>Most recent updates to Aegis</description>
+        <language>en</language>
+
+        <!-- Latest Release -->
+        <item>
+            <title>Version 0.4.0</title>
+            <sparkle:version>1</sparkle:version>
+            <sparkle:shortVersionString>0.4.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Wed, 15 Jan 2025 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 0.4.0</h2>
+                <ul>
+                    <li><strong>Focus Mode Status</strong> - Display active macOS Focus mode in the system status bar with the actual custom icon from your Focus configuration</li>
+                    <li><strong>Optional Focus Name</strong> - Toggle to show Focus mode name alongside the icon</li>
+                    <li><strong>Critical Battery Indicator</strong> - Battery icon turns red when below 10%</li>
+                    <li><strong>Improved Battery Readability</strong> - Text shadow on battery percentage for better visibility</li>
+                    <li><strong>Smooth Animations</strong> - Focus icon slides in/out matching the NotchHUD animation style</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v0.4.0/Aegis.app.zip"
+                length="1093450"
+                type="application/octet-stream"
+                sparkle:edSignature="SIGNATURE_PLACEHOLDER" />
+        </item>
+
+    </channel>
+</rss>
