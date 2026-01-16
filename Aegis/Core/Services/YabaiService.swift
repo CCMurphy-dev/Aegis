@@ -149,8 +149,10 @@ final class YabaiService {
         lastRefreshTime = now
         print("🔄 [DEBUG] refreshAll EXECUTING - source: \(source)")
 
-        await refreshSpaces()
-        await refreshWindows()
+        // Run both queries in parallel for better performance
+        async let spacesTask: () = refreshSpaces()
+        async let windowsTask: () = refreshWindows()
+        _ = await (spacesTask, windowsTask)
     }
 
     private func refreshSpaces() async {
@@ -215,8 +217,11 @@ final class YabaiService {
         let excludedApps = AegisConfig.shared.excludedApps
         return dataQueue.sync {
             windows.values
-                // Filter to only real windows (AXWindow role), exclude popups/panels (AXGroup)
-                .filter { $0.space == spaceIndex && !excludedApps.contains($0.app) && $0.role == "AXWindow" }
+                // Filter to only real windows:
+                // - AXWindow role (exclude popups/panels with AXGroup role)
+                // - AXStandardWindow subrole (exclude dialogs like AXDialog, AXSystemDialog)
+                // - Exception: minimized windows report AXDialog subrole, so allow those
+                .filter { $0.space == spaceIndex && !excludedApps.contains($0.app) && $0.role == "AXWindow" && ($0.subrole == "AXStandardWindow" || $0.isMinimized) }
                 .map { window in
                     WindowIcon(
                         id: window.id,
@@ -226,7 +231,9 @@ final class YabaiService {
                         icon: getAppIcon(for: window.app),
                         frame: window.frame,
                         hasFocus: window.hasFocus,
-                        stackIndex: window.stackIndex
+                        stackIndex: window.stackIndex,
+                        isMinimized: window.isMinimized,
+                        isHidden: window.isHidden
                     )
                 }
                 .sorted { lhs, rhs in
@@ -244,7 +251,7 @@ final class YabaiService {
         let excludedApps = AegisConfig.shared.excludedApps
         return dataQueue.sync {
             let apps = Set(windows.values
-                .filter { $0.space == spaceIndex && !excludedApps.contains($0.app) && $0.role == "AXWindow" }
+                .filter { $0.space == spaceIndex && !excludedApps.contains($0.app) && $0.role == "AXWindow" && $0.subrole == "AXStandardWindow" }
                 .map { $0.app })
             return apps.compactMap { getAppIcon(for: $0) }
         }
@@ -274,6 +281,11 @@ final class YabaiService {
 
     func focusWindow(_ id: Int) {
         Task {
+            // Check if window is minimized - need to deminimize first
+            let isMinimized = dataQueue.sync { windows[id]?.isMinimized ?? false }
+            if isMinimized {
+                try? await command.run(["-m", "window", "--deminimize", "\(id)"])
+            }
             try? await command.run(["-m", "window", "--focus", "\(id)"])
         }
     }

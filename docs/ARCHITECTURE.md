@@ -148,6 +148,35 @@ Aegis/
 
 - **Events Published**: `.musicPlaybackChanged`
 
+#### AppSwitcherService.swift (612 lines)
+- **Purpose**: Custom Cmd+Tab window switcher with space-aware organization
+- **Capabilities**:
+  - Intercept Cmd+Tab via CGEvent tap
+  - Display windows organized by space in a centered overlay
+  - Multiple input methods: keyboard, mouse hover, two-finger scroll
+  - Type-to-filter search while switcher is active
+  - Focus any window via Yabai commands
+
+- **Event Tap**:
+  - Captures keyDown, keyUp, flagsChanged, leftMouseDown
+  - Intercepts Cmd+Tab to activate switcher
+  - Handles Escape to cancel, arrow keys to navigate
+  - Cmd+1-9 for direct window selection
+
+- **Input Methods**:
+  - **Keyboard**: Cmd+Tab/Cmd+Shift+Tab cycles, Cmd+1-9 direct select
+  - **Mouse**: Hover highlights, click confirms selection
+  - **Scroll**: Two-finger scroll cycles with configurable threshold/notched behavior
+
+- **Components**:
+  - `AppSwitcherWindowController`: Manages overlay NSPanel
+  - `AppSwitcherViewModel`: Published state for SwiftUI views
+  - `MouseTrackingNSView`: Efficient mouse/scroll event handling
+
+- **Models**:
+  - `SpaceGroup`: Windows grouped by space index
+  - `SwitcherWindow`: Window info with icon, state (minimized/hidden)
+
 ---
 
 ### 4. MenuBar Component (`Components/MenuBar/`)
@@ -791,6 +820,7 @@ func prepareWindows() {
 | `AegisConfig.swift` | Centralized configuration singleton | 1,045 |
 | `EventRouter.swift` | Pub/sub event bus | 60 |
 | `YabaiService.swift` | Yabai WM integration | 500 |
+| `AppSwitcherService.swift` | Custom Cmd+Tab window switcher | 612 |
 | `MenuBarCoordinator.swift` | Menu bar orchestration | 400+ |
 | `SpaceIndicatorView.swift` | Workspace UI display | 776 |
 | `NotchHUDController.swift` | Notch HUD window management | 310 |

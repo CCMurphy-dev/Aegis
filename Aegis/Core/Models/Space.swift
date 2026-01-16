@@ -36,6 +36,10 @@ struct WindowInfo: Identifiable, Codable {
     var stackIndex: Int
     var isNativeFullscreen: Bool
     var role: String  // "AXWindow" for real windows, "AXGroup" for popups/panels
+    var subrole: String  // "AXStandardWindow" for real windows, "AXDialog"/"AXSystemDialog" for dialogs
+    var isMinimized: Bool
+    var isHidden: Bool
+    var isVisible: Bool
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -47,6 +51,10 @@ struct WindowInfo: Identifiable, Codable {
         case stackIndex = "stack-index"
         case isNativeFullscreen = "is-native-fullscreen"
         case role
+        case subrole
+        case isMinimized = "is-minimized"
+        case isHidden = "is-hidden"
+        case isVisible = "is-visible"
     }
 
     // Custom decoding to handle frame dictionary from yabai
@@ -61,6 +69,10 @@ struct WindowInfo: Identifiable, Codable {
         stackIndex = try container.decode(Int.self, forKey: .stackIndex)
         isNativeFullscreen = try container.decode(Bool.self, forKey: .isNativeFullscreen)
         role = try container.decode(String.self, forKey: .role)
+        subrole = try container.decode(String.self, forKey: .subrole)
+        isMinimized = try container.decodeIfPresent(Bool.self, forKey: .isMinimized) ?? false
+        isHidden = try container.decodeIfPresent(Bool.self, forKey: .isHidden) ?? false
+        isVisible = try container.decodeIfPresent(Bool.self, forKey: .isVisible) ?? true
 
         // Decode frame from yabai's dictionary format: {"x": 0, "y": 0, "w": 100, "h": 100}
         if let frameDict = try? container.decode([String: CGFloat].self, forKey: .frame),
@@ -86,6 +98,10 @@ struct WindowInfo: Identifiable, Codable {
         try container.encode(stackIndex, forKey: .stackIndex)
         try container.encode(isNativeFullscreen, forKey: .isNativeFullscreen)
         try container.encode(role, forKey: .role)
+        try container.encode(subrole, forKey: .subrole)
+        try container.encode(isMinimized, forKey: .isMinimized)
+        try container.encode(isHidden, forKey: .isHidden)
+        try container.encode(isVisible, forKey: .isVisible)
 
         if let frame = frame {
             let frameDict: [String: CGFloat] = [
@@ -108,6 +124,8 @@ struct WindowIcon: Identifiable, Equatable {
     let frame: CGRect?
     let hasFocus: Bool
     let stackIndex: Int  // Used for stack indicator badge
+    let isMinimized: Bool
+    let isHidden: Bool
 
     static func == (lhs: WindowIcon, rhs: WindowIcon) -> Bool {
         lhs.id == rhs.id && lhs.title == rhs.title && lhs.app == rhs.app

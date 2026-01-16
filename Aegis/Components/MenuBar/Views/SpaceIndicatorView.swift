@@ -15,12 +15,12 @@ struct SpaceIndicatorView: View {
     let onWindowDrop: ((Int, Int, Int?, Bool) -> Void)?  // (windowId, targetSpaceIndex, insertBeforeWindowId, shouldStack)
     @Binding var draggedWindowId: Int?  // Shared: ID of window currently being dragged
 
-    @State private var isHovered = false
     @State private var hoveredIconId: Int?
     @State private var expandedIconId: Int?
     @State private var showOverflowMenu = false
     @State private var autoCollapseTask: Task<Void, Never>?
     @State private var isDraggingOver = false  // True when actively dragging over this space
+    @State private var isHovered = false  // True when mouse is over this space indicator
 
     private let config = AegisConfig.shared
     private let maxExpandedWidth: CGFloat = 100
@@ -82,6 +82,8 @@ struct SpaceIndicatorView: View {
                                     windowId: windowIcon.id,
                                     icon: windowIcon.icon ?? NSImage(),
                                     isHovered: hoveredIconId == windowIcon.id,
+                                    isMinimized: windowIcon.isMinimized,
+                                    isHidden: windowIcon.isHidden,
                                     onHover: { hovering in
                                         hoveredIconId = hovering ? windowIcon.id : nil
                                     },
@@ -106,19 +108,12 @@ struct SpaceIndicatorView: View {
                                     }
                                 )
 
-                                // Stack indicator badge
-                                if windowIcon.stackIndex > 0 {
-                                    ZStack {
-                                        Circle()
-                                            .fill(Color.white.opacity(0.2))
-                                            .frame(width: 10, height: 10)
-
-                                        Text("⧉")
-                                            .font(.system(size: 6, weight: .bold))
-                                            .foregroundColor(.white.opacity(0.9))
-                                    }
-                                    .offset(x: 2, y: 2)
-                                }
+                                // Status indicator badge
+                                WindowStatusBadge(
+                                    isMinimized: windowIcon.isMinimized,
+                                    isHidden: windowIcon.isHidden,
+                                    stackIndex: windowIcon.stackIndex
+                                )
                             }
                             .frame(width: 22, height: 22)
                             .opacity(draggedWindowId == windowIcon.id ? 0.0 : 1.0)
@@ -188,7 +183,7 @@ struct SpaceIndicatorView: View {
     private var spaceContentWithModifiers: some View {
         spaceContent
             .padding(.horizontal, 8)
-            .padding(.vertical, 5)
+            .padding(.vertical, 3)
             .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(backgroundColor)
@@ -200,7 +195,7 @@ struct SpaceIndicatorView: View {
                 .animation(.easeInOut(duration: 0.25), value: isActive)
         )
         .overlay(alignment: .topLeading) {
-            // Focus indicator dot on bottom border
+            // Focus indicator dot inside bottom edge of indicator
             GeometryReader { geometry in
                 if let focusedIndex = windowIcons.firstIndex(where: { $0.hasFocus }) {
                     let xPosition = calculateDotPosition(for: focusedIndex)
@@ -208,7 +203,7 @@ struct SpaceIndicatorView: View {
                     Circle()
                         .fill(Color.white)
                         .frame(width: 3, height: 3)
-                        .offset(x: xPosition - 1.5, y: geometry.size.height - 2.5)
+                        .offset(x: xPosition - 1.5, y: geometry.size.height - 1.5)  // Centered on bottom border
                         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: xPosition)
                         .transition(.opacity)
                 }
@@ -398,6 +393,8 @@ struct RightClickableIcon: NSViewRepresentable {
     let windowId: Int
     let icon: NSImage
     let isHovered: Bool
+    let isMinimized: Bool
+    let isHidden: Bool
     let onHover: (Bool) -> Void
     let onLeftClick: () -> Void
     let onRightClick: () -> Void
@@ -415,6 +412,8 @@ struct RightClickableIcon: NSViewRepresentable {
 
         view.windowId = windowId
         view.icon = icon
+        view.isMinimized = isMinimized
+        view.isWindowHidden = isHidden
         view.onHover = onHover
         view.onLeftClick = onLeftClick
         view.onRightClick = onRightClick
@@ -427,6 +426,8 @@ struct RightClickableIcon: NSViewRepresentable {
         nsView.windowId = windowId
         nsView.icon = icon
         nsView.isHovered = isHovered
+        nsView.isMinimized = isMinimized
+        nsView.isWindowHidden = isHidden
         nsView.onDragStarted = onDragStarted
         nsView.onDragEnded = onDragEnded
     }
@@ -449,6 +450,12 @@ final class ClickableIconView: NSView {
                     : CATransform3DIdentity
             }
         }
+    }
+    var isMinimized = false {
+        didSet { needsDisplay = true }
+    }
+    var isWindowHidden = false {
+        didSet { needsDisplay = true }
     }
 
     var onLeftClick: (() -> Void)?
@@ -576,12 +583,17 @@ final class ClickableIconView: NSView {
             shadow.set()
         }
 
-        // Draw icon with full opacity when hovered
+        // Calculate opacity based on window state
+        let baseOpacity: CGFloat = isHovered ? 1.0 : 0.85
+        let stateOpacity: CGFloat = (isMinimized || isWindowHidden) ? 0.5 : 1.0
+        let finalOpacity = baseOpacity * stateOpacity
+
+        // Draw icon with reduced opacity for minimized/hidden windows
         icon.draw(
             in: bounds,
             from: .zero,
             operation: .sourceOver,
-            fraction: isHovered ? 1.0 : 0.85
+            fraction: finalOpacity
         )
 
         NSGraphicsContext.restoreGraphicsState()
@@ -602,15 +614,6 @@ extension ClickableIconView: NSDraggingSource {
             isDragging = false
             onDragEnded?()
         }
-    }
-}
-
-// MARK: - Helper: String width measurement
-
-private extension String {
-    func width(using font: NSFont) -> CGFloat {
-        let attributes = [NSAttributedString.Key.font: font]
-        return (self as NSString).size(withAttributes: attributes).width
     }
 }
 

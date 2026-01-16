@@ -17,10 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Tap album art to toggle between visualizer and track info modes
 - Energy-efficient marquee animation using 30fps timer (50% energy savings vs 60fps)
 - GPU-accelerated text scrolling via `.drawingGroup()` modifier
+- App switcher two-finger scroll to cycle through windows
+  - Scroll up/down to move selection between windows
+  - Works seamlessly with keyboard (Cmd+Tab) and mouse hover
+  - Configurable scroll threshold and notched/continuous behavior
 
 ### Changed
 - Refactored MusicHUDView with shared font constants for consistency
 - Removed redundant computed properties in MusicHUDView
+- App switcher selection now syncs across all input methods (keyboard, mouse, scroll)
 
 ## [0.6.0] - 2025-01-15
 

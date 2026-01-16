@@ -12,6 +12,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var musicService: MediaService?
     var bluetoothService: BluetoothDeviceService?
     var focusMonitor: FocusStatusMonitor?
+    var appSwitcherService: AppSwitcherService?
     var eventRouter: EventRouter?
 
     private var setupWindowController: YabaiSetupWindowController?
@@ -107,6 +108,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         musicService = MediaService(eventRouter: eventRouter!)
         bluetoothService = BluetoothDeviceService(eventRouter: eventRouter!)
         focusMonitor = FocusStatusMonitor(eventRouter: eventRouter!)
+
+        // App Switcher (Cmd+Tab replacement)
+        appSwitcherService = AppSwitcherService.shared
+        appSwitcherService?.start()
 
         // Wire up SystemStatusMonitor.shared to receive focus events
         // This avoids duplicate file system watchers

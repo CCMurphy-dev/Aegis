@@ -202,6 +202,11 @@ class BluetoothDeviceService: NSObject {
 
             let deviceInfo = self.createDeviceInfo(from: device, isConnected: true)
             self.eventRouter.publish(.bluetoothDeviceConnected, data: ["device": deviceInfo])
+
+            // If battery wasn't available, schedule retries
+            if deviceInfo.batteryLevel == nil {
+                self.fetchBatteryWithRetry(for: device)
+            }
         }
 
         pendingEvents[address] = workItem
@@ -336,6 +341,46 @@ class BluetoothDeviceService: NSObject {
         // This is a fallback since IOBluetooth doesn't expose battery directly
         let address = device.addressString ?? ""
         return fetchBatteryFromSystemProfiler(deviceAddress: address)
+    }
+
+    /// Fetch battery with retries on a background queue, publishing update if found
+    private func fetchBatteryWithRetry(for device: IOBluetoothDevice, maxRetries: Int = 2) {
+        let address = device.addressString ?? ""
+        let name = device.name ?? "Unknown"
+
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self = self else { return }
+
+            for attempt in 1...maxRetries {
+                // Wait before retry
+                Thread.sleep(forTimeInterval: 1.5)
+
+                // Check if device is still connected
+                guard device.isConnected() else {
+                    logInfo("🎧 BluetoothDeviceService: Device disconnected during battery retry: \(name)")
+                    return
+                }
+
+                if let battery = self.fetchBatteryFromSystemProfiler(deviceAddress: address) {
+                    logInfo("🎧 BluetoothDeviceService: Battery found on retry \(attempt): \(battery)%")
+
+                    // Create updated device info and publish
+                    DispatchQueue.main.async {
+                        let deviceInfo = BluetoothDeviceInfo(
+                            name: name,
+                            address: address,
+                            deviceType: self.determineDeviceType(from: device),
+                            isConnected: true,
+                            batteryLevel: battery
+                        )
+                        self.eventRouter.publish(.bluetoothDeviceConnected, data: ["device": deviceInfo])
+                    }
+                    return
+                }
+
+                logInfo("🎧 BluetoothDeviceService: Battery retry \(attempt)/\(maxRetries) failed for \(name)")
+            }
+        }
     }
 
     private func fetchBatteryFromSystemProfiler(deviceAddress: String) -> Int? {

@@ -194,6 +194,17 @@ class AegisConfig: ObservableObject {
     /// Aegis and Finder are excluded by default as they're not managed by Yabai
     @Published var excludedApps: Set<String> = ["Finder", "Aegis"]
 
+    // MARK: - App Switcher Settings
+
+    /// Enable the custom app switcher (intercepts Cmd+Tab)
+    @Published var appSwitcherEnabled: Bool = true
+
+    /// Show minimized windows in the app switcher
+    @Published var appSwitcherShowMinimized: Bool = true
+
+    /// Show hidden windows in the app switcher
+    @Published var appSwitcherShowHidden: Bool = false
+
     // MARK: - Behavior Flags - Menu Bar
 
     /// Show app names under window titles when expanded
@@ -230,6 +241,9 @@ class AegisConfig: ObservableObject {
 
     /// Scroll amount threshold for action selector
     @Published var scrollActionThreshold: CGFloat = 3
+
+    /// Use notched scroll behavior (full reset after each step) vs continuous (smoother rapid scrolling)
+    @Published var scrollNotchedBehavior: Bool = true
 
     // MARK: - Animation Settings - Spring Animations
 
@@ -541,6 +555,7 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(dragDistanceThreshold, forKey: "dragDistanceThreshold")
         UserDefaults.standard.set(swipeDestroyThreshold, forKey: "swipeDestroyThreshold")
         UserDefaults.standard.set(scrollActionThreshold, forKey: "scrollActionThreshold")
+        UserDefaults.standard.set(scrollNotchedBehavior, forKey: "scrollNotchedBehavior")
 
         // Animation Settings
         UserDefaults.standard.set(hoverAnimationResponse, forKey: "hoverAnimationResponse")
@@ -811,6 +826,9 @@ class AegisConfig: ObservableObject {
         if let val = UserDefaults.standard.object(forKey: "scrollActionThreshold") as? Double {
             scrollActionThreshold = CGFloat(val)
         }
+        if let val = UserDefaults.standard.object(forKey: "scrollNotchedBehavior") as? Bool {
+            scrollNotchedBehavior = val
+        }
 
         // Animation Settings
         if let val = UserDefaults.standard.object(forKey: "hoverAnimationResponse") as? Double {
@@ -1076,6 +1094,7 @@ class AegisConfig: ObservableObject {
         dragDistanceThreshold = 3
         swipeDestroyThreshold = -120
         scrollActionThreshold = 3
+        scrollNotchedBehavior = true
 
         hoverAnimationResponse = 0.3
         hoverAnimationDamping = 0.7
