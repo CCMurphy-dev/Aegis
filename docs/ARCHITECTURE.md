@@ -1,14 +1,14 @@
 # Aegis Architecture Overview
 
 **Last Updated**: January 2026
-**Version**: Post-cleanup (January 14, 2026)
+**Version**: v0.6.0 (January 15, 2026)
 
 ## Executive Summary
 
 Aegis is a macOS menu bar application that integrates with Yabai window manager to provide:
 - Visual workspace/space indicators in the menu bar
-- Notch-area HUD for system status (volume, brightness, music)
-- System status display (battery, network, time)
+- Notch-area HUD for system status (volume, brightness, music, Bluetooth devices, Focus mode)
+- System status display (battery, network, Focus mode, time)
 - Window management via drag-drop and gestures
 
 ## Architecture Principles
@@ -133,6 +133,22 @@ Aegis/
 
 - **Events Published**: `.volumeChanged`, `.brightnessChanged`
 
+#### BluetoothDeviceService.swift
+- **Purpose**: Monitor Bluetooth device connections/disconnections
+- **Capabilities**:
+  - Detect device connect/disconnect events via IOBluetooth
+  - Identify device types (AirPods, AirPods Pro, AirPods Max, Beats, keyboards, mice, etc.)
+  - Fetch battery levels via system_profiler
+  - Debounce rapid connect/disconnect events
+
+- **Implementation**:
+  - Registers for IOBluetooth notifications
+  - Maps device names to types with appropriate SF Symbols
+  - Handles battery key variations (device_batteryLevel, device_batteryLevelLeft, etc.)
+  - Ignores spurious reconnect notifications within 2s of disconnect
+
+- **Events Published**: `.deviceConnected`, `.deviceDisconnected`
+
 #### MusicService.swift (303 lines)
 - **Purpose**: Integrate with Music.app for now-playing display
 - **Capabilities**:
@@ -239,7 +255,7 @@ SpaceIndicatorView (UI)
 
 ### 5. Notch HUD Component (`Components/Notch/`)
 
-**Purpose**: Display system notifications (volume, brightness, music) at notch location
+**Purpose**: Display system notifications (volume, brightness, music, Bluetooth devices, Focus mode) at notch location
 
 #### Architecture Pattern
 ```
@@ -256,6 +272,18 @@ NotchHUDController
 MusicHUDViewModel (Music state)
     ↓ renders
 MusicHUDView (UI)
+
+NotchHUDController
+    ↓ owns
+DeviceHUDViewModel (Bluetooth device state)
+    ↓ renders
+DeviceHUDView (UI)
+
+NotchHUDController
+    ↓ owns
+FocusHUDViewModel (Focus mode state)
+    ↓ renders
+FocusHUDView (UI)
 ```
 
 #### NotchHUDController.swift
@@ -350,6 +378,33 @@ MusicHUDView (UI)
   - Updates every 0.2s when playing
   - Resets to flat bars when paused
 
+#### DeviceHUDView.swift
+- **UI view** for Bluetooth device connection notifications
+- **Layout**:
+  - Left: Device type icon (AirPods, headphones, keyboard, etc.)
+  - Right: Device type name, connection status, battery ring indicator
+
+- **Components**:
+  - `DeviceHUDViewModel`: Holds device info, connection state, visibility
+  - `BatteryRingView`: Circular progress ring showing battery level (color-coded: green/orange/red)
+
+- **Device Types Supported**:
+  - AirPods, AirPods Pro, AirPods Max
+  - Beats headphones, generic headphones
+  - Speakers, keyboards, mice, trackpads
+
+#### FocusHUDView.swift
+- **UI view** for Focus mode change notifications
+- **Layout**:
+  - Left: Focus mode icon (SF Symbol from user's Focus configuration)
+  - Right: Focus name and On/Off status
+
+- **Components**:
+  - `FocusHUDViewModel`: Holds focus status, visibility
+  - Shows actual Focus mode name (e.g., "Study", "Work", "Do Not Disturb")
+  - Purple status color when enabled, gray when disabled
+  - When disabling, shows which mode was turned off (e.g., "Study / Off")
+
 #### NotchDimensions.swift
 - **Calculates notch geometry** from screen properties
 - Uses `NSScreen.safeAreaInsets.top` for height
@@ -368,10 +423,11 @@ SystemStatusMonitor (Aggregates all status)
     ↓
 BatteryStatusMonitor (Battery specific)
 NetworkStatus (Network model)
+FocusStatusMonitor (Focus mode)
     ↓
 SystemStatusView (Container)
     ↓
-Individual icon views (Battery, Network, Clock, Date)
+Individual icon views (Battery, Network, Focus, Clock, Date)
 ```
 
 #### SystemStatusMonitor.swift
@@ -382,10 +438,23 @@ Individual icon views (Battery, Network, Clock, Date)
 - Uses IOKit to query battery status
 - Tracks level, charging state, time remaining
 
+#### FocusStatusMonitor.swift
+- **Purpose**: Monitor macOS Focus mode status
+- **Implementation**:
+  - Watches `~/Library/DoNotDisturb/DB/` directory for file changes
+  - Parses `Assertions.json` to detect active Focus mode
+  - Reads `ModeConfigurations.json` for mode names and SF Symbols
+  - Supports all built-in modes (Do Not Disturb, Work, Personal, Sleep, etc.)
+  - Supports custom Focus modes with their user-defined symbols
+
+- **Events Published**: `.focusChanged`
+- **State Tracking**: Remembers last active Focus mode to show "Study / Off" when disabling
+
 #### Views
 - **SystemStatusView.swift**: Container orchestrator
 - **BatteryStatusIconView.swift**: Battery icon with level indicator
 - **NetworkStatusIconView.swift**: WiFi/Ethernet status icon
+- **FocusStatusIconView.swift**: Focus mode icon (animated slide in/out)
 - **ClockView.swift**: Current time display
 - **DateView.swift**: Current date display
 
@@ -486,6 +555,52 @@ YabaiService detects window_moved event
 EventRouter.publish(.windowsChanged)
     ↓
 MenuBarCoordinator updates windows on both spaces
+```
+
+### Bluetooth Device HUD Flow
+```
+User connects AirPods
+    ↓
+IOBluetooth notification fires
+    ↓
+BluetoothDeviceService.deviceConnected()
+    ↓
+Identify device type from name (e.g., "AirPods Pro")
+    ↓
+Fetch battery level via system_profiler (async)
+    ↓
+EventRouter.publish(.deviceConnected, deviceInfo)
+    ↓
+AppDelegate subscription fires
+    ↓
+NotchHUDController.showDevice(info:isConnecting:)
+    ↓
+DeviceHUDView displays: icon + name + "Connected" + battery ring
+    ↓
+Auto-hide after 1.5s
+```
+
+### Focus Mode HUD Flow
+```
+User enables Focus mode in Control Center
+    ↓
+macOS writes to ~/Library/DoNotDisturb/DB/Assertions.json
+    ↓
+FocusStatusMonitor detects directory change (DispatchSource)
+    ↓
+Parse Assertions.json for active mode identifier
+    ↓
+Lookup mode name and symbol from ModeConfigurations.json
+    ↓
+EventRouter.publish(.focusChanged, status)
+    ↓
+AppDelegate subscription fires
+    ↓
+NotchHUDController.showFocus(status:)
+    ↓
+FocusHUDView displays: icon + "Study" + "On" (purple)
+    ↓
+Auto-hide after 1.5s
 ```
 
 ---
@@ -636,8 +751,10 @@ Component/
 ### System APIs
 - **CoreAudio**: Volume level and mute state (event-driven)
 - **IOKit**: Battery status (polled every 10s)
+- **IOBluetooth**: Device connection/disconnection notifications
 - **Private API**: Brightness monitoring via Objective-C helper
 - **AppKit**: Window management, screen geometry, workspace integration
+- **DispatchSource**: File system monitoring for Focus mode changes
 
 ---
 
@@ -752,12 +869,12 @@ func prepareWindows() {
 |-----------|-------|----------------------|
 | App | 2 | 200 |
 | Core/Config | 1 | 1,045 |
-| Core/Services | 5 | 1,200 |
+| Core/Services | 6 | 1,600 |
 | MenuBar | 13 | 2,500 |
-| Notch | 8 | 800 |
-| Systemstatus | 9 | 600 |
+| Notch | 12 | 1,200 |
+| SystemPanel | 12 | 900 |
 | SettingsPanel | 3 | 1,500 |
-| **Total** | **41** | **~7,845** |
+| **Total** | **49** | **~8,945** |
 
 ---
 
@@ -769,11 +886,15 @@ func prepareWindows() {
 | `AegisConfig.swift` | Centralized configuration singleton | 1,045 |
 | `EventRouter.swift` | Pub/sub event bus | 60 |
 | `YabaiService.swift` | Yabai WM integration | 500 |
+| `BluetoothDeviceService.swift` | Bluetooth device monitoring | 400 |
 | `MenuBarCoordinator.swift` | Menu bar orchestration | 400+ |
 | `SpaceIndicatorView.swift` | Workspace UI display | 776 |
 | `NotchHUDController.swift` | Notch HUD window management | 310 |
 | `ProgressBarAnimator.swift` | Frame-locked interpolation | 94 |
 | `MinimalHUDWrapper.swift` | Volume/brightness UI | 160 |
+| `DeviceHUDView.swift` | Bluetooth device connection UI | 165 |
+| `FocusHUDView.swift` | Focus mode change UI | 142 |
+| `FocusStatusMonitor.swift` | Focus mode detection | 200 |
 
 ---
 

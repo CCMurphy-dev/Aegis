@@ -21,8 +21,8 @@ A comprehensive guide to installing, configuring, and using Aegis - a macOS menu
 Aegis transforms your macOS menu bar and notch area into a powerful control center for managing workspaces and windows. It provides:
 
 - **Visual workspace indicators** showing all spaces with window icons
-- **Notch HUD** for volume, brightness, and now-playing music
-- **System status** display (battery, WiFi, clock)
+- **Notch HUD** for volume, brightness, now-playing music, Bluetooth devices, and Focus mode
+- **System status** display (battery, WiFi, Focus mode, clock)
 - **Window management** via drag-drop and context menus
 
 Aegis communicates with Yabai in real-time via a FIFO pipe, ensuring instant updates when you switch spaces or move windows.
@@ -112,7 +112,7 @@ Or if running from Xcode:
 The script will:
 
 1. Create `~/.config/aegis/` directory
-2. Install `/usr/local/bin/aegis-yabai-notify` notification script
+2. Install `~/.config/aegis/aegis-yabai-notify` notification script
 3. Register Yabai signals for real-time events
 4. Optionally add integration to `~/.yabairc` for persistence
 
@@ -122,7 +122,7 @@ If you prefer manual setup, add this to your `~/.yabairc`:
 
 ```bash
 # AEGIS_INTEGRATION_START
-AEGIS_NOTIFY="/usr/local/bin/aegis-yabai-notify"
+AEGIS_NOTIFY="$HOME/.config/aegis/aegis-yabai-notify"
 yabai -m signal --add event=space_changed action="YABAI_EVENT_TYPE=space_changed $AEGIS_NOTIFY" label=aegis_space_changed
 yabai -m signal --add event=space_destroyed action="YABAI_EVENT_TYPE=space_destroyed $AEGIS_NOTIFY" label=aegis_space_destroyed
 yabai -m signal --add event=window_focused action="YABAI_EVENT_TYPE=window_focused $AEGIS_NOTIFY" label=aegis_window_focused
@@ -196,8 +196,24 @@ The notch area displays contextual information:
 | Volume change | Volume icon + progress bar |
 | Brightness change | Brightness icon + progress bar |
 | Music playing | Album art + animated visualizer |
+| Bluetooth device connects | Device icon + name + battery ring |
+| Bluetooth device disconnects | Device icon + name + "Disconnected" |
+| Focus mode enabled | Focus icon + mode name + "On" |
+| Focus mode disabled | Focus icon + mode name + "Off" |
 
 The HUD slides in from under the notch with smooth spring animation and auto-hides after 1.5 seconds.
+
+**Bluetooth Device HUD:**
+- Automatically detects when AirPods, headphones, speakers, keyboards, mice, or trackpads connect/disconnect
+- Shows device type icon (e.g., AirPods Pro icon for AirPods)
+- Displays battery level as a circular ring indicator (green/orange/red based on level)
+- Separate notifications for connect and disconnect events
+
+**Focus Mode HUD:**
+- Triggers when Focus mode is enabled or disabled via Control Center or System Settings
+- Shows the actual Focus mode icon from your configuration (e.g., moon for Do Not Disturb, briefcase for Work)
+- Displays the mode name (e.g., "Study", "Work", "Personal")
+- Shows "On" (purple) when enabled, "Off" (gray) when disabled
 
 ### System Status
 
@@ -369,6 +385,20 @@ Right-click → Status → Link should show "Active"
 2. Album art is cached per-track - if wrong, quit and reopen Aegis
 3. The MediaRemote framework sometimes has delays - wait a moment
 
+### Bluetooth device HUD doesn't appear
+
+1. Ensure Bluetooth permission is granted to Aegis
+2. Device must be a Bluetooth device (not USB)
+3. Battery level may not show immediately for newly connected devices - system_profiler takes 1-2 seconds
+4. Check logs for "BluetoothDeviceService" entries: `tail -f ~/Library/Logs/Aegis/aegis.log | grep Bluetooth`
+
+### Focus mode HUD doesn't appear
+
+1. Ensure Aegis has permission to read the DoNotDisturb directory
+2. Focus mode changes must be made via Control Center or System Settings (not third-party apps)
+3. Check logs for "Focus" entries: `tail -f ~/Library/Logs/Aegis/aegis.log | grep Focus`
+4. Custom Focus modes should show their configured icon and name
+
 ### Link shows "Not configured"
 
 Run the setup script:
@@ -438,9 +468,8 @@ Currently, Aegis uses system accent colors and a dark theme. Custom themes are o
 1. Quit Aegis
 2. Delete `/Applications/Aegis.app`
 3. Remove the integration from `~/.yabairc` (the section between `AEGIS_INTEGRATION_START` and `AEGIS_INTEGRATION_END`)
-4. Delete `/usr/local/bin/aegis-yabai-notify`
-5. Delete `~/.config/aegis/`
-6. Delete preferences: `defaults delete com.aegis.Aegis`
+4. Delete `~/.config/aegis/`
+5. Delete preferences: `defaults delete com.aegis.Aegis`
 
 ---
 

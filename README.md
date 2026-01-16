@@ -14,7 +14,7 @@ A macOS menu bar replacement for [Yabai](https://github.com/koekeishiya/yabai) w
 
 - **Workspace indicators** - Visual space display with window icons, click to focus, drag to move
 - **Layout controls** - Rotate, flip, balance, stack windows via scroll wheel or menu
-- **Notch HUD** - Volume, brightness, and now-playing music with smooth animations
+- **Notch HUD** - Volume, brightness, now-playing music, Bluetooth devices, and Focus mode with smooth animations
 - **System status** - Battery, WiFi, Focus mode, clock in the menu bar
 - **Customizable** - Simple settings panel with advanced options
 - **Auto-updates** - Built-in update checking via Sparkle
