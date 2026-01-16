@@ -195,9 +195,22 @@ The notch area displays contextual information:
 |---------|---------|
 | Volume change | Volume icon + progress bar |
 | Brightness change | Brightness icon + progress bar |
-| Music playing | Album art + animated visualizer |
+| Music playing | Album art + visualizer or track info |
+| Device connected | Device name + battery ring (AirPods, etc.) |
+| Focus mode change | Focus mode icon + name |
 
-The HUD slides in from under the notch with smooth spring animation and auto-hides after 1.5 seconds.
+The HUD slides in from under the notch with smooth spring animation and auto-hides after a configurable delay.
+
+#### Music HUD
+
+The Music HUD shows album art on the left and either a **visualizer** or **track info** on the right:
+
+- **Visualizer mode** (default): Animated bars that respond to playback
+- **Track Info mode**: Song title and artist name
+  - Expands to show full text when track changes
+  - Collapses after 3 seconds
+  - Long text scrolls with marquee animation
+  - Tap album art to toggle between modes
 
 ### System Status
 

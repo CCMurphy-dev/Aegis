@@ -1,6 +1,10 @@
 import SwiftUI
-import Combine
 import Cocoa
+import Combine
+
+// Shared font definitions for track info display
+private let trackTitleFont = NSFont.systemFont(ofSize: 11, weight: .medium)
+private let trackArtistFont = NSFont.systemFont(ofSize: 9, weight: .regular)
 
 struct MusicHUDView: View {
     @ObservedObject var viewModel: MusicHUDViewModel
@@ -24,9 +28,34 @@ struct MusicHUDView: View {
         notchDimensions.height
     }
 
-    // Right side (visualizer or track info): match progress bar width
-    private var rightPanelWidth: CGFloat {
+    // Base right panel width (for visualizer)
+    private var baseRightPanelWidth: CGFloat {
         config.notchHUDProgressBarWidth + 16
+    }
+
+    // Whether to use expanded width for track info
+    @State private var useExpandedWidth = false
+    @State private var collapseTimer: Timer?
+
+    // Calculate expanded width based on track info text
+    private var expandedRightPanelWidth: CGFloat {
+        let titleWidth = info.title.width(using: trackTitleFont)
+        let artistWidth = info.artist.width(using: trackArtistFont)
+
+        // Take the wider of title/artist, add padding
+        let textWidth = max(titleWidth, artistWidth) + 24  // 24 for horizontal padding
+
+        // Cap at a reasonable max width, but allow expansion beyond base
+        let maxWidth: CGFloat = 200
+        return min(max(baseRightPanelWidth, textWidth), maxWidth)
+    }
+
+    // Current right panel width (animated between base and expanded)
+    private var rightPanelWidth: CGFloat {
+        if shouldShowTrackInfo && useExpandedWidth {
+            return expandedRightPanelWidth
+        }
+        return baseRightPanelWidth
     }
 
     // Use symmetric max width for centering (same pattern as MinimalHUDWrapper)
@@ -54,11 +83,6 @@ struct MusicHUDView: View {
         }
         // Otherwise, use config default
         return config.musicHUDRightPanelMode == .trackInfo
-    }
-
-    // Right side content width (fixed to match progress bar)
-    private var rightContentWidth: CGFloat {
-        rightPanelWidth
     }
 
     var body: some View {
@@ -90,7 +114,7 @@ struct MusicHUDView: View {
                 HStack(spacing: 0) {
                     RightPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
                         .fill(Color.black)
-                        .frame(width: rightContentWidth + notchGapFill, height: notchDimensions.height)
+                        .frame(width: rightPanelWidth + notchGapFill, height: notchDimensions.height)
                     Spacer(minLength: 0)
                 }
                 .frame(width: sideMaxWidth + notchGapFill, alignment: .leading)
@@ -100,6 +124,7 @@ struct MusicHUDView: View {
             .frame(width: sideMaxWidth + notchDimensions.width + sideMaxWidth, height: notchDimensions.height)
             .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isVisible)
             .animation(.spring(response: 0.25, dampingFraction: 0.8), value: viewModel.isOverlayActive)
+            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: useExpandedWidth)
             .allowsHitTesting(false)
 
             // CONTENT LAYER: Positioned normally without overlap
@@ -123,17 +148,23 @@ struct MusicHUDView: View {
                 // Hidden when overlay HUD (volume/brightness) is active
                 HStack(spacing: 0) {
                     if shouldShowTrackInfo {
-                        // Track info: left-aligned
-                        TrackInfoView(info: info)
-                            .frame(width: rightContentWidth, height: notchDimensions.height)
+                        // Track info: left-aligned, clipped to panel width
+                        TrackInfoView(
+                            info: info,
+                            containerWidth: rightPanelWidth,
+                            collapsedWidth: baseRightPanelWidth,
+                            isExpanded: useExpandedWidth
+                        )
+                            .frame(height: notchDimensions.height, alignment: .leading)
                         Spacer(minLength: 0)
                     } else {
                         // Visualizer: centered
                         MusicVisualizerView(isPlaying: info.isPlaying)
-                            .frame(width: rightContentWidth, height: notchDimensions.height)
+                            .frame(width: rightPanelWidth, height: notchDimensions.height)
                     }
                 }
                 .frame(width: sideMaxWidth, alignment: shouldShowTrackInfo ? .leading : .center)
+                .clipped()
                 .opacity(showRightPanel ? 1 : 0)
                 .offset(x: showRightPanel ? 0 : -notchDimensions.width / 2)
                 .animation(.spring(response: 0.25, dampingFraction: 0.8), value: shouldShowTrackInfo)
@@ -141,17 +172,16 @@ struct MusicHUDView: View {
             }
             .frame(width: sideMaxWidth + notchDimensions.width + sideMaxWidth, height: notchDimensions.height)
             .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isVisible)
+            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: useExpandedWidth)
         }
-        // Total width: sideMaxWidth + notchWidth + sideMaxWidth (FIXED, never changes)
+        // Total width: sideMaxWidth + notchWidth + sideMaxWidth (animates with content)
         .frame(width: sideMaxWidth + notchDimensions.width + sideMaxWidth, height: notchDimensions.height)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: useExpandedWidth)
         .onChange(of: info.trackIdentifier) { _ in
             // Reset pinned state when track changes so auto-display works for new songs
             trackInfoPinned = false
-            // Only show temporary track info if config is set to visualizer mode
-            // (if already showing track info by config, no need for temporary display)
-            if config.musicHUDRightPanelMode == .visualizer {
-                showTrackInfo()
-            }
+            // Show track info temporarily on track change
+            showTrackInfo()
         }
         .onAppear {
             // Initialize based on config
@@ -196,14 +226,28 @@ struct MusicHUDView: View {
         if trackInfoPinned { return }
 
         trackInfoTimer?.invalidate()
+        collapseTimer?.invalidate()
 
+        // Expand width and show track info
         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
             showingTrackInfo = true
+            useExpandedWidth = true
         }
 
-        trackInfoTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { _ in
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                showingTrackInfo = false
+        // Schedule collapse to standard width after 3 seconds
+        collapseTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { _ in
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                useExpandedWidth = false
+            }
+        }
+
+        // If config is visualizer mode, switch back to visualizer after 5 seconds
+        // If config is track info mode, keep showing track info (just collapse width)
+        if config.musicHUDRightPanelMode == .visualizer {
+            trackInfoTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { _ in
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    showingTrackInfo = false
+                }
             }
         }
     }
@@ -495,25 +539,247 @@ private struct VisualizerBlurView: NSViewRepresentable {
 // MARK: - Track Info Display (shows on track change)
 struct TrackInfoView: View {
     let info: MusicInfo
+    let containerWidth: CGFloat      // Current width (may be expanded or collapsed)
+    let collapsedWidth: CGFloat      // Fixed collapsed width for overflow calculation
+    let isExpanded: Bool             // Whether panel is expanded
+
+    // Available width for text when collapsed (minus padding)
+    private var collapsedTextWidth: CGFloat {
+        collapsedWidth - 16  // 8pt padding on each side
+    }
+
+    // Calculate text widths using shared font constants
+    private var titleTextWidth: CGFloat {
+        info.title.width(using: trackTitleFont)
+    }
+    private var artistTextWidth: CGFloat {
+        info.artist.width(using: trackArtistFont)
+    }
+
+    // Check which texts overflow
+    private var titleOverflows: Bool {
+        titleTextWidth > collapsedTextWidth
+    }
+    private var artistOverflows: Bool {
+        artistTextWidth > collapsedTextWidth
+    }
+    private var anyTextOverflows: Bool {
+        titleOverflows || artistOverflows
+    }
+    private var bothOverflow: Bool {
+        titleOverflows && artistOverflows
+    }
+
+    // Synced scroll distance - when both overflow, use the longer one for both
+    private var syncedScrollDistance: CGFloat {
+        if bothOverflow {
+            return max(titleTextWidth, artistTextWidth) + gap
+        }
+        return 0  // Not used when only one overflows
+    }
+
+    // Scroll state managed by MarqueeController
+    @StateObject private var scrollController = MarqueeScrollController()
+
+    // Timing configuration
+    private let gap: CGFloat = 40
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
-            // Track title - compact sizing
-            Text(info.title)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.white.opacity(0.9))
-                .lineLimit(1)
-                .truncationMode(.tail)
+            // Track title - only scrolls if title overflows
+            MarqueeTextRow(
+                text: info.title,
+                font: trackTitleFont,
+                textColor: .white.opacity(0.9),
+                textWidth: titleTextWidth,
+                scrollOffset: titleOverflows ? scrollController.offset : 0,
+                isScrolling: scrollController.isScrolling && titleOverflows,
+                gap: gap,
+                syncedDistance: bothOverflow ? syncedScrollDistance : nil
+            )
+            .frame(height: 14)
 
-            // Artist name - compact sizing
-            Text(info.artist)
-                .font(.system(size: 9))
-                .foregroundColor(.white.opacity(0.6))
-                .lineLimit(1)
-                .truncationMode(.tail)
+            // Artist name - only scrolls if artist overflows
+            MarqueeTextRow(
+                text: info.artist,
+                font: trackArtistFont,
+                textColor: .white.opacity(0.6),
+                textWidth: artistTextWidth,
+                scrollOffset: artistOverflows ? scrollController.offset : 0,
+                isScrolling: scrollController.isScrolling && artistOverflows,
+                gap: gap,
+                syncedDistance: bothOverflow ? syncedScrollDistance : nil
+            )
+            .frame(height: 12)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 8)
+        .frame(width: containerWidth, alignment: .leading)
+        .clipped()
+        .onAppear {
+            // Start scrolling if already in collapsed state with overflow
+            if !isExpanded && anyTextOverflows {
+                startScrolling()
+            }
+        }
+        .onDisappear {
+            scrollController.stop()
+        }
+        .onChange(of: isExpanded) { newIsExpanded in
+            handleExpandedChange(newIsExpanded: newIsExpanded)
+        }
+        .onChange(of: info.trackIdentifier) { _ in
+            // Track changed - stop scrolling immediately, will restart after collapse
+            scrollController.stop()
+        }
+    }
+
+    private func handleExpandedChange(newIsExpanded: Bool) {
+        if newIsExpanded {
+            scrollController.stop()
+        } else if anyTextOverflows {
+            startScrolling()
+        }
+    }
+
+    private func startScrolling() {
+        let titleDistance = titleOverflows ? titleTextWidth + gap : 0
+        let artistDistance = artistOverflows ? artistTextWidth + gap : 0
+        let maxDistance = max(titleDistance, artistDistance)
+        scrollController.start(distance: maxDistance)
+    }
+}
+
+// MARK: - Marquee Scroll Controller (energy-efficient timer-based animation)
+/// Uses a low-frequency timer instead of SwiftUI animation for reduced energy impact
+final class MarqueeScrollController: ObservableObject {
+    @Published private(set) var offset: CGFloat = 0
+    @Published private(set) var isScrolling: Bool = false
+
+    private var displayLink: CVDisplayLink?
+    private var timer: Timer?
+    private var startTime: CFTimeInterval = 0
+    private var scrollDistance: CGFloat = 0
+    private var phase: ScrollPhase = .idle
+
+    // Timing configuration
+    private let initialDelay: Double = 2.1  // 600ms settle + 1500ms start delay
+    private let scrollSpeed: Double = 30.0  // points per second
+    private let endPause: Double = 1.0
+    private let resetPause: Double = 0.3
+
+    private enum ScrollPhase {
+        case idle
+        case initialDelay
+        case scrolling
+        case endPause
+        case resetPause
+    }
+
+    deinit {
+        stop()
+    }
+
+    func start(distance: CGFloat) {
+        guard !isScrolling else { return }
+        scrollDistance = distance
+        isScrolling = true
+        offset = 0
+        phase = .initialDelay
+        startTime = CACurrentMediaTime()
+
+        // Use a 30fps timer - sufficient for smooth text scrolling, half the energy of 60fps
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+            self?.tick()
+        }
+        RunLoop.current.add(timer!, forMode: .common)
+    }
+
+    func stop() {
+        timer?.invalidate()
+        timer = nil
+        phase = .idle
+        isScrolling = false
+        offset = 0
+    }
+
+    private func tick() {
+        let now = CACurrentMediaTime()
+        let elapsed = now - startTime
+
+        switch phase {
+        case .idle:
+            break
+
+        case .initialDelay:
+            if elapsed >= initialDelay {
+                phase = .scrolling
+                startTime = now
+            }
+
+        case .scrolling:
+            let scrollDuration = scrollDistance / scrollSpeed
+            let progress = min(elapsed / scrollDuration, 1.0)
+            offset = scrollDistance * progress
+
+            if progress >= 1.0 {
+                phase = .endPause
+                startTime = now
+            }
+
+        case .endPause:
+            if elapsed >= endPause {
+                offset = 0
+                phase = .resetPause
+                startTime = now
+            }
+
+        case .resetPause:
+            if elapsed >= resetPause {
+                phase = .scrolling
+                startTime = now
+            }
+        }
+    }
+}
+
+// MARK: - Marquee Text Row (handles individual text scrolling)
+struct MarqueeTextRow: View {
+    let text: String
+    let font: NSFont
+    let textColor: Color
+    let textWidth: CGFloat
+    let scrollOffset: CGFloat
+    let isScrolling: Bool  // Whether THIS row should be scrolling
+    let gap: CGFloat
+    let syncedDistance: CGFloat?  // When both rows scroll, use this to position duplicate
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Text(text)
+                .font(Font(font))
+                .foregroundColor(textColor)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+
+            // Only show duplicate if this specific row is scrolling
+            if isScrolling {
+                // Spacer to position duplicate at correct distance
+                // If synced, use synced distance; otherwise use own text width + gap
+                let spacerWidth = (syncedDistance ?? (textWidth + gap)) - textWidth
+
+                Spacer()
+                    .frame(width: spacerWidth)
+
+                Text(text)
+                    .font(Font(font))
+                    .foregroundColor(textColor)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+        }
+        // Use drawingGroup to rasterize and animate as a single layer (GPU-accelerated)
+        .drawingGroup()
+        .offset(x: -scrollOffset)
     }
 }
 

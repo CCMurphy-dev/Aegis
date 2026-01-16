@@ -343,12 +343,34 @@ MusicHUDView (UI)
 - **UI view** for music playback display
 - **Layout**:
   - Left: Album art with scale/opacity animation
-  - Right: Music visualizer (5 bars, randomized heights)
+  - Right: Either music visualizer OR track info (configurable via `musicHUDRightPanelMode`)
+
+- **Right Panel Modes**:
+  - **Visualizer mode** (default): 5 animated capsule bars with randomized heights
+  - **Track Info mode**: Song title and artist with marquee scrolling for long text
 
 - **Visualizer**:
   - 5 capsule bars with randomized heights
   - Updates every 0.2s when playing
   - Resets to flat bars when paused
+  - Optional blur effect (shows wallpaper through bars)
+
+- **Track Info Display** (TrackInfoView):
+  - Shows song title and artist name
+  - Auto-expands width on track change to show full text
+  - Collapses after 3 seconds to standard width
+  - **Marquee scrolling** for text that overflows collapsed width:
+    - Title and artist scroll independently (each only if it overflows)
+    - When both overflow, they scroll in sync at same speed
+    - Energy-efficient 30fps timer-based animation (not 60fps SwiftUI animation)
+    - GPU-accelerated via `.drawingGroup()` modifier
+  - Tap album art to toggle between visualizer and track info modes
+
+- **MarqueeScrollController**:
+  - State machine with phases: idle → initialDelay → scrolling → endPause → resetPause
+  - Uses `CACurrentMediaTime()` for accurate timing
+  - 30fps `Timer` for energy efficiency (half the energy of 60fps)
+  - Configurable scroll speed (30 points/second), delays, and gap between text copies
 
 #### NotchDimensions.swift
 - **Calculates notch geometry** from screen properties
