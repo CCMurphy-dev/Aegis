@@ -131,7 +131,8 @@ struct MenuBarView: View {
                                             },
                                             onSpaceDestroy: onSpaceDestroy,
                                             onWindowDrop: onWindowDrop,
-                                            draggedWindowId: $draggedWindowId
+                                            draggedWindowId: $draggedWindowId,
+                                            expandedWindowId: $viewModel.expandedWindowId
                                         )
                                         .id("\(space.id)-\(viewModel.windowIconsVersion)")
                                         .transition(.asymmetric(

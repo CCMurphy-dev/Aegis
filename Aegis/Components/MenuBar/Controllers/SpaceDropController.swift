@@ -9,7 +9,7 @@ class SpaceDropController {
     func determineInsertPosition(
         at location: CGPoint,
         windowIcons: [WindowIcon],
-        expandedIconId: Int?,
+        expandedWindowId: Int?,
         calculatedWidth: (WindowIcon) -> CGFloat
     ) -> Int? {
         // Calculate the x position accounting for padding and space number
@@ -18,7 +18,7 @@ class SpaceDropController {
 
         for (_, windowIcon) in windowIcons.enumerated() {
             let iconWidth: CGFloat = 22
-            let expandedWidth = expandedIconId == windowIcon.id ? calculatedWidth(windowIcon) : 0
+            let expandedWidth = expandedWindowId == windowIcon.id ? calculatedWidth(windowIcon) : 0
             let totalIconWidth = iconWidth + 6 + expandedWidth  // icon + spacing + expanded title
 
             // Check if drop is in the left half of this icon

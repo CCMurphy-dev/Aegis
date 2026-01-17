@@ -54,6 +54,7 @@ struct BluetoothDeviceInfo {
 /// Service that monitors Bluetooth device connections and disconnections
 class BluetoothDeviceService: NSObject {
     private let eventRouter: EventRouter
+    private let config = AegisConfig.shared
     private var connectNotification: IOBluetoothUserNotification?
     private var disconnectNotifications: [String: IOBluetoothUserNotification] = [:]
     private var connectedDevices: Set<String> = []  // Track by address to avoid duplicates
@@ -104,6 +105,14 @@ class BluetoothDeviceService: NSObject {
         disconnectNotifications.removeAll()
     }
 
+    /// Check if a device name matches any of the excluded patterns
+    private func isDeviceExcluded(name: String) -> Bool {
+        let lowercaseName = name.lowercased()
+        return config.excludedBluetoothDevices.contains { pattern in
+            lowercaseName.contains(pattern.lowercased())
+        }
+    }
+
     private func checkCurrentlyConnectedDevices() {
         guard let devices = IOBluetoothDevice.pairedDevices() else {
             logInfo("🎧 BluetoothDeviceService: No paired devices found")
@@ -114,9 +123,17 @@ class BluetoothDeviceService: NSObject {
             guard let device = item as? IOBluetoothDevice else { continue }
             if device.isConnected() {
                 let address = device.addressString ?? "unknown"
+                let name = device.name ?? "Unknown"
+
+                // Skip excluded devices (e.g., Apple Watch)
+                if isDeviceExcluded(name: name) {
+                    logInfo("🎧 BluetoothDeviceService: Skipping excluded device at startup: \(name)")
+                    continue
+                }
+
                 connectedDevices.insert(address)
                 registerDisconnectNotification(for: device)
-                logInfo("🎧 BluetoothDeviceService: Found connected device: \(device.name ?? "Unknown")")
+                logInfo("🎧 BluetoothDeviceService: Found connected device: \(name)")
             }
         }
     }
@@ -161,6 +178,17 @@ class BluetoothDeviceService: NSObject {
 
         let address = device.addressString ?? "unknown"
         let name = device.name ?? "Unknown Device"
+        let deviceClass = device.classOfDevice
+        let majorClass = (deviceClass >> 8) & 0x1F
+        let minorClass = (deviceClass >> 2) & 0x3F
+
+        logInfo("🎧 BluetoothDeviceService: Device connected callback: '\(name)' (\(address)) class=\(deviceClass) major=\(majorClass) minor=\(minorClass)")
+
+        // Skip excluded devices (e.g., Apple Watch auto-connects on login/wake)
+        if isDeviceExcluded(name: name) {
+            logInfo("🎧 BluetoothDeviceService: Skipping excluded device: \(name)")
+            return
+        }
 
         // Skip if we already know about this device
         guard !connectedDevices.contains(address) else {
@@ -202,6 +230,11 @@ class BluetoothDeviceService: NSObject {
 
             let deviceInfo = self.createDeviceInfo(from: device, isConnected: true)
             self.eventRouter.publish(.bluetoothDeviceConnected, data: ["device": deviceInfo])
+
+            // If battery wasn't available, schedule retries
+            if deviceInfo.batteryLevel == nil {
+                self.fetchBatteryWithRetry(for: device)
+            }
         }
 
         pendingEvents[address] = workItem
@@ -336,6 +369,46 @@ class BluetoothDeviceService: NSObject {
         // This is a fallback since IOBluetooth doesn't expose battery directly
         let address = device.addressString ?? ""
         return fetchBatteryFromSystemProfiler(deviceAddress: address)
+    }
+
+    /// Fetch battery with retries on a background queue, publishing update if found
+    private func fetchBatteryWithRetry(for device: IOBluetoothDevice, maxRetries: Int = 2) {
+        let address = device.addressString ?? ""
+        let name = device.name ?? "Unknown"
+
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self = self else { return }
+
+            for attempt in 1...maxRetries {
+                // Wait before retry
+                Thread.sleep(forTimeInterval: 1.5)
+
+                // Check if device is still connected
+                guard device.isConnected() else {
+                    logInfo("🎧 BluetoothDeviceService: Device disconnected during battery retry: \(name)")
+                    return
+                }
+
+                if let battery = self.fetchBatteryFromSystemProfiler(deviceAddress: address) {
+                    logInfo("🎧 BluetoothDeviceService: Battery found on retry \(attempt): \(battery)%")
+
+                    // Create updated device info and publish
+                    DispatchQueue.main.async {
+                        let deviceInfo = BluetoothDeviceInfo(
+                            name: name,
+                            address: address,
+                            deviceType: self.determineDeviceType(from: device),
+                            isConnected: true,
+                            batteryLevel: battery
+                        )
+                        self.eventRouter.publish(.bluetoothDeviceConnected, data: ["device": deviceInfo])
+                    }
+                    return
+                }
+
+                logInfo("🎧 BluetoothDeviceService: Battery retry \(attempt)/\(maxRetries) failed for \(name)")
+            }
+        }
     }
 
     private func fetchBatteryFromSystemProfiler(deviceAddress: String) -> Int? {

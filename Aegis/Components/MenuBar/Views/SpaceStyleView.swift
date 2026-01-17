@@ -7,7 +7,7 @@ struct SpaceStyleView: View {
     let isActive: Bool
     let isHovered: Bool
     let windowIcons: [WindowIcon]
-    let expandedIconId: Int?
+    let expandedWindowId: Int?
     let calculatedWidth: (WindowIcon) -> CGFloat
 
     var body: some View {
@@ -39,7 +39,7 @@ struct SpaceStyleView: View {
 
 struct FocusDotView: View {
     let windowIcons: [WindowIcon]
-    let expandedIconId: Int?
+    let expandedWindowId: Int?
     let calculatedWidth: (WindowIcon) -> CGFloat
 
     var body: some View {
@@ -68,7 +68,7 @@ struct FocusDotView: View {
             xPosition += 6   // Spacing in icon's HStack (always present between icon and title area)
 
             // If this icon is expanded, add the title width
-            if expandedIconId == windowIcons[i].id {
+            if expandedWindowId == windowIcons[i].id {
                 xPosition += calculatedWidth(windowIcons[i])
             }
 

@@ -136,6 +136,29 @@ struct SettingsPanelView: View {
 
             SettingsDivider()
 
+            // App Switcher
+            SettingsSectionHeader(title: "App Switcher", icon: "rectangle.on.rectangle.angled")
+
+            SettingsToggle(
+                label: "Enable App Switcher",
+                description: "Intercept Cmd+Tab to show custom switcher",
+                isOn: $config.appSwitcherEnabled
+            )
+
+            SettingsToggle(
+                label: "Show Minimized Windows",
+                description: "Include minimized windows in the switcher",
+                isOn: $config.appSwitcherShowMinimized
+            )
+
+            SettingsToggle(
+                label: "Show Hidden Windows",
+                description: "Include hidden app windows in the switcher",
+                isOn: $config.appSwitcherShowHidden
+            )
+
+            SettingsDivider()
+
             // Behavior
             SettingsSectionHeader(title: "Behavior", icon: "hand.tap")
 

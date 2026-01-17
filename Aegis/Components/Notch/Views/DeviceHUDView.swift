@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import AppKit
 
 /// ViewModel for device connection HUD
 class DeviceHUDViewModel: ObservableObject {
@@ -21,20 +22,40 @@ struct DeviceHUDView: View {
 
     @ObservedObject private var config = AegisConfig.shared
 
-    // Panel widths - match Volume/Brightness HUD for consistency
+    // Panel widths
     // Left side (device icon): fixed square size
     private var leftPanelWidth: CGFloat {
         notchDimensions.height
     }
 
-    // Right side (device info): match progress bar width
-    private var rightPanelWidth: CGFloat {
-        config.notchHUDProgressBarWidth + 16
+    // Calculate minimum width needed for right panel text
+    private var calculatedRightPanelWidth: CGFloat {
+        guard let device = viewModel.deviceInfo else {
+            return config.notchHUDProgressBarWidth + 16
+        }
+
+        // Calculate text widths
+        let deviceNameFont = NSFont.systemFont(ofSize: 10, weight: .semibold)
+        let statusFont = NSFont.systemFont(ofSize: 8, weight: .medium)
+
+        let deviceNameWidth = device.deviceType.displayName.width(using: deviceNameFont)
+        let statusText = viewModel.isConnecting ? "Connected" : "Disconnected"
+        let statusWidth = statusText.width(using: statusFont)
+
+        // Take the wider of the two texts
+        let textWidth = max(deviceNameWidth, statusWidth)
+
+        // Add padding + battery ring space (if present)
+        let batterySpace: CGFloat = (device.batteryLevel != nil && viewModel.isConnecting) ? 24 : 0
+        let totalNeeded = textWidth + 16 + batterySpace  // 16 for horizontal padding
+
+        // Return at least the minimum (progress bar width) but expand if needed
+        return max(config.notchHUDProgressBarWidth + 16, totalNeeded)
     }
 
     // Use symmetric max width for centering (same pattern as MinimalHUDWrapper)
     private var panelWidth: CGFloat {
-        max(leftPanelWidth, rightPanelWidth)
+        max(leftPanelWidth, calculatedRightPanelWidth)
     }
 
     private let notchGapFill: CGFloat = 18
@@ -64,7 +85,7 @@ struct DeviceHUDView: View {
                 HStack(spacing: 0) {
                     HUDRightPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
                         .fill(Color.black)
-                        .frame(width: rightPanelWidth + notchGapFill, height: notchDimensions.height)
+                        .frame(width: calculatedRightPanelWidth + notchGapFill, height: notchDimensions.height)
                     Spacer(minLength: 0)
                 }
                 .frame(width: panelWidth + notchGapFill, alignment: .leading)
@@ -101,7 +122,6 @@ struct DeviceHUDView: View {
                                 Text(device.deviceType.displayName)
                                     .font(.system(size: 10, weight: .semibold))
                                     .foregroundColor(.white)
-                                    .lineLimit(1)
 
                                 Text(viewModel.isConnecting ? "Connected" : "Disconnected")
                                     .font(.system(size: 8, weight: .medium))
@@ -114,11 +134,12 @@ struct DeviceHUDView: View {
                                     .frame(width: 18, height: 18)
                             }
                         }
-                        .frame(maxWidth: rightPanelWidth - 12, alignment: .leading)
+                        .fixedSize(horizontal: true, vertical: false)  // Allow natural text sizing
                     }
                     Spacer(minLength: 0)
                 }
                 .frame(width: panelWidth, height: notchDimensions.height)
+                .padding(.leading, 8)
                 .opacity(viewModel.isVisible ? 1 : 0)
                 .offset(x: viewModel.isVisible ? 0 : -notchDimensions.width / 2)
             }

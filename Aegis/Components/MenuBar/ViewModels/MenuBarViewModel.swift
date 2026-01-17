@@ -11,6 +11,7 @@ class MenuBarViewModel: ObservableObject {
     @Published var windowIconsVersion: Int = 0  // Increment to force UI refresh
     @Published var isHUDVisible: Bool = false  // Tracks notch HUD visibility
     @Published var hudLayoutCoordinator: HUDLayoutCoordinator?  // Manages HUD module layout
+    @Published var expandedWindowId: Int?  // Currently expanded window icon (persists across view updates)
 
     let yabaiService: YabaiService  // Made public for context menu
     private var updateTimer: Timer?
@@ -52,6 +53,20 @@ class MenuBarViewModel: ObservableObject {
             newIconsBySpace[space.index] = yabaiService.getWindowIconsForSpace(space.index)
         }
         windowIconsBySpace = newIconsBySpace
+
+        // Clear expanded window if it no longer exists
+        cleanupExpandedWindowIfNeeded(newIconsBySpace)
+    }
+
+    /// Clear expandedWindowId if the window no longer exists in any space
+    private func cleanupExpandedWindowIfNeeded(_ iconsBySpace: [Int: [WindowIcon]]) {
+        guard let expandedId = expandedWindowId else { return }
+
+        // Check if the expanded window still exists in any space
+        let allWindowIds = iconsBySpace.values.flatMap { $0.map { $0.id } }
+        if !allWindowIds.contains(expandedId) {
+            expandedWindowId = nil
+        }
     }
 
     func refreshWindowIcons() {
@@ -72,6 +87,9 @@ class MenuBarViewModel: ObservableObject {
                 let windowIds = icons.map { String($0.id) }.joined(separator: ", ")
                 print("   - Space \(space.index): \(icons.count) icons in order: [\(windowIds)]")
             }
+
+            // Clear expanded window if it no longer exists
+            self.cleanupExpandedWindowIfNeeded(newIconsBySpace)
 
             // Update @Published property with animation
             withAnimation(.easeInOut(duration: 0.3)) {

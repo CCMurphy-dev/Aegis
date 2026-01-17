@@ -164,6 +164,35 @@ Aegis/
 
 - **Events Published**: `.musicPlaybackChanged`
 
+#### AppSwitcherService.swift (612 lines)
+- **Purpose**: Custom Cmd+Tab window switcher with space-aware organization
+- **Capabilities**:
+  - Intercept Cmd+Tab via CGEvent tap
+  - Display windows organized by space in a centered overlay
+  - Multiple input methods: keyboard, mouse hover, two-finger scroll
+  - Type-to-filter search while switcher is active
+  - Focus any window via Yabai commands
+
+- **Event Tap**:
+  - Captures keyDown, keyUp, flagsChanged, leftMouseDown
+  - Intercepts Cmd+Tab to activate switcher
+  - Handles Escape to cancel, arrow keys to navigate
+  - Cmd+1-9 for direct window selection
+
+- **Input Methods**:
+  - **Keyboard**: Cmd+Tab/Cmd+Shift+Tab cycles, Cmd+1-9 direct select
+  - **Mouse**: Hover highlights, click confirms selection
+  - **Scroll**: Two-finger scroll cycles with configurable threshold/notched behavior
+
+- **Components**:
+  - `AppSwitcherWindowController`: Manages overlay NSPanel
+  - `AppSwitcherViewModel`: Published state for SwiftUI views
+  - `MouseTrackingNSView`: Efficient mouse/scroll event handling
+
+- **Models**:
+  - `SpaceGroup`: Windows grouped by space index
+  - `SwitcherWindow`: Window info with icon, state (minimized/hidden)
+
 ---
 
 ### 4. MenuBar Component (`Components/MenuBar/`)
@@ -371,12 +400,34 @@ FocusHUDView (UI)
 - **UI view** for music playback display
 - **Layout**:
   - Left: Album art with scale/opacity animation
-  - Right: Music visualizer (5 bars, randomized heights)
+  - Right: Either music visualizer OR track info (configurable via `musicHUDRightPanelMode`)
+
+- **Right Panel Modes**:
+  - **Visualizer mode** (default): 5 animated capsule bars with randomized heights
+  - **Track Info mode**: Song title and artist with marquee scrolling for long text
 
 - **Visualizer**:
   - 5 capsule bars with randomized heights
   - Updates every 0.2s when playing
   - Resets to flat bars when paused
+  - Optional blur effect (shows wallpaper through bars)
+
+- **Track Info Display** (TrackInfoView):
+  - Shows song title and artist name
+  - Auto-expands width on track change to show full text
+  - Collapses after 3 seconds to standard width
+  - **Marquee scrolling** for text that overflows collapsed width:
+    - Title and artist scroll independently (each only if it overflows)
+    - When both overflow, they scroll in sync at same speed
+    - Energy-efficient 30fps timer-based animation (not 60fps SwiftUI animation)
+    - GPU-accelerated via `.drawingGroup()` modifier
+  - Tap album art to toggle between visualizer and track info modes
+
+- **MarqueeScrollController**:
+  - State machine with phases: idle → initialDelay → scrolling → endPause → resetPause
+  - Uses `CACurrentMediaTime()` for accurate timing
+  - 30fps `Timer` for energy efficiency (half the energy of 60fps)
+  - Configurable scroll speed (30 points/second), delays, and gap between text copies
 
 #### DeviceHUDView.swift
 - **UI view** for Bluetooth device connection notifications
@@ -887,6 +938,7 @@ func prepareWindows() {
 | `EventRouter.swift` | Pub/sub event bus | 60 |
 | `YabaiService.swift` | Yabai WM integration | 500 |
 | `BluetoothDeviceService.swift` | Bluetooth device monitoring | 400 |
+| `AppSwitcherService.swift` | Custom Cmd+Tab window switcher | 612 |
 | `MenuBarCoordinator.swift` | Menu bar orchestration | 400+ |
 | `SpaceIndicatorView.swift` | Workspace UI display | 776 |
 | `NotchHUDController.swift` | Notch HUD window management | 310 |

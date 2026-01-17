@@ -7,7 +7,7 @@ import SwiftUI
 struct SpaceWindowsRow: View {
     let windowIcons: [WindowIcon]
     let allWindowIcons: [WindowIcon]
-    let expandedIconId: Int?
+    let expandedWindowId: Int?
     let hoveredIconId: Int?
     let draggedWindowId: Int?
     let onWindowClick: (Int) -> Void
@@ -23,7 +23,7 @@ struct SpaceWindowsRow: View {
             ForEach(windowIcons) { windowIcon in
                 WindowIconView(
                     windowIcon: windowIcon,
-                    isExpanded: expandedIconId == windowIcon.id,
+                    isExpanded: expandedWindowId == windowIcon.id,
                     expandedWidth: calculatedWidth(windowIcon),
                     hoveredIconId: hoveredIconId,
                     draggedWindowId: draggedWindowId,
@@ -31,10 +31,7 @@ struct SpaceWindowsRow: View {
                         onHoverChange(hovering ? windowIcon.id : nil)
                     },
                     onLeftClick: {
-                        // Collapse if this icon is expanded
-                        if expandedIconId == windowIcon.id {
-                            onToggleExpansion(windowIcon)
-                        }
+                        // Left-click just focuses the window, doesn't affect expansion state
                         onWindowClick(windowIcon.id)
                     },
                     onRightClick: {
