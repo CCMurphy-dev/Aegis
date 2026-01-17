@@ -120,9 +120,13 @@ struct MenuBarView: View {
                                         let windowIcons = viewModel.windowIconsBySpace[space.index] ?? []
                                         let allWindowIcons = viewModel.getAllWindowIcons(for: space)
 
+                                        // Derive isActive from window focus state (same source as the focus dot)
+                                        // This keeps the space highlight in sync with the focus indicator
+                                        let hasWindowFocus = windowIcons.contains(where: { $0.hasFocus })
+
                                         SpaceIndicatorView(
                                             space: space,
-                                            isActive: space.focused,
+                                            isActive: hasWindowFocus,
                                             windowIcons: windowIcons,
                                             allWindowIcons: allWindowIcons,
                                             onWindowClick: onWindowClick,

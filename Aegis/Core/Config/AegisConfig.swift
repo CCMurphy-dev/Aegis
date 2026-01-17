@@ -479,8 +479,74 @@ class AegisConfig: ObservableObject {
     /// Active border color (uses activeBorderOpacity)
     var activeBorderColor: Color { Color.white.opacity(activeBorderOpacity) }
 
+    private var configFileWatcher: DispatchSourceFileSystemObject?
+
     private init() {
         loadPreferences()
+        // JSON file takes priority over UserDefaults
+        loadFromJSONFile()
+        // Start watching for config file changes
+        startWatchingConfigFile()
+    }
+
+    deinit {
+        stopWatchingConfigFile()
+    }
+
+    // MARK: - Config File Watching
+
+    private func startWatchingConfigFile() {
+        let fileURL = Self.configFilePath
+        let configDir = fileURL.deletingLastPathComponent()
+
+        // Ensure the config directory exists
+        try? FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
+
+        // Watch the directory for changes (file might not exist yet)
+        let fd = open(configDir.path, O_EVTONLY)
+        guard fd >= 0 else {
+            print("⚠️ AegisConfig: Could not open config directory for watching")
+            return
+        }
+
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
+            eventMask: [.write, .delete, .rename],
+            queue: DispatchQueue.global(qos: .utility)
+        )
+
+        source.setEventHandler { [weak self] in
+            // Debounce rapid changes
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self?.reloadConfigFile()
+            }
+        }
+
+        source.setCancelHandler {
+            close(fd)
+        }
+
+        source.resume()
+        configFileWatcher = source
+        print("📁 AegisConfig: Watching for config file changes at \(configDir.path)")
+    }
+
+    private func stopWatchingConfigFile() {
+        configFileWatcher?.cancel()
+        configFileWatcher = nil
+    }
+
+    private func reloadConfigFile() {
+        guard FileManager.default.fileExists(atPath: Self.configFilePath.path) else {
+            return
+        }
+
+        print("🔄 AegisConfig: Detected config file change, reloading...")
+        if loadFromJSONFile() {
+            // Notify observers that config changed
+            objectWillChange.send()
+            print("✅ AegisConfig: Config reloaded successfully")
+        }
     }
 
     // MARK: - Persistence

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2025-01-17
+
+### Added
+- JSON config file support at `~/.config/aegis/config.json`
+  - Edit settings without rebuilding the app
+  - Hot-reload: changes apply automatically when file is saved
+  - Partial configs supported: only specify settings you want to change
+- Auto-generated `CONFIG_OPTIONS.md` documentation
+  - Full reference of all available settings with descriptions
+  - Created automatically in config directory on first run
+- Starter config file created on first run with common settings
+
+### Fixed
+- Space indicator highlight now stays in sync with focus dot
+  - Both now derive from window focus state (single source of truth)
+  - Previously could desync when space data and window data updated at different times
+- Force refresh for critical yabai events (space_changed, window_focused)
+  - Bypasses debounce to ensure UI updates immediately
+- Synchronous cache writes prevent race conditions in refresh cycle
+
 ## [0.7.0] - 2025-01-17
 
 ### Added

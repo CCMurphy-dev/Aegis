@@ -122,12 +122,15 @@ final class YabaiService {
     private func handleYabaiEvent(_ event: String) async {
         print("🔄 [DEBUG] FIFO event: '\(event)'")
         switch event {
-        case "space_changed", "space_created", "space_destroyed":
+        case "space_changed":
+            // Space changes are critical for UI - always force refresh to update focus indicator
+            await refreshAll(source: "FIFO:space_changed", forceRefresh: true)
+        case "space_created", "space_destroyed":
             await refreshAll(source: "FIFO:\(event)")
         case "window_focused":
             // Window focus may change the active space (e.g., clicking a window on another space)
-            // Refresh both spaces and windows to ensure focus state is accurate
-            await refreshAll(source: "FIFO:window_focused")
+            // Force refresh to ensure focus state is accurate
+            await refreshAll(source: "FIFO:window_focused", forceRefresh: true)
         case "window_created", "window_destroyed", "window_moved":
             print("🔄 [DEBUG] refreshWindows from FIFO:\(event)")
             await refreshWindows()
@@ -138,16 +141,16 @@ final class YabaiService {
 
     // MARK: - Refresh
 
-    private func refreshAll(source: String = "unknown") async {
-        // Debounce: skip if we refreshed very recently
+    private func refreshAll(source: String = "unknown", forceRefresh: Bool = false) async {
+        // Debounce: skip if we refreshed very recently (unless forced)
         let now = Date()
         let timeSinceLast = now.timeIntervalSince(lastRefreshTime)
-        if timeSinceLast < refreshDebounceInterval {
+        if !forceRefresh && timeSinceLast < refreshDebounceInterval {
             print("🔄 [DEBUG] refreshAll SKIPPED (debounce) - source: \(source), timeSinceLast: \(String(format: "%.3f", timeSinceLast))s")
             return
         }
         lastRefreshTime = now
-        print("🔄 [DEBUG] refreshAll EXECUTING - source: \(source)")
+        print("🔄 [DEBUG] refreshAll EXECUTING\(forceRefresh ? " (FORCED)" : "") - source: \(source)")
 
         // Run both queries in parallel for better performance
         async let spacesTask: () = refreshSpaces()
@@ -167,15 +170,14 @@ final class YabaiService {
                 print("🔄 [DEBUG] refreshSpaces: NO focused space reported by yabai!")
             }
 
-            // Write to cache first, then publish event AFTER write completes
-            // This prevents race condition where event fires before data is ready
-            dataQueue.async(flags: .barrier) { [weak self] in
+            // Write to cache synchronously (barrier) so data is available before we return
+            dataQueue.sync(flags: .barrier) { [weak self] in
                 self?.spaces = Dictionary(uniqueKeysWithValues: decoded.map { ($0.id, $0) })
+            }
 
-                // Publish event on main queue AFTER cache write completes
-                DispatchQueue.main.async {
-                    self?.eventRouter.publish(.spaceChanged, data: ["spaces": decoded])
-                }
+            // Publish event on main queue AFTER cache write completes
+            DispatchQueue.main.async { [weak self] in
+                self?.eventRouter.publish(.spaceChanged, data: ["spaces": decoded])
             }
         } catch {
             print("❌ yabai spaces failed:", error)
@@ -187,14 +189,14 @@ final class YabaiService {
             let json = try await command.run(["-m", "query", "--windows"])
             let decoded = try JSONDecoder().decode([WindowInfo].self, from: Data(json.utf8))
 
-            // Write to cache first, then publish event AFTER write completes
-            dataQueue.async(flags: .barrier) { [weak self] in
+            // Write to cache synchronously (barrier) so data is available before we return
+            dataQueue.sync(flags: .barrier) { [weak self] in
                 self?.windows = Dictionary(uniqueKeysWithValues: decoded.map { ($0.id, $0) })
+            }
 
-                // Publish event on main queue AFTER cache write completes
-                DispatchQueue.main.async {
-                    self?.eventRouter.publish(.windowsChanged, data: ["windows": decoded])
-                }
+            // Publish event on main queue AFTER cache write completes
+            DispatchQueue.main.async { [weak self] in
+                self?.eventRouter.publish(.windowsChanged, data: ["windows": decoded])
             }
         } catch {
             print("❌ yabai windows failed:", error)
