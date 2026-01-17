@@ -298,6 +298,23 @@ final class YabaiService {
         }
     }
 
+    /// Move window to space and focus it (for Finder toggle)
+    func moveWindowToSpaceAndFocus(_ id: Int, spaceIndex: Int) {
+        Task {
+            // Move to current space first
+            try? await command.run(["-m", "window", "\(id)", "--space", "\(spaceIndex)"])
+            // Then focus the window
+            try? await command.run(["-m", "window", "--focus", "\(id)"])
+        }
+    }
+
+    /// Get all windows from cache
+    func getAllWindows() -> [WindowInfo] {
+        dataQueue.sync {
+            Array(windows.values)
+        }
+    }
+
     func createSpace() {
         print("➕ Creating new space")
         Task {

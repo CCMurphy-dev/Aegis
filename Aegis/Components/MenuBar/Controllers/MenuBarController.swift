@@ -60,6 +60,7 @@ struct MenuBarView: View {
     let onBalanceLayout: () -> Void
     let onToggleLayout: () -> Void
     let onStackAllWindows: () -> Void
+    let onToggleApp: (FloatingApp) -> Void
 
     private let config = AegisConfig.shared
     @State private var scrollOffset: CGFloat = 0
@@ -79,7 +80,8 @@ struct MenuBarView: View {
         onFlipLayout: @escaping (String) -> Void,
         onBalanceLayout: @escaping () -> Void,
         onToggleLayout: @escaping () -> Void,
-        onStackAllWindows: @escaping () -> Void
+        onStackAllWindows: @escaping () -> Void,
+        onToggleApp: @escaping (FloatingApp) -> Void
     ) {
         self.viewModel = viewModel
         self.onSpaceClick = onSpaceClick
@@ -92,6 +94,7 @@ struct MenuBarView: View {
         self.onBalanceLayout = onBalanceLayout
         self.onToggleLayout = onToggleLayout
         self.onStackAllWindows = onStackAllWindows
+        self.onToggleApp = onToggleApp
     }
 
     var body: some View {
@@ -105,8 +108,9 @@ struct MenuBarView: View {
                 ZStack(alignment: .topLeading) {
                     HStack(alignment: .top, spacing: 0) {
                         // Dynamic spacer that grows when button label is shown
+                        // Width = edge padding + layout button (32) + spacing (6) + finder button (32) + spacing to spaces
                         Spacer()
-                            .frame(width: config.menuBarEdgePadding + 32 + config.spaceIndicatorSpacing + (buttonLabelShowing ? 95 : 0))
+                            .frame(width: config.menuBarEdgePadding + 32 + 6 + 32 + config.spaceIndicatorSpacing + (buttonLabelShowing ? 95 : 0))
                             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: buttonLabelShowing)
 
                         // Spaces (with scrolling if needed)
@@ -242,8 +246,8 @@ struct MenuBarView: View {
                     }
                     .frame(height: config.menuBarHeight, alignment: .center)
 
-                    // Button on top layer to ensure it's interactive
-                    HStack {
+                    // Buttons on top layer to ensure they're interactive
+                    HStack(spacing: 6) {
                         LayoutActionsButton(
                             viewModel: viewModel,
                             onRotate: onRotateLayout,
@@ -255,11 +259,12 @@ struct MenuBarView: View {
                             onSpaceDestroy: onSpaceDestroy,
                             labelShowing: $buttonLabelShowing
                         )
-                        .padding(.leading, config.menuBarEdgePadding)
-                        .padding(.trailing, config.spaceIndicatorSpacing)
+
+                        AppLauncherButton(onToggleApp: onToggleApp, apps: FloatingApp.defaultApps)
 
                         Spacer()
                     }
+                    .padding(.leading, config.menuBarEdgePadding)
                     .frame(height: config.menuBarHeight, alignment: .center)
                 }
             }
@@ -403,6 +408,176 @@ struct NewSpaceButton: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
+    }
+}
+
+// MARK: - App Launcher Button
+
+struct AppLauncherButton: View {
+    let onToggleApp: (FloatingApp) -> Void
+    let apps: [FloatingApp]
+
+    @State private var isHovered = false
+    @State private var selectedAppIndex: Int = 0
+
+    private var selectedApp: FloatingApp {
+        apps[selectedAppIndex]
+    }
+
+    var body: some View {
+        Image(nsImage: selectedApp.icon)
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: 18, height: 18)
+            .opacity(isHovered ? 1.0 : 0.7)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isHovered ? Color.white.opacity(0.18) : Color.white.opacity(0.12))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+                    .opacity(isHovered ? 1.0 : 0.0)
+            )
+            .scaleEffect(isHovered ? 1.02 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
+            .animation(.easeInOut(duration: 0.15), value: selectedAppIndex)
+            .overlay(
+                AppLauncherScrollSelector(
+                    selectedIndex: $selectedAppIndex,
+                    appCount: apps.count,
+                    onTap: {
+                        onToggleApp(selectedApp)
+                    }
+                )
+                .allowsHitTesting(true)
+            )
+            .onHover { isHovered = $0 }
+            .help("Toggle \(selectedApp.name) (scroll to change)")
+    }
+}
+
+// MARK: - App Launcher Scroll Selector
+
+struct AppLauncherScrollSelector: NSViewRepresentable {
+    @Binding var selectedIndex: Int
+    let appCount: Int
+    let onTap: () -> Void
+
+    func makeNSView(context: Context) -> AppLauncherScrollView {
+        let view = AppLauncherScrollView()
+        view.onScrollChange = { delta in
+            context.coordinator.handleScroll(delta: delta)
+        }
+        view.onTap = onTap
+        view.wantsLayer = true
+        view.layer?.backgroundColor = NSColor.clear.cgColor
+        return view
+    }
+
+    func updateNSView(_ nsView: AppLauncherScrollView, context: Context) {
+        context.coordinator.selectedIndex = $selectedIndex
+        context.coordinator.appCount = appCount
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(selectedIndex: $selectedIndex, appCount: appCount)
+    }
+
+    class Coordinator {
+        var selectedIndex: Binding<Int>
+        var appCount: Int
+        var scrollAccumulator: CGFloat = 0
+        let scrollThreshold: CGFloat = 3
+
+        private let config = AegisConfig.shared
+
+        init(selectedIndex: Binding<Int>, appCount: Int) {
+            self.selectedIndex = selectedIndex
+            self.appCount = appCount
+        }
+
+        func handleScroll(delta: CGFloat) {
+            scrollAccumulator += delta
+
+            let actionSteps = Int(scrollAccumulator / scrollThreshold)
+
+            if actionSteps != 0 {
+                var newIndex = selectedIndex.wrappedValue + actionSteps
+
+                // Wrap around
+                if newIndex < 0 {
+                    newIndex = appCount + (newIndex % appCount)
+                } else if newIndex >= appCount {
+                    newIndex = newIndex % appCount
+                }
+
+                if newIndex != selectedIndex.wrappedValue {
+                    selectedIndex.wrappedValue = newIndex
+
+                    if config.enableLayoutActionHaptics {
+                        NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+                    }
+                }
+
+                scrollAccumulator = 0
+            }
+        }
+    }
+}
+
+class AppLauncherScrollView: NSView {
+    var onScrollChange: ((CGFloat) -> Void)?
+    var onTap: (() -> Void)?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        self.wantsLayer = true
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        bounds.contains(point) ? self : nil
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for trackingArea in trackingAreas {
+            removeTrackingArea(trackingArea)
+        }
+        let trackingArea = NSTrackingArea(
+            rect: bounds,
+            options: [.activeAlways, .mouseEnteredAndExited, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(trackingArea)
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        // Ignore momentum phase for notched feeling - only respond to actual gestures
+        guard event.phase == .began || event.phase == .changed || event.phase == [] else {
+            return
+        }
+
+        // Use deltaY (normalized) not scrollingDeltaY (pixel-based) to match LayoutActionsButton sensitivity
+        let delta = event.deltaY
+        if abs(delta) > 0.1 {
+            onScrollChange?(delta)
+        }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        onTap?()
     }
 }
 

@@ -7,6 +7,7 @@ import SwiftUI
 class MenuBarCoordinator {
     private let yabaiService: YabaiService
     private let eventRouter: EventRouter
+    private let floatingAppController: FloatingAppController
 
     private let windowController: MenuBarWindowController
     private let interactionMonitor: MenuBarInteractionMonitor
@@ -15,6 +16,7 @@ class MenuBarCoordinator {
     init(yabaiService: YabaiService, eventRouter: EventRouter) {
         self.yabaiService = yabaiService
         self.eventRouter = eventRouter
+        self.floatingAppController = FloatingAppController(yabaiService: yabaiService)
         self.windowController = MenuBarWindowController()
         self.interactionMonitor = MenuBarInteractionMonitor()
     }
@@ -77,6 +79,9 @@ class MenuBarCoordinator {
             },
             onStackAllWindows: { [weak self] in
                 self?.yabaiService.toggleStackAllWindowsInCurrentSpace()
+            },
+            onToggleApp: { [weak self] app in
+                self?.floatingAppController.toggle(app)
             }
         )
 

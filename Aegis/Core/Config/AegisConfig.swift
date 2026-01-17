@@ -15,7 +15,7 @@ class AegisConfig: ObservableObject {
     @Published var menuBarHeight: CGFloat = NSScreen.main?.safeAreaInsets.top ?? 37
 
     /// Padding from screen edges (affects button and system status placement)
-    @Published var menuBarEdgePadding: CGFloat = 100
+    @Published var menuBarEdgePadding: CGFloat = 50
 
     /// Spacing between space indicators in the menu bar
     @Published var spaceIndicatorSpacing: CGFloat = 8
@@ -1124,7 +1124,7 @@ class AegisConfig: ObservableObject {
     func resetToDefaults() {
         // Reset all values to their default state
         menuBarHeight = NSScreen.main?.safeAreaInsets.top ?? 37
-        menuBarEdgePadding = 100
+        menuBarEdgePadding = 50
         spaceIndicatorSpacing = 8
         systemIconSpacing = 12
         systemIconSize = 14
