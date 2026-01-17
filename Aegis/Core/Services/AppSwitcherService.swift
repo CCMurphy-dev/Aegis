@@ -35,6 +35,9 @@ final class AppSwitcherService {
     private let yabaiCommand = YabaiCommandActor.shared
     private let config = AegisConfig.shared
 
+    /// Scroll accumulator for Cmd+scroll activation
+    private var cmdScrollAccumulator: CGFloat = 0
+
     // MARK: - Init
 
     private init() {
@@ -111,7 +114,8 @@ final class AppSwitcherService {
         let eventMask: CGEventMask = (1 << CGEventType.keyDown.rawValue) |
                                       (1 << CGEventType.keyUp.rawValue) |
                                       (1 << CGEventType.flagsChanged.rawValue) |
-                                      (1 << CGEventType.leftMouseDown.rawValue)
+                                      (1 << CGEventType.leftMouseDown.rawValue) |
+                                      (1 << CGEventType.scrollWheel.rawValue)
 
         guard let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
@@ -154,11 +158,16 @@ final class AppSwitcherService {
 
         switch type {
         case .flagsChanged:
-            if isActive && !cmdPressed {
-                DispatchQueue.main.async { [weak self] in
-                    self?.confirmSelection()
+            if !cmdPressed {
+                // Cmd released - reset scroll accumulator
+                cmdScrollAccumulator = 0
+
+                if isActive {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.confirmSelection()
+                    }
+                    return nil
                 }
-                return nil
             }
 
         case .keyDown:
@@ -246,6 +255,41 @@ final class AppSwitcherService {
                     }
                 }
                 // Click inside - let it through for SwiftUI to handle
+            }
+
+        case .scrollWheel:
+            // Cmd+scroll to activate/cycle the switcher (opt-in feature)
+            if cmdPressed && config.appSwitcherCmdScrollEnabled {
+                // Get scroll delta (use scrollingDeltaY for trackpad precision)
+                let deltaY = event.getDoubleValueField(.scrollWheelEventDeltaAxis1)
+
+                // Accumulate scroll
+                cmdScrollAccumulator += CGFloat(deltaY)
+
+                let threshold: CGFloat = config.scrollActionThreshold
+                let steps = Int(cmdScrollAccumulator / threshold)
+
+                if steps != 0 {
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self = self else { return }
+                        if self.isActive {
+                            // Already active - cycle selection
+                            self.cycleSelection(reverse: steps < 0)
+                        } else {
+                            // Not active - activate and optionally cycle
+                            self.activateSwitcher(reverse: steps < 0)
+                        }
+                    }
+
+                    // Reset accumulator (notched behavior)
+                    cmdScrollAccumulator = 0
+                    return nil  // Consume the scroll event
+                }
+
+                return nil  // Consume scroll while Cmd is held to prevent zoom
+            } else if !cmdPressed {
+                // Cmd released - reset accumulator
+                cmdScrollAccumulator = 0
             }
 
         default:

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2025-01-17
+
 ### Added
 - Music HUD track info display mode with marquee scrolling
   - Shows song title and artist name in the notch HUD
@@ -21,11 +23,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Scroll up/down to move selection between windows
   - Works seamlessly with keyboard (Cmd+Tab) and mouse hover
   - Configurable scroll threshold and notched/continuous behavior
+- Cmd+scroll to activate app switcher (alternative to Cmd+Tab)
+  - Hold Cmd and scroll to open switcher and cycle through windows
+  - Release Cmd to confirm selection
+  - Opt-in feature disabled by default (enable in settings)
+- Bluetooth device exclusion list to prevent HUD for auto-connecting devices
+  - Apple Watch excluded by default
+  - Configure via `excludedBluetoothDevices` setting
 
 ### Changed
 - Refactored MusicHUDView with shared font constants for consistency
-- Removed redundant computed properties in MusicHUDView
 - App switcher selection now syncs across all input methods (keyboard, mouse, scroll)
+- Window icon title expansion is now toggle-based (right-click to expand, right-click again to collapse)
+  - No longer auto-collapses after a delay
+  - Only one window can be expanded at a time (expanding another collapses the previous)
+  - Left-click focuses the window without affecting expansion state
+  - Expansion now persists across focus changes and space switches
 
 ## [0.6.0] - 2025-01-15
 

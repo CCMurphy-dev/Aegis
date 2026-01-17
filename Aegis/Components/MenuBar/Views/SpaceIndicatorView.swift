@@ -14,9 +14,9 @@ struct SpaceIndicatorView: View {
     let onSpaceDestroy: ((Int) -> Void)?
     let onWindowDrop: ((Int, Int, Int?, Bool) -> Void)?  // (windowId, targetSpaceIndex, insertBeforeWindowId, shouldStack)
     @Binding var draggedWindowId: Int?  // Shared: ID of window currently being dragged
+    @Binding var expandedWindowId: Int?  // Shared: ID of currently expanded window icon (persists across updates)
 
     @State private var hoveredIconId: Int?
-    @State private var expandedIconId: Int?
     @State private var showOverflowMenu = false
     @State private var autoCollapseTask: Task<Void, Never>?
     @State private var isDraggingOver = false  // True when actively dragging over this space
@@ -88,13 +88,7 @@ struct SpaceIndicatorView: View {
                                         hoveredIconId = hovering ? windowIcon.id : nil
                                     },
                                     onLeftClick: {
-                                        // Collapse if this icon is expanded
-                                        if expandedIconId == windowIcon.id {
-                                            autoCollapseTask?.cancel()
-                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                                                expandedIconId = nil
-                                            }
-                                        }
+                                        // Left-click just focuses the window, doesn't affect expansion state
                                         onWindowClick?(windowIcon.id)
                                     },
                                     onRightClick: {
@@ -133,16 +127,16 @@ struct SpaceIndicatorView: View {
                                 }
                             }
                             .frame(
-                                width: expandedIconId == windowIcon.id
+                                width: expandedWindowId == windowIcon.id
                                     ? calculatedWidth(for: windowIcon)
                                     : 0,
                                 alignment: .leading
                             )
-                            .opacity(expandedIconId == windowIcon.id ? 1 : 0)
+                            .opacity(expandedWindowId == windowIcon.id ? 1 : 0)
                             .clipped()
                             .animation(
                                 .spring(response: 0.35, dampingFraction: 0.75),
-                                value: expandedIconId
+                                value: expandedWindowId
                             )
                         }
                         .id("\(windowIcon.id)-\(index)")  // Include position in identity to detect reordering
@@ -275,7 +269,7 @@ struct SpaceIndicatorView: View {
             xPosition += 6   // Spacing in icon's HStack (always present between icon and title area)
 
             // If this icon is expanded, add the title width
-            if expandedIconId == windowIcons[i].id {
+            if expandedWindowId == windowIcons[i].id {
                 xPosition += calculatedWidth(for: windowIcons[i])
             }
 
@@ -293,36 +287,28 @@ struct SpaceIndicatorView: View {
     private func toggleExpansion(for icon: WindowIcon) {
         autoCollapseTask?.cancel()
 
-        // If clicking the same icon → just collapse
-        if expandedIconId == icon.id {
+        // If clicking the same icon → just collapse (toggle off)
+        if expandedWindowId == icon.id {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                expandedIconId = nil
+                expandedWindowId = nil
             }
             return
         }
 
         // Step 1: force collapse the previous expanded icon
         withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-            expandedIconId = nil
+            expandedWindowId = nil
         }
 
         // Step 2: expand the new icon on the next run loop
         DispatchQueue.main.async {
             withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                expandedIconId = icon.id
+                expandedWindowId = icon.id
             }
         }
 
-        // Auto-collapse timer
-        let delayNanoseconds = UInt64(config.windowIconExpansionAutoCollapseDelay * 1_000_000_000)
-        autoCollapseTask = Task {
-            try? await Task.sleep(nanoseconds: delayNanoseconds)
-            await MainActor.run {
-                withAnimation {
-                    expandedIconId = nil
-                }
-            }
-        }
+        // No auto-collapse - expansion stays until user right-clicks again to toggle off
+        // or right-clicks a different icon (which will collapse this one)
     }
 
     private func calculatedWidth(for icon: WindowIcon) -> CGFloat {

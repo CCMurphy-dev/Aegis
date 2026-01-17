@@ -205,6 +205,9 @@ class AegisConfig: ObservableObject {
     /// Show hidden windows in the app switcher
     @Published var appSwitcherShowHidden: Bool = false
 
+    /// Enable Cmd+scroll to activate and cycle through the app switcher (opt-in)
+    @Published var appSwitcherCmdScrollEnabled: Bool = false
+
     // MARK: - Behavior Flags - Menu Bar
 
     /// Show app names under window titles when expanded
@@ -391,6 +394,10 @@ class AegisConfig: ObservableObject {
     /// Delay before auto-hiding device connection HUD (seconds)
     @Published var deviceHUDAutoHideDelay: TimeInterval = 3.0
 
+    /// Bluetooth device names to exclude from HUD notifications (case-insensitive substring match)
+    /// Apple Watch is excluded by default as it auto-connects on login/wake
+    @Published var excludedBluetoothDevices: [String] = ["watch"]
+
     /// Show HUD when Focus mode changes
     @Published var showFocusHUD: Bool = true
 
@@ -551,6 +558,12 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(windowIconExpansionAutoCollapseDelay, forKey: "windowIconExpansionAutoCollapseDelay")
         UserDefaults.standard.set(actionLabelAutoHideDelay, forKey: "actionLabelAutoHideDelay")
 
+        // App Switcher Settings
+        UserDefaults.standard.set(appSwitcherEnabled, forKey: "appSwitcherEnabled")
+        UserDefaults.standard.set(appSwitcherShowMinimized, forKey: "appSwitcherShowMinimized")
+        UserDefaults.standard.set(appSwitcherShowHidden, forKey: "appSwitcherShowHidden")
+        UserDefaults.standard.set(appSwitcherCmdScrollEnabled, forKey: "appSwitcherCmdScrollEnabled")
+
         // Interaction Thresholds
         UserDefaults.standard.set(dragDistanceThreshold, forKey: "dragDistanceThreshold")
         UserDefaults.standard.set(swipeDestroyThreshold, forKey: "swipeDestroyThreshold")
@@ -604,6 +617,7 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(musicHUDAutoHideDelay, forKey: "musicHUDAutoHideDelay")
         UserDefaults.standard.set(showDeviceHUD, forKey: "showDeviceHUD")
         UserDefaults.standard.set(deviceHUDAutoHideDelay, forKey: "deviceHUDAutoHideDelay")
+        UserDefaults.standard.set(excludedBluetoothDevices, forKey: "excludedBluetoothDevices")
         UserDefaults.standard.set(showFocusHUD, forKey: "showFocusHUD")
         UserDefaults.standard.set(focusHUDAutoHideDelay, forKey: "focusHUDAutoHideDelay")
         UserDefaults.standard.set(notchHUDIconSize, forKey: "notchHUDIconSize")
@@ -816,6 +830,20 @@ class AegisConfig: ObservableObject {
             actionLabelAutoHideDelay = val
         }
 
+        // App Switcher Settings
+        if let val = UserDefaults.standard.object(forKey: "appSwitcherEnabled") as? Bool {
+            appSwitcherEnabled = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "appSwitcherShowMinimized") as? Bool {
+            appSwitcherShowMinimized = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "appSwitcherShowHidden") as? Bool {
+            appSwitcherShowHidden = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "appSwitcherCmdScrollEnabled") as? Bool {
+            appSwitcherCmdScrollEnabled = val
+        }
+
         // Interaction Thresholds
         if let val = UserDefaults.standard.object(forKey: "dragDistanceThreshold") as? Double {
             dragDistanceThreshold = CGFloat(val)
@@ -962,6 +990,9 @@ class AegisConfig: ObservableObject {
         if let val = UserDefaults.standard.object(forKey: "deviceHUDAutoHideDelay") as? Double {
             deviceHUDAutoHideDelay = val
         }
+        if let val = UserDefaults.standard.object(forKey: "excludedBluetoothDevices") as? [String] {
+            excludedBluetoothDevices = val
+        }
         if let val = UserDefaults.standard.object(forKey: "showFocusHUD") as? Bool {
             showFocusHUD = val
         }
@@ -1091,6 +1122,11 @@ class AegisConfig: ObservableObject {
         windowIconExpansionAutoCollapseDelay = 2.0
         actionLabelAutoHideDelay = 1.5
 
+        appSwitcherEnabled = true
+        appSwitcherShowMinimized = true
+        appSwitcherShowHidden = false
+        appSwitcherCmdScrollEnabled = false
+
         dragDistanceThreshold = 3
         swipeDestroyThreshold = -120
         scrollActionThreshold = 3
@@ -1140,6 +1176,7 @@ class AegisConfig: ObservableObject {
         musicHUDAutoHideDelay = 5.0
         showDeviceHUD = true
         deviceHUDAutoHideDelay = 3.0
+        excludedBluetoothDevices = ["watch"]
         showFocusHUD = true
         focusHUDAutoHideDelay = 2.0
         notchHUDIconSize = 13
