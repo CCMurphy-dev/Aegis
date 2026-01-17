@@ -773,7 +773,7 @@ struct LayoutActionsButton: View {
             saStatusItem = NSMenuItem(title: "  SA: Loaded", action: nil, keyEquivalent: "")
             saStatusItem.isEnabled = false
         case .notLoaded:
-            saStatusItem = NSMenuItem(title: "  SA: Not loaded (click to load)", action: #selector(LayoutActionsMenuTarget.loadSA), keyEquivalent: "")
+            saStatusItem = NSMenuItem(title: "  SA: Not loaded (click to copy cmd)", action: #selector(LayoutActionsMenuTarget.loadSA), keyEquivalent: "")
             saStatusItem.target = menuTarget
             saStatusItem.isEnabled = true
         case .notInstalled:
@@ -1135,22 +1135,19 @@ class LayoutActionsMenuTarget: NSObject {
     }
 
     @objc func loadSA() {
-        logInfo("User requested SA load")
+        logInfo("User requested SA load - copying command to clipboard")
 
-        // Use AppleScript to run sudo command with admin privileges prompt
-        let script = """
-        do shell script "/opt/homebrew/bin/yabai --load-sa" with administrator privileges
-        """
+        // Copy the command to clipboard for user to run in Terminal
+        let command = "sudo yabai --load-sa"
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(command, forType: .string)
 
-        var error: NSDictionary?
-        if let appleScript = NSAppleScript(source: script) {
-            appleScript.executeAndReturnError(&error)
-            if let error = error {
-                logError("Failed to load SA: \(error)")
-            } else {
-                logInfo("SA loaded successfully via user action")
-            }
-        }
+        // Show notification with instructions
+        let notification = NSUserNotification()
+        notification.title = "Load Yabai SA"
+        notification.informativeText = "Command copied! Paste in Terminal and enter your password."
+        notification.soundName = nil
+        NSUserNotificationCenter.default.deliver(notification)
     }
 
     // MARK: - Stack Window Actions

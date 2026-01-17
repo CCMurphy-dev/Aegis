@@ -52,7 +52,6 @@ This configures the FIFO pipe integration for instant space/window updates.
 ### 4. Grant Permissions
 
 - **Accessibility** - System Settings → Privacy & Security → Accessibility
-- **Automation** - Prompted on first launch
 
 ## Requirements
 
