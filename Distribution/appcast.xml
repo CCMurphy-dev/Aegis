@@ -8,6 +8,30 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 0.7.0</title>
+            <sparkle:version>0.7.0</sparkle:version>
+            <sparkle:shortVersionString>0.7.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Fri, 17 Jan 2025 09:47:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 0.7.0</h2>
+                <ul>
+                    <li><strong>Music HUD Track Info</strong> - Song title and artist with marquee scrolling for long text</li>
+                    <li><strong>App Switcher Scroll</strong> - Two-finger scroll to cycle through windows in Cmd+Tab</li>
+                    <li><strong>Cmd+Scroll Activation</strong> - Hold Cmd and scroll to open app switcher (opt-in)</li>
+                    <li><strong>Window Title Toggle</strong> - Right-click window icon to toggle title display (persists across focus changes)</li>
+                    <li><strong>Bluetooth Exclusions</strong> - Apple Watch excluded by default to prevent HUD on login</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v0.7.0/Aegis.app.zip"
+                length="2071751"
+                type="application/octet-stream"
+                sparkle:edSignature="73RRJz9kkGSj9rROZMw1VatAyRYIfB/MM5xbKRp4WxNH7KEm6WC5zzVvTXBrSW78OAzGaGrRc53lZPEI+DfOCQ==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 0.6.0</title>
             <sparkle:version>0.6.0</sparkle:version>
             <sparkle:shortVersionString>0.6.0</sparkle:shortVersionString>
@@ -27,8 +51,6 @@
                 type="application/octet-stream"
                 sparkle:edSignature="/16gxUpD8zkRmAVApyEsp2+KOp9Fsjp4O25oMhL741TZSlJbS4a68+l3k2f3Jr7r54BdUUee57gHssoglBW3Aw==" />
         </item>
-
-        <!-- Previous Releases -->
         <item>
             <title>Version 0.5.2</title>
             <sparkle:version>0.5.2</sparkle:version>
