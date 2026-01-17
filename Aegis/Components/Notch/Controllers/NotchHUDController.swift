@@ -6,6 +6,7 @@ class NotchHUDController: ObservableObject {
     private let systemInfoService: SystemInfoService
     private let musicService: MediaService
     private let eventRouter: EventRouter
+    private weak var yabaiService: YabaiService?
 
     // Separate windows for music, volume/brightness, device connection, and focus
     private var musicWindow: NSWindow!
@@ -75,6 +76,11 @@ class NotchHUDController: ObservableObject {
     /// Connect to menu bar view model for layout coordination
     func connectMenuBarViewModel(_ viewModel: MenuBarViewModel) {
         self.menuBarViewModel = viewModel
+    }
+
+    /// Connect to yabai service for fullscreen detection
+    func connectYabaiService(_ service: YabaiService) {
+        self.yabaiService = service
     }
 
     // MARK: - Window Preparation (called once at app startup)
@@ -383,6 +389,16 @@ class NotchHUDController: ObservableObject {
             print("🎵 NotchHUDController: Playback stopped, hiding music HUD")
             hideMusicHUD()
             lastTrackIdentifier = nil
+            return
+        }
+
+        // Check if fullscreen app matches the now-playing app (suppress HUD for video players in fullscreen)
+        if let nowPlayingBundleId = info.bundleIdentifier,
+           shouldSuppressMusicHUDForFullscreen(nowPlayingBundleId: nowPlayingBundleId) {
+            print("🎵 NotchHUDController: Suppressing music HUD - fullscreen app matches now-playing app (\(nowPlayingBundleId))")
+            if musicViewModel.isVisible {
+                hideMusicHUD()
+            }
             return
         }
 
@@ -801,6 +817,48 @@ class NotchHUDController: ObservableObject {
     /// Reset animation diagnostic counters
     func resetAnimationDiagnostics() {
         overlayViewModel.progressAnimator.resetDiagnostics()
+    }
+
+    // MARK: - Fullscreen Suppression
+
+    /// Check if the music HUD should be suppressed because the fullscreen app matches the now-playing app
+    /// This prevents the music HUD from appearing over video players when they're in fullscreen
+    private func shouldSuppressMusicHUDForFullscreen(nowPlayingBundleId: String) -> Bool {
+        guard let yabaiService = yabaiService else {
+            return false
+        }
+
+        // Get current spaces to find the focused one
+        let spaces = yabaiService.getCurrentSpaces()
+        guard let focusedSpace = spaces.first(where: { $0.focused }) else {
+            return false
+        }
+
+        // Get windows in the focused space
+        let windows = yabaiService.getWindowIconsForSpace(focusedSpace.index)
+
+        // Check if any window in the current space is in native fullscreen
+        for windowIcon in windows {
+            if let windowInfo = yabaiService.getWindow(windowIcon.id),
+               windowInfo.isNativeFullscreen {
+                // Found a native fullscreen window - check if its app matches the now-playing app
+                let fullscreenAppBundleId = getBundleIdentifier(forAppNamed: windowInfo.app)
+                if fullscreenAppBundleId == nowPlayingBundleId {
+                    return true
+                }
+            }
+        }
+
+        return false
+    }
+
+    /// Get bundle identifier for an app by its name
+    private func getBundleIdentifier(forAppNamed appName: String) -> String? {
+        let runningApps = NSWorkspace.shared.runningApplications
+        if let app = runningApps.first(where: { $0.localizedName == appName }) {
+            return app.bundleIdentifier
+        }
+        return nil
     }
 
     // MARK: - Layout Coordination

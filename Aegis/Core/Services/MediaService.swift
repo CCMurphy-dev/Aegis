@@ -126,6 +126,7 @@ class MediaService {
         let artist = payload["artist"] as? String ?? "Unknown Artist"
         let album = payload["album"] as? String ?? ""
         let isPlaying = payload["playing"] as? Bool ?? false
+        let bundleIdentifier = payload["bundleIdentifier"] as? String
 
         // Create track identifier for caching
         let trackId = "\(title)-\(artist)"
@@ -160,7 +161,8 @@ class MediaService {
             artist: artist,
             album: album,
             isPlaying: isPlaying,
-            albumArt: albumArt
+            albumArt: albumArt,
+            bundleIdentifier: bundleIdentifier
         )
 
         // Only publish if state changed OR if we got new album art for same track
