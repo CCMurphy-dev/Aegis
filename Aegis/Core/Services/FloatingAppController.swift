@@ -3,63 +3,37 @@ import Cocoa
 // MARK: - Floating App Definition
 // Apps that can be quickly toggled from the menu bar
 
-struct FloatingApp {
+struct FloatingApp: Equatable {
     let name: String
     let bundleIdentifier: String
-    let appPath: String?  // Optional path for icon lookup
 
     var icon: NSImage {
-        // Try to get icon from bundle identifier first
         if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
             return NSWorkspace.shared.icon(forFile: appURL.path)
         }
-        // Fallback to path if provided
-        if let path = appPath {
-            return NSWorkspace.shared.icon(forFile: path)
-        }
-        // Generic app icon
         return NSWorkspace.shared.icon(forFileType: "app")
     }
 
-    // Predefined floating apps
-    static let finder = FloatingApp(
-        name: "Finder",
-        bundleIdentifier: "com.apple.finder",
-        appPath: "/System/Library/CoreServices/Finder.app"
-    )
+    /// Create a FloatingApp from a bundle identifier
+    /// Returns nil if the app is not installed
+    static func from(bundleIdentifier: String) -> FloatingApp? {
+        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) else {
+            return nil
+        }
+        let name = appURL.deletingPathExtension().lastPathComponent
+        return FloatingApp(name: name, bundleIdentifier: bundleIdentifier)
+    }
 
-    static let systemSettings = FloatingApp(
-        name: "Settings",
-        bundleIdentifier: "com.apple.systempreferences",
-        appPath: "/System/Applications/System Settings.app"
-    )
+    /// Get apps from config's launcherApps bundle identifiers
+    /// Filters out any apps that aren't installed
+    static func appsFromConfig() -> [FloatingApp] {
+        let config = AegisConfig.shared
+        return config.launcherApps.compactMap { FloatingApp.from(bundleIdentifier: $0) }
+    }
 
-    static let activityMonitor = FloatingApp(
-        name: "Activity Monitor",
-        bundleIdentifier: "com.apple.ActivityMonitor",
-        appPath: "/System/Applications/Utilities/Activity Monitor.app"
-    )
-
-    static let terminal = FloatingApp(
-        name: "Terminal",
-        bundleIdentifier: "com.apple.Terminal",
-        appPath: "/System/Applications/Utilities/Terminal.app"
-    )
-
-    static let calculator = FloatingApp(
-        name: "Calculator",
-        bundleIdentifier: "com.apple.calculator",
-        appPath: "/System/Applications/Calculator.app"
-    )
-
-    // Default list of floating apps
-    static let defaultApps: [FloatingApp] = [
-        .finder,
-        .systemSettings,
-        .activityMonitor,
-        .terminal,
-        .calculator
-    ]
+    static func == (lhs: FloatingApp, rhs: FloatingApp) -> Bool {
+        lhs.bundleIdentifier == rhs.bundleIdentifier
+    }
 }
 
 // MARK: - Floating App Controller

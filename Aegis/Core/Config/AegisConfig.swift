@@ -404,6 +404,17 @@ class AegisConfig: ObservableObject {
     /// Delay before auto-hiding Focus mode HUD (seconds)
     @Published var focusHUDAutoHideDelay: TimeInterval = 2.0
 
+    // MARK: - App Launcher Settings
+
+    /// Bundle identifiers for apps in the launcher button (scroll to select)
+    /// Default: Finder, Settings, Activity Monitor, Terminal
+    @Published var launcherApps: [String] = [
+        "com.apple.finder",
+        "com.apple.systempreferences",
+        "com.apple.ActivityMonitor",
+        "com.apple.Terminal"
+    ]
+
     // MARK: - Notch HUD Icon & Text Settings
 
     /// Font size for notch HUD icons (volume, brightness)
@@ -686,6 +697,7 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(excludedBluetoothDevices, forKey: "excludedBluetoothDevices")
         UserDefaults.standard.set(showFocusHUD, forKey: "showFocusHUD")
         UserDefaults.standard.set(focusHUDAutoHideDelay, forKey: "focusHUDAutoHideDelay")
+        UserDefaults.standard.set(launcherApps, forKey: "launcherApps")
         UserDefaults.standard.set(notchHUDIconSize, forKey: "notchHUDIconSize")
         UserDefaults.standard.set(notchHUDValueFontSize, forKey: "notchHUDValueFontSize")
         UserDefaults.standard.set(notchHUDInnerPadding, forKey: "notchHUDInnerPadding")
@@ -1065,6 +1077,9 @@ class AegisConfig: ObservableObject {
         if let val = UserDefaults.standard.object(forKey: "focusHUDAutoHideDelay") as? Double {
             focusHUDAutoHideDelay = val
         }
+        if let val = UserDefaults.standard.object(forKey: "launcherApps") as? [String] {
+            launcherApps = val
+        }
         if let val = UserDefaults.standard.object(forKey: "notchHUDIconSize") as? Double {
             notchHUDIconSize = CGFloat(val)
         }
@@ -1245,6 +1260,12 @@ class AegisConfig: ObservableObject {
         excludedBluetoothDevices = ["watch"]
         showFocusHUD = true
         focusHUDAutoHideDelay = 2.0
+        launcherApps = [
+            "com.apple.finder",
+            "com.apple.systempreferences",
+            "com.apple.ActivityMonitor",
+            "com.apple.Terminal"
+        ]
         notchHUDIconSize = 13
         notchHUDValueFontSize = 13
         notchHUDInnerPadding = 8

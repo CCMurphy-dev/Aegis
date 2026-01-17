@@ -260,7 +260,7 @@ struct MenuBarView: View {
                             labelShowing: $buttonLabelShowing
                         )
 
-                        AppLauncherButton(onToggleApp: onToggleApp, apps: FloatingApp.defaultApps)
+                        AppLauncherButton(onToggleApp: onToggleApp, apps: FloatingApp.appsFromConfig())
 
                         Spacer()
                     }

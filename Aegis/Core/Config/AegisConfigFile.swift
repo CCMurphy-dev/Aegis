@@ -171,6 +171,9 @@ struct AegisConfigData: Codable {
     var showFocusHUD: Bool?
     var focusHUDAutoHideDelay: Double?
 
+    // App Launcher Settings
+    var launcherApps: [String]?
+
     // Notch HUD Icon & Text Settings
     var notchHUDIconSize: Double?
     var notchHUDValueFontSize: Double?
@@ -414,6 +417,9 @@ extension AegisConfig {
         if let v = data.showFocusHUD { showFocusHUD = v }
         if let v = data.focusHUDAutoHideDelay { focusHUDAutoHideDelay = v }
 
+        // App Launcher Settings
+        if let v = data.launcherApps { launcherApps = v }
+
         // Notch HUD Icon & Text Settings
         if let v = data.notchHUDIconSize { notchHUDIconSize = CGFloat(v) }
         if let v = data.notchHUDValueFontSize { notchHUDValueFontSize = CGFloat(v) }
@@ -620,6 +626,9 @@ extension AegisConfig {
             showFocusHUD: showFocusHUD,
             focusHUDAutoHideDelay: focusHUDAutoHideDelay,
 
+            // App Launcher Settings
+            launcherApps: launcherApps,
+
             // Notch HUD Icon & Text Settings
             notchHUDIconSize: Double(notchHUDIconSize),
             notchHUDValueFontSize: Double(notchHUDValueFontSize),
@@ -660,6 +669,13 @@ extension AegisConfig {
     "musicHUDRightPanelMode": "visualizer",
 
     "showFocusHUD": true,
+
+    "launcherApps": [
+        "com.apple.finder",
+        "com.apple.systempreferences",
+        "com.apple.ActivityMonitor",
+        "com.apple.Terminal"
+    ],
 
     "maxAppIconsPerSpace": 3,
     "excludedApps": ["Finder", "Aegis"]
@@ -714,6 +730,24 @@ Only include settings you want to change - defaults are used for anything not sp
 |--------|------|---------|-------------|
 | `showFocusHUD` | bool | `true` | Show HUD when Focus mode changes |
 | `focusHUDAutoHideDelay` | number | `2.0` | Seconds before HUD auto-hides |
+
+---
+
+## App Launcher
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `launcherApps` | [string] | See below | Bundle IDs for apps in the launcher (scroll to select) |
+
+**Default launcherApps:**
+```json
+["com.apple.finder", "com.apple.systempreferences", "com.apple.ActivityMonitor", "com.apple.Terminal"]
+```
+
+To find an app's bundle identifier, run in Terminal:
+```bash
+osascript -e 'id of app "AppName"'
+```
 
 ---
 

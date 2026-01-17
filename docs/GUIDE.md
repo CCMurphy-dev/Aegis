@@ -97,16 +97,10 @@ Aegis communicates with Yabai via a FIFO pipe. This requires a one-time setup.
 
 ### Automatic Setup
 
-Run the setup script bundled with Aegis:
+Run the setup script (created automatically on first launch):
 
 ```bash
-/Applications/Aegis.app/Contents/Resources/setup-aegis-yabai.sh
-```
-
-Or if running from Xcode:
-
-```bash
-~/Library/Developer/Xcode/DerivedData/Aegis-*/Build/Products/Debug/Aegis.app/Contents/Resources/setup-aegis-yabai.sh
+~/.config/aegis/setup-aegis-yabai.sh
 ```
 
 The script will:
@@ -414,7 +408,7 @@ Right-click → Status → Link should show "Active"
 
 Run the setup script:
 ```bash
-/Applications/Aegis.app/Contents/Resources/setup-aegis-yabai.sh
+~/.config/aegis/setup-aegis-yabai.sh
 ```
 
 Then restart Yabai:
