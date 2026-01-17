@@ -8,6 +8,29 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 0.8.0</title>
+            <sparkle:version>0.8.0</sparkle:version>
+            <sparkle:shortVersionString>0.8.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Fri, 17 Jan 2025 10:49:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 0.8.0</h2>
+                <ul>
+                    <li><strong>JSON Config File</strong> - Edit settings at ~/.config/aegis/config.json with hot-reload</li>
+                    <li><strong>Config Documentation</strong> - Auto-generated CONFIG_OPTIONS.md with all available settings</li>
+                    <li><strong>Space Indicator Sync Fix</strong> - Highlight now stays in sync with focus dot</li>
+                    <li><strong>Improved Event Handling</strong> - Force refresh for critical yabai events</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v0.8.0/Aegis.app.zip"
+                length="2116551"
+                type="application/octet-stream"
+                sparkle:edSignature="A0uGfcOGT+Qoxs2uioQN5+6pw4Ud5S39RuGhlWF6fTkjv0a3aBtvTSGlkhA3FTaFps6vMlqJafX7nmpaTifrBQ==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 0.7.0</title>
             <sparkle:version>0.7.0</sparkle:version>
             <sparkle:shortVersionString>0.7.0</sparkle:shortVersionString>
@@ -29,8 +52,6 @@
                 type="application/octet-stream"
                 sparkle:edSignature="73RRJz9kkGSj9rROZMw1VatAyRYIfB/MM5xbKRp4WxNH7KEm6WC5zzVvTXBrSW78OAzGaGrRc53lZPEI+DfOCQ==" />
         </item>
-
-        <!-- Previous Releases -->
         <item>
             <title>Version 0.6.0</title>
             <sparkle:version>0.6.0</sparkle:version>
