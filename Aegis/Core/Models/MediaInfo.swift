@@ -1,9 +1,9 @@
 import Foundation
 import AppKit
 
-/// Model for music playback info
+/// Model for media playback info
 /// Used by MediaService to represent now playing information
-struct MusicInfo: Equatable {
+struct MediaInfo: Equatable {
     let title: String
     let artist: String
     let album: String
@@ -16,11 +16,11 @@ struct MusicInfo: Equatable {
         return "\(title)-\(artist)"
     }
 
-    static var placeholder: MusicInfo {
-        MusicInfo(title: "", artist: "", album: "", isPlaying: false, albumArt: nil, bundleIdentifier: nil)
+    static var placeholder: MediaInfo {
+        MediaInfo(title: "", artist: "", album: "", isPlaying: false, albumArt: nil, bundleIdentifier: nil)
     }
 
-    static func == (lhs: MusicInfo, rhs: MusicInfo) -> Bool {
+    static func == (lhs: MediaInfo, rhs: MediaInfo) -> Bool {
         return lhs.title == rhs.title &&
                lhs.artist == rhs.artist &&
                lhs.album == rhs.album &&

@@ -811,14 +811,14 @@ struct LayoutActionsButton: View {
         menu.addItem(NSMenuItem.separator())
 
         // MARK: - Display Options
-        let showMusicHUDItem = NSMenuItem(
+        let showMediaHUDItem = NSMenuItem(
             title: "Show Now Playing",
-            action: #selector(LayoutActionsMenuTarget.toggleShowMusicHUD(_:)),
+            action: #selector(LayoutActionsMenuTarget.toggleShowMediaHUD(_:)),
             keyEquivalent: ""
         )
-        showMusicHUDItem.target = menuTarget
-        showMusicHUDItem.state = AegisConfig.shared.showMusicHUD ? .on : .off
-        menu.addItem(showMusicHUDItem)
+        showMediaHUDItem.target = menuTarget
+        showMediaHUDItem.state = AegisConfig.shared.showMediaHUD ? .on : .off
+        menu.addItem(showMediaHUDItem)
 
         // Now Playing right panel mode submenu
         let rightPanelItem = NSMenuItem(title: "Now Playing Display", action: nil, keyEquivalent: "")
@@ -831,7 +831,7 @@ struct LayoutActionsButton: View {
             keyEquivalent: ""
         )
         visualizerItem.target = menuTarget
-        visualizerItem.state = AegisConfig.shared.musicHUDRightPanelMode == .visualizer ? .on : .off
+        visualizerItem.state = AegisConfig.shared.mediaHUDRightPanelMode == .visualizer ? .on : .off
         rightPanelSubmenu.addItem(visualizerItem)
 
         let trackInfoItem = NSMenuItem(
@@ -840,7 +840,7 @@ struct LayoutActionsButton: View {
             keyEquivalent: ""
         )
         trackInfoItem.target = menuTarget
-        trackInfoItem.state = AegisConfig.shared.musicHUDRightPanelMode == .trackInfo ? .on : .off
+        trackInfoItem.state = AegisConfig.shared.mediaHUDRightPanelMode == .trackInfo ? .on : .off
         rightPanelSubmenu.addItem(trackInfoItem)
 
         rightPanelItem.submenu = rightPanelSubmenu
@@ -984,25 +984,25 @@ class LayoutActionsMenuTarget: NSObject {
         SettingsPanelController.shared.showSettings()
     }
 
-    @objc func toggleShowMusicHUD(_ sender: NSMenuItem) {
+    @objc func toggleShowMediaHUD(_ sender: NSMenuItem) {
         let config = AegisConfig.shared
-        config.showMusicHUD.toggle()
+        config.showMediaHUD.toggle()
         config.savePreferences()
-        print("🎵 Show Music HUD: \(config.showMusicHUD ? "ON" : "OFF")")
+        print("🎵 Show Media HUD: \(config.showMediaHUD ? "ON" : "OFF")")
     }
 
     @objc func setRightPanelModeVisualizer(_ sender: NSMenuItem) {
         let config = AegisConfig.shared
-        config.musicHUDRightPanelMode = .visualizer
+        config.mediaHUDRightPanelMode = .visualizer
         config.savePreferences()
-        print("🎵 Music HUD Right Panel: Visualizer")
+        print("🎵 Media HUD Right Panel: Visualizer")
     }
 
     @objc func setRightPanelModeTrackInfo(_ sender: NSMenuItem) {
         let config = AegisConfig.shared
-        config.musicHUDRightPanelMode = .trackInfo
+        config.mediaHUDRightPanelMode = .trackInfo
         config.savePreferences()
-        print("🎵 Music HUD Right Panel: Track Info")
+        print("🎵 Media HUD Right Panel: Track Info")
     }
 
     @objc func restartYabai() {

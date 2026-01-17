@@ -8,8 +8,8 @@ enum AppEvent: CaseIterable {
     case windowsChanged
     case volumeChanged
     case brightnessChanged
-    case musicPlaybackChanged
-    case musicTrackChanged
+    case mediaPlaybackChanged
+    case mediaTrackChanged
     case systemStateChanged
     case bluetoothDeviceConnected
     case bluetoothDeviceDisconnected

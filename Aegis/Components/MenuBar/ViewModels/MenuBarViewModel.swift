@@ -122,14 +122,14 @@ class MenuBarViewModel: ObservableObject {
 
     /// Connect to NotchHUDController to observe HUD visibility
     func observeHUDVisibility(from hudController: NotchHUDController) {
-        // Observe both music and overlay HUD visibility
-        // HUD is visible if either music OR overlay is visible
+        // Observe both media and overlay HUD visibility
+        // HUD is visible if either media OR overlay is visible
         Publishers.CombineLatest(
-            hudController.$isMusicHUDVisible,
+            hudController.$isMediaHUDVisible,
             hudController.$isOverlayHUDVisible
         )
-        .map { musicVisible, overlayVisible in
-            musicVisible || overlayVisible
+        .map { mediaVisible, overlayVisible in
+            mediaVisible || overlayVisible
         }
         .receive(on: DispatchQueue.main)
         .assign(to: &$isHUDVisible)

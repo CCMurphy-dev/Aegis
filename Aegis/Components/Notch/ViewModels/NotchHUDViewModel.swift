@@ -25,17 +25,17 @@ class OverlayHUDViewModel: ObservableObject {
     }
 }
 
-/// ViewModel to hold persistent state for music HUD
-class MusicHUDViewModel: ObservableObject {
+/// ViewModel to hold persistent state for media HUD
+class MediaHUDViewModel: ObservableObject {
     @Published var isVisible: Bool = false {
         didSet {
-            print("🎼 MusicHUDViewModel: isVisible changed from \(oldValue) to \(isVisible)")
+            print("🎼 MediaHUDViewModel: isVisible changed from \(oldValue) to \(isVisible)")
         }
     }
-    @Published var info: MusicInfo = .placeholder
+    @Published var info: MediaInfo = .placeholder
 
     /// Whether the overlay HUD (volume/brightness) is currently showing
-    /// When true, the right panel of the music HUD should hide to avoid overlap
+    /// When true, the right panel of the media HUD should hide to avoid overlap
     @Published var isOverlayActive: Bool = false
 
     /// Whether the HUD has been dismissed by the user (resets on track change)
@@ -44,12 +44,12 @@ class MusicHUDViewModel: ObservableObject {
     /// Track identifier when dismissed - used to reset isDismissed on track change
     private var dismissedTrackId: String?
 
-    func updateInfo(_ newInfo: MusicInfo) {
-        print("🎼 MusicHUDViewModel: Updating info - \(newInfo.title) by \(newInfo.artist), hasAlbumArt: \(newInfo.albumArt != nil), isPlaying: \(newInfo.isPlaying)")
+    func updateInfo(_ newInfo: MediaInfo) {
+        print("🎼 MediaHUDViewModel: Updating info - \(newInfo.title) by \(newInfo.artist), hasAlbumArt: \(newInfo.albumArt != nil), isPlaying: \(newInfo.isPlaying)")
 
         // Reset dismissed state if track changed
         if isDismissed && newInfo.trackIdentifier != dismissedTrackId {
-            print("🎼 MusicHUDViewModel: New track detected, resetting dismissed state")
+            print("🎼 MediaHUDViewModel: New track detected, resetting dismissed state")
             isDismissed = false
             dismissedTrackId = nil
         }
@@ -59,7 +59,7 @@ class MusicHUDViewModel: ObservableObject {
 
     /// Dismiss the HUD until the next track starts
     func dismiss() {
-        print("🎼 MusicHUDViewModel: User dismissed HUD")
+        print("🎼 MediaHUDViewModel: User dismissed HUD")
         isDismissed = true
         dismissedTrackId = info.trackIdentifier
     }
