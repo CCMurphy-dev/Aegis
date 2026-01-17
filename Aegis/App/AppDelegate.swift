@@ -145,6 +145,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let menuBarController, let notchHUDController {
             menuBarController.connectHUDVisibility(from: notchHUDController)
         }
+
+        // Connect yabai service for fullscreen detection (music HUD suppression)
+        if let yabaiService, let notchHUDController {
+            notchHUDController.connectYabaiService(yabaiService)
+        }
     }
 
     // MARK: - Event Subscriptions
@@ -187,9 +192,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.notchHUDController?.showBrightness(level: level)
         }
 
-        router.subscribe(to: .musicPlaybackChanged) { [weak self] data in
-            guard let info = data["info"] as? MusicInfo else { return }
-            self?.notchHUDController?.showMusic(info: info)
+        router.subscribe(to: .mediaPlaybackChanged) { [weak self] data in
+            guard let info = data["info"] as? MediaInfo else { return }
+            self?.notchHUDController?.showMedia(info: info)
         }
 
         router.subscribe(to: .bluetoothDeviceConnected) { [weak self] data in

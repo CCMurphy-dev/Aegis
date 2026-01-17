@@ -384,9 +384,9 @@ extension AegisConfig {
         if let v = data.notchHUDTopPadding { notchHUDTopPadding = CGFloat(v) }
         if let v = data.notchHUDAutoHideDelay { notchHUDAutoHideDelay = v }
         if let v = data.minimalHUDVerticalPadding { minimalHUDVerticalPadding = CGFloat(v) }
-        if let v = data.musicHUDVerticalPadding { musicHUDVerticalPadding = CGFloat(v) }
+        if let v = data.musicHUDVerticalPadding { mediaHUDVerticalPadding = CGFloat(v) }
 
-        // Notch Settings - Music HUD
+        // Notch Settings - Media HUD
         if let v = data.albumArtSize { albumArtSize = CGFloat(v) }
         if let v = data.albumArtPadding { albumArtPadding = CGFloat(v) }
         if let v = data.visualizerHeight { visualizerHeight = CGFloat(v) }
@@ -398,12 +398,12 @@ extension AegisConfig {
         if let v = data.visualizerBarMaxHeight { visualizerBarMaxHeight = CGFloat(v) }
         if let v = data.visualizerAnimationDuration { visualizerAnimationDuration = v }
         if let v = data.visualizerUseBlurEffect { visualizerUseBlurEffect = v }
-        if let v = data.showMusicHUD { showMusicHUD = v }
-        if let v = data.musicHUDRightPanelMode, let mode = MusicHUDRightPanelMode(rawValue: v) {
-            musicHUDRightPanelMode = mode
+        if let v = data.showMusicHUD { showMediaHUD = v }
+        if let v = data.musicHUDRightPanelMode, let mode = MediaHUDRightPanelMode(rawValue: v) {
+            mediaHUDRightPanelMode = mode
         }
-        if let v = data.musicHUDAutoHide { musicHUDAutoHide = v }
-        if let v = data.musicHUDAutoHideDelay { musicHUDAutoHideDelay = v }
+        if let v = data.musicHUDAutoHide { mediaHUDAutoHide = v }
+        if let v = data.musicHUDAutoHideDelay { mediaHUDAutoHideDelay = v }
 
         // Device Connection HUD Settings
         if let v = data.showDeviceHUD { showDeviceHUD = v }
@@ -592,9 +592,9 @@ extension AegisConfig {
             notchHUDTopPadding: Double(notchHUDTopPadding),
             notchHUDAutoHideDelay: notchHUDAutoHideDelay,
             minimalHUDVerticalPadding: Double(minimalHUDVerticalPadding),
-            musicHUDVerticalPadding: Double(musicHUDVerticalPadding),
+            musicHUDVerticalPadding: Double(mediaHUDVerticalPadding),
 
-            // Notch Settings - Music HUD
+            // Notch Settings - Media HUD
             albumArtSize: Double(albumArtSize),
             albumArtPadding: Double(albumArtPadding),
             visualizerHeight: Double(visualizerHeight),
@@ -606,10 +606,10 @@ extension AegisConfig {
             visualizerBarMaxHeight: Double(visualizerBarMaxHeight),
             visualizerAnimationDuration: visualizerAnimationDuration,
             visualizerUseBlurEffect: visualizerUseBlurEffect,
-            showMusicHUD: showMusicHUD,
-            musicHUDRightPanelMode: musicHUDRightPanelMode.rawValue,
-            musicHUDAutoHide: musicHUDAutoHide,
-            musicHUDAutoHideDelay: musicHUDAutoHideDelay,
+            showMusicHUD: showMediaHUD,
+            musicHUDRightPanelMode: mediaHUDRightPanelMode.rawValue,
+            musicHUDAutoHide: mediaHUDAutoHide,
+            musicHUDAutoHideDelay: mediaHUDAutoHideDelay,
 
             // Device Connection HUD Settings
             showDeviceHUD: showDeviceHUD,

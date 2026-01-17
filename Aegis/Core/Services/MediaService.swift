@@ -8,7 +8,7 @@ import Combine
 /// Uses mediaremote-adapter (Perl script + framework) to bypass macOS 15.4+ entitlement restrictions
 class MediaService {
     private let eventRouter: EventRouter
-    private var currentInfo: MusicInfo?
+    private var currentInfo: MediaInfo?
 
     // Cache album art per track to handle payloads without artwork
     private var cachedAlbumArt: [String: NSImage] = [:]
@@ -118,7 +118,7 @@ class MediaService {
             // No media playing - clear current info
             if currentInfo != nil {
                 currentInfo = nil
-                eventRouter.publish(.musicPlaybackChanged, data: ["info": MusicInfo.placeholder])
+                eventRouter.publish(.mediaPlaybackChanged, data: ["info": MediaInfo.placeholder])
             }
             return
         }
@@ -126,6 +126,7 @@ class MediaService {
         let artist = payload["artist"] as? String ?? "Unknown Artist"
         let album = payload["album"] as? String ?? ""
         let isPlaying = payload["playing"] as? Bool ?? false
+        let bundleIdentifier = payload["bundleIdentifier"] as? String
 
         // Create track identifier for caching
         let trackId = "\(title)-\(artist)"
@@ -154,13 +155,14 @@ class MediaService {
             }
         }
 
-        // Create new MusicInfo
-        let newInfo = MusicInfo(
+        // Create new MediaInfo
+        let newInfo = MediaInfo(
             title: title,
             artist: artist,
             album: album,
             isPlaying: isPlaying,
-            albumArt: albumArt
+            albumArt: albumArt,
+            bundleIdentifier: bundleIdentifier
         )
 
         // Only publish if state changed OR if we got new album art for same track
@@ -187,14 +189,14 @@ class MediaService {
             }
 
             // Publish to event router
-            eventRouter.publish(.musicPlaybackChanged, data: ["info": newInfo])
+            eventRouter.publish(.mediaPlaybackChanged, data: ["info": newInfo])
         }
     }
 
     // MARK: - Public API
 
     /// Get current now playing info
-    func getCurrentInfo() -> MusicInfo? {
+    func getCurrentInfo() -> MediaInfo? {
         return currentInfo
     }
 

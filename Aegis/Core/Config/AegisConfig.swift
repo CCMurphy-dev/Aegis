@@ -330,18 +330,18 @@ class AegisConfig: ObservableObject {
     /// Vertical padding for minimal HUD
     @Published var minimalHUDVerticalPadding: CGFloat = 12
 
-    /// Vertical padding for music HUD
-    @Published var musicHUDVerticalPadding: CGFloat = 8
+    /// Vertical padding for media HUD
+    @Published var mediaHUDVerticalPadding: CGFloat = 8
 
-    // MARK: - Notch Settings - Music HUD
+    // MARK: - Notch Settings - Media HUD
 
-    /// Size of album art in music HUD
+    /// Size of album art in media HUD
     @Published var albumArtSize: CGFloat = 40
 
     /// Padding around album art
     @Published var albumArtPadding: CGFloat = 10
 
-    /// Height of visualizer in music HUD
+    /// Height of visualizer in media HUD
     @Published var visualizerHeight: CGFloat = 40
 
     /// Padding around visualizer
@@ -369,22 +369,22 @@ class AegisConfig: ObservableObject {
     /// Note: May impact performance on some systems
     @Published var visualizerUseBlurEffect: Bool = false
 
-    /// Show the Now Playing music HUD when music is playing
-    @Published var showMusicHUD: Bool = true
+    /// Show the Now Playing media HUD when media is playing
+    @Published var showMediaHUD: Bool = true
 
-    /// What to show in the right panel of the music HUD
-    enum MusicHUDRightPanelMode: String, CaseIterable {
+    /// What to show in the right panel of the media HUD
+    enum MediaHUDRightPanelMode: String, CaseIterable {
         case visualizer = "visualizer"
         case trackInfo = "trackInfo"
     }
 
-    @Published var musicHUDRightPanelMode: MusicHUDRightPanelMode = .visualizer
+    @Published var mediaHUDRightPanelMode: MediaHUDRightPanelMode = .visualizer
 
-    /// Auto-hide music HUD after showing track info (only reappears on track change)
-    @Published var musicHUDAutoHide: Bool = false
+    /// Auto-hide media HUD after showing track info (only reappears on track change)
+    @Published var mediaHUDAutoHide: Bool = false
 
-    /// Delay before auto-hiding music HUD (seconds)
-    @Published var musicHUDAutoHideDelay: TimeInterval = 5.0
+    /// Delay before auto-hiding media HUD (seconds)
+    @Published var mediaHUDAutoHideDelay: TimeInterval = 5.0
 
     // MARK: - Device Connection HUD Settings
 
@@ -665,7 +665,7 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(notchHUDTopPadding, forKey: "notchHUDTopPadding")
         UserDefaults.standard.set(notchHUDAutoHideDelay, forKey: "notchHUDAutoHideDelay")
         UserDefaults.standard.set(minimalHUDVerticalPadding, forKey: "minimalHUDVerticalPadding")
-        UserDefaults.standard.set(musicHUDVerticalPadding, forKey: "musicHUDVerticalPadding")
+        UserDefaults.standard.set(mediaHUDVerticalPadding, forKey: "musicHUDVerticalPadding")
         UserDefaults.standard.set(albumArtSize, forKey: "albumArtSize")
         UserDefaults.standard.set(albumArtPadding, forKey: "albumArtPadding")
         UserDefaults.standard.set(visualizerHeight, forKey: "visualizerHeight")
@@ -677,10 +677,10 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(visualizerBarMaxHeight, forKey: "visualizerBarMaxHeight")
         UserDefaults.standard.set(visualizerAnimationDuration, forKey: "visualizerAnimationDuration")
         UserDefaults.standard.set(visualizerUseBlurEffect, forKey: "visualizerUseBlurEffect")
-        UserDefaults.standard.set(showMusicHUD, forKey: "showMusicHUD")
-        UserDefaults.standard.set(musicHUDRightPanelMode.rawValue, forKey: "musicHUDRightPanelMode")
-        UserDefaults.standard.set(musicHUDAutoHide, forKey: "musicHUDAutoHide")
-        UserDefaults.standard.set(musicHUDAutoHideDelay, forKey: "musicHUDAutoHideDelay")
+        UserDefaults.standard.set(showMediaHUD, forKey: "showMusicHUD")
+        UserDefaults.standard.set(mediaHUDRightPanelMode.rawValue, forKey: "musicHUDRightPanelMode")
+        UserDefaults.standard.set(mediaHUDAutoHide, forKey: "musicHUDAutoHide")
+        UserDefaults.standard.set(mediaHUDAutoHideDelay, forKey: "musicHUDAutoHideDelay")
         UserDefaults.standard.set(showDeviceHUD, forKey: "showDeviceHUD")
         UserDefaults.standard.set(deviceHUDAutoHideDelay, forKey: "deviceHUDAutoHideDelay")
         UserDefaults.standard.set(excludedBluetoothDevices, forKey: "excludedBluetoothDevices")
@@ -1002,7 +1002,7 @@ class AegisConfig: ObservableObject {
             minimalHUDVerticalPadding = CGFloat(val)
         }
         if let val = UserDefaults.standard.object(forKey: "musicHUDVerticalPadding") as? Double {
-            musicHUDVerticalPadding = CGFloat(val)
+            mediaHUDVerticalPadding = CGFloat(val)
         }
         if let val = UserDefaults.standard.object(forKey: "albumArtSize") as? Double {
             albumArtSize = CGFloat(val)
@@ -1038,17 +1038,17 @@ class AegisConfig: ObservableObject {
             visualizerUseBlurEffect = val
         }
         if let val = UserDefaults.standard.object(forKey: "showMusicHUD") as? Bool {
-            showMusicHUD = val
+            showMediaHUD = val
         }
         if let val = UserDefaults.standard.string(forKey: "musicHUDRightPanelMode"),
-           let mode = MusicHUDRightPanelMode(rawValue: val) {
-            musicHUDRightPanelMode = mode
+           let mode = MediaHUDRightPanelMode(rawValue: val) {
+            mediaHUDRightPanelMode = mode
         }
         if let val = UserDefaults.standard.object(forKey: "musicHUDAutoHide") as? Bool {
-            musicHUDAutoHide = val
+            mediaHUDAutoHide = val
         }
         if let val = UserDefaults.standard.object(forKey: "musicHUDAutoHideDelay") as? Double {
-            musicHUDAutoHideDelay = val
+            mediaHUDAutoHideDelay = val
         }
         if let val = UserDefaults.standard.object(forKey: "showDeviceHUD") as? Bool {
             showDeviceHUD = val
@@ -1224,7 +1224,7 @@ class AegisConfig: ObservableObject {
         notchHUDTopPadding = 8
         notchHUDAutoHideDelay = 1.5
         minimalHUDVerticalPadding = 12
-        musicHUDVerticalPadding = 8
+        mediaHUDVerticalPadding = 8
         albumArtSize = 40
         albumArtPadding = 10
         visualizerHeight = 40
@@ -1236,10 +1236,10 @@ class AegisConfig: ObservableObject {
         visualizerBarMaxHeight = 20
         visualizerAnimationDuration = 0.3
         visualizerUseBlurEffect = false
-        showMusicHUD = true
-        musicHUDRightPanelMode = .visualizer
-        musicHUDAutoHide = false
-        musicHUDAutoHideDelay = 5.0
+        showMediaHUD = true
+        mediaHUDRightPanelMode = .visualizer
+        mediaHUDAutoHide = false
+        mediaHUDAutoHideDelay = 5.0
         showDeviceHUD = true
         deviceHUDAutoHideDelay = 3.0
         excludedBluetoothDevices = ["watch"]

@@ -14,7 +14,7 @@ A macOS menu bar replacement for [Yabai](https://github.com/koekeishiya/yabai) w
 
 - **Workspace indicators** - Visual space display with window icons, click to focus, drag to move
 - **Layout controls** - Rotate, flip, balance, stack windows via scroll wheel or menu
-- **Notch HUD** - Volume, brightness, now-playing music, Bluetooth devices, and Focus mode with smooth animations
+- **Notch HUD** - Volume, brightness, now-playing media, Bluetooth devices, and Focus mode with smooth animations
 - **System status** - Battery, WiFi, Focus mode, clock in the menu bar
 - **Customizable** - Simple settings panel with advanced options
 - **Auto-updates** - Built-in update checking via Sparkle
@@ -74,7 +74,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 - [Yabai](https://github.com/koekeishiya/yabai) - Tiling window manager
 - [skhd](https://github.com/koekeishiya/skhd) - Hotkey daemon
 - [Sparkle](https://github.com/sparkle-project/Sparkle) - Auto-update framework
-- [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) - Music integration
+- [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) - Media integration (Now Playing)
 - [Barik](https://github.com/mocki-toki/barik) & [Mew-Notch](https://github.com/monuk7735/mew-notch) - Inspiration
 
 ---

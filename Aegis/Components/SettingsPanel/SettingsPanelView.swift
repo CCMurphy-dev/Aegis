@@ -175,9 +175,9 @@ struct SettingsPanelView: View {
             )
 
             SettingsToggle(
-                label: "Show Music HUD",
-                description: "Show Now Playing HUD when music is playing",
-                isOn: $config.showMusicHUD
+                label: "Show Media HUD",
+                description: "Show Now Playing HUD when media is playing",
+                isOn: $config.showMediaHUD
             )
 
             SettingsToggle(

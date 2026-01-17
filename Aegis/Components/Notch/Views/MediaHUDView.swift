@@ -6,8 +6,8 @@ import Combine
 private let trackTitleFont = NSFont.systemFont(ofSize: 11, weight: .medium)
 private let trackArtistFont = NSFont.systemFont(ofSize: 9, weight: .regular)
 
-struct MusicHUDView: View {
-    @ObservedObject var viewModel: MusicHUDViewModel
+struct MediaHUDView: View {
+    @ObservedObject var viewModel: MediaHUDViewModel
     let notchDimensions: NotchDimensions
     @Binding var isVisible: Bool
 
@@ -18,7 +18,7 @@ struct MusicHUDView: View {
     @ObservedObject private var config = AegisConfig.shared
 
     // Convenience accessor for info
-    private var info: MusicInfo {
+    private var info: MediaInfo {
         viewModel.info
     }
 
@@ -82,7 +82,7 @@ struct MusicHUDView: View {
             return showingTrackInfo
         }
         // Otherwise, use config default
-        return config.musicHUDRightPanelMode == .trackInfo
+        return config.mediaHUDRightPanelMode == .trackInfo
     }
 
     var body: some View {
@@ -159,7 +159,7 @@ struct MusicHUDView: View {
                         Spacer(minLength: 0)
                     } else {
                         // Visualizer: centered
-                        MusicVisualizerView(isPlaying: info.isPlaying)
+                        MediaVisualizerView(isPlaying: info.isPlaying)
                             .frame(width: rightPanelWidth, height: notchDimensions.height)
                     }
                 }
@@ -185,14 +185,14 @@ struct MusicHUDView: View {
         }
         .onAppear {
             // Initialize based on config
-            if config.musicHUDRightPanelMode == .trackInfo {
+            if config.mediaHUDRightPanelMode == .trackInfo {
                 showingTrackInfo = true
                 trackInfoPinned = true  // Don't auto-hide if config says track info
             } else if info.isPlaying {
                 showTrackInfo()
             }
         }
-        .onChange(of: config.musicHUDRightPanelMode) { newMode in
+        .onChange(of: config.mediaHUDRightPanelMode) { newMode in
             // Respond to config changes
             trackInfoPinned = false
             withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
@@ -202,7 +202,7 @@ struct MusicHUDView: View {
                 trackInfoPinned = true  // Pin it so it doesn't auto-hide
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .musicHUDToggleDisplay)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .mediaHUDToggleDisplay)) { _ in
             toggleTrackInfoDisplay()
         }
     }
@@ -243,7 +243,7 @@ struct MusicHUDView: View {
 
         // If config is visualizer mode, switch back to visualizer after 5 seconds
         // If config is track info mode, keep showing track info (just collapse width)
-        if config.musicHUDRightPanelMode == .visualizer {
+        if config.mediaHUDRightPanelMode == .visualizer {
             trackInfoTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { _ in
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                     showingTrackInfo = false
@@ -253,28 +253,8 @@ struct MusicHUDView: View {
     }
 }
 
-// MARK: - Tap View for Interaction Window
-
-/// Invisible tap target for toggling visualizer/track info
-/// This is hosted in a separate small window over the album art
-struct MusicHUDTapView: View {
-    @ObservedObject var viewModel: MusicHUDViewModel
-
-    var body: some View {
-        Color.clear
-            .contentShape(Rectangle())
-            .onTapGesture {
-                // Toggle the showTrackInfo state via notification
-                NotificationCenter.default.post(
-                    name: .musicHUDToggleDisplay,
-                    object: nil
-                )
-            }
-    }
-}
-
 extension Notification.Name {
-    static let musicHUDToggleDisplay = Notification.Name("musicHUDToggleDisplay")
+    static let mediaHUDToggleDisplay = Notification.Name("mediaHUDToggleDisplay")
 }
 
 /// Shape for LEFT panel - curved outer edges, inner edge curves outward to connect with notch
@@ -413,7 +393,7 @@ struct AlbumArtView: View {
 }
 
 // MARK: - Music Visualizer (compact 5 bars)
-struct MusicVisualizerView: View {
+struct MediaVisualizerView: View {
     let isPlaying: Bool
 
     @ObservedObject private var config = AegisConfig.shared
@@ -538,7 +518,7 @@ private struct VisualizerBlurView: NSViewRepresentable {
 
 // MARK: - Track Info Display (shows on track change)
 struct TrackInfoView: View {
-    let info: MusicInfo
+    let info: MediaInfo
     let containerWidth: CGFloat      // Current width (may be expanded or collapsed)
     let collapsedWidth: CGFloat      // Fixed collapsed width for overflow calculation
     let isExpanded: Bool             // Whether panel is expanded
