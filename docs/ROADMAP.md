@@ -16,7 +16,7 @@
 ## Ideas
 
 ### UI Improvements
-- Animate Music HUD expansion when switching tracks (currently jumps instantly)
+- Animate Media HUD expansion when switching tracks (currently jumps instantly)
 - Window preview thumbnails on hover
 
 ### Features

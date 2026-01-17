@@ -159,10 +159,10 @@ Aegis/
 
 - **Implementation**:
   - Uses `osascript` to query Music.app via AppleScript
-  - Polls every 2s when music HUD visible
+  - Polls every 2s when media HUD visible
   - Fetches album art in background to avoid blocking
 
-- **Events Published**: `.musicPlaybackChanged`
+- **Events Published**: `.mediaPlaybackChanged`
 
 #### AppSwitcherService.swift (612 lines)
 - **Purpose**: Custom Cmd+Tab window switcher with space-aware organization
@@ -334,9 +334,9 @@ FocusHUDView (UI)
   - `bumpHideDeadline()`: Extend auto-hide timer
   - `hideOverlayHUD()`: Animate out and hide window
 
-- **Music HUD Methods**:
-  - `showMusic(info:)`: Update music view with track info
-  - `hideMusicHUD()`: Hide music display
+- **Media HUD Methods**:
+  - `showMedia(info:)`: Update media view with track info
+  - `hideMediaHUD()`: Hide media display
 
 - **Auto-hide Logic**:
   - Timestamp-based deadline (not timer recreation)
@@ -390,17 +390,17 @@ FocusHUDView (UI)
   - Freezes layout during updates (`.transaction`)
   - Width calculated as `barWidth * CGFloat(animator.displayed)`
 
-#### MusicHUDViewModel.swift
-- **Persistent state** for music HUD
+#### MediaHUDViewModel.swift
+- **Persistent state** for media HUD
 - **Properties**:
   - `@Published var isVisible: Bool`: Drives animation
-  - `@Published var info: MusicInfo`: Current track info
+  - `@Published var info: MediaInfo`: Current track info
 
-#### MusicHUDView.swift
-- **UI view** for music playback display
+#### MediaHUDView.swift
+- **UI view** for media playback display (works with all media sources)
 - **Layout**:
   - Left: Album art with scale/opacity animation
-  - Right: Either music visualizer OR track info (configurable via `musicHUDRightPanelMode`)
+  - Right: Either media visualizer OR track info (configurable via `mediaHUDRightPanelMode`)
 
 - **Right Panel Modes**:
   - **Visualizer mode** (default): 5 animated capsule bars with randomized heights
@@ -793,11 +793,12 @@ Component/
 - **Setup**: User configures yabairc to write events to pipe
 - **Commands**: Focus, move, create, destroy spaces/windows; query state
 
-### Music.app
-- **Communication**: AppleScript via `osascript`
-- **Queries**: Current track (title, artist, album), playback state
-- **Artwork**: Fetched asynchronously, cached
-- **Polling**: Every 2s when music HUD visible
+### Media Sources (via MediaRemote)
+- **Communication**: MediaRemote framework via mediaremote-adapter
+- **Sources**: Music.app, Spotify, Safari, Chrome, Firefox, YouTube, video players, etc.
+- **Queries**: Current track (title, artist, album), playback state, bundle identifier
+- **Artwork**: Fetched asynchronously, cached per-track
+- **Polling**: Continuous stream via mediaremote-adapter
 
 ### System APIs
 - **CoreAudio**: Volume level and mute state (event-driven)

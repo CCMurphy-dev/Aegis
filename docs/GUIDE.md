@@ -203,9 +203,9 @@ The notch area displays contextual information:
 
 The HUD slides in from under the notch with smooth spring animation and auto-hides after a configurable delay.
 
-#### Music HUD
+#### Media HUD
 
-The Music HUD shows album art on the left and either a **visualizer** or **track info** on the right:
+The Media HUD shows album art on the left and either a **visualizer** or **track info** on the right. It works with all media sources (Music, Spotify, Safari, Firefox, Chrome, YouTube, video players, etc.):
 
 - **Visualizer mode** (default): Animated bars that respond to playback
 - **Track Info mode**: Song title and artist name
@@ -390,9 +390,9 @@ Right-click → Status → Link should show "Active"
 2. Check if another app is suppressing the system HUD
 3. Look for errors in Console.app (filter by "Aegis")
 
-### Music HUD shows wrong info
+### Media HUD shows wrong info
 
-1. Check Music.app or Spotify is actually playing
+1. Check your media player is actually playing (Music, Spotify, browser video, etc.)
 2. Album art is cached per-track - if wrong, quit and reopen Aegis
 3. The MediaRemote framework sometimes has delays - wait a moment
 

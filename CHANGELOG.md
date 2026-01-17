@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Renamed Music HUD components to Media HUD for clarity
+  - Now accurately reflects that it handles all media types (video, audio from any app)
+  - Internal naming: MusicInfo → MediaInfo, MusicHUDView → MediaHUDView, etc.
+  - Config properties renamed: `showMusicHUD` → `showMediaHUD`, `musicHUDRightPanelMode` → `mediaHUDRightPanelMode`
+  - Backward compatible: existing UserDefaults and JSON config keys still work
+
+### Fixed
+- Removed unused MediaHUDTapView dead code
+
 ## [0.8.0] - 2025-01-17
 
 ### Added
