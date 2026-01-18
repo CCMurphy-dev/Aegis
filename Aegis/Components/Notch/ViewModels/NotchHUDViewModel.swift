@@ -38,6 +38,9 @@ class MediaHUDViewModel: ObservableObject {
     /// When true, the right panel of the media HUD should hide to avoid overlap
     @Published var isOverlayActive: Bool = false
 
+    /// Current right panel width (for overlay HUD to match when covering media content)
+    @Published var currentRightPanelWidth: CGFloat = 0
+
     /// Whether the HUD has been dismissed by the user (resets on track change)
     @Published var isDismissed: Bool = false
 

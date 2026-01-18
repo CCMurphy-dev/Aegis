@@ -11,6 +11,7 @@ import Combine
 /// Wrapper that positions HUD content around the notch, matching mew-notch's approach
 struct MinimalHUDWrapper: View {
     @ObservedObject var viewModel: OverlayHUDViewModel
+    @ObservedObject var mediaViewModel: MediaHUDViewModel
     let notchDimensions: NotchDimensions
     @Binding var isVisible: Bool
 
@@ -22,8 +23,8 @@ struct MinimalHUDWrapper: View {
         notchDimensions.height
     }
 
-    // Right side (progress bar or value): needs to accommodate content
-    private var rightPanelWidth: CGFloat {
+    // Base right panel width (overlay's own content)
+    private var baseRightPanelWidth: CGFloat {
         if config.notchHUDUseProgressBar {
             // Progress bar width + padding on each side
             return config.notchHUDProgressBarWidth + 16
@@ -31,6 +32,11 @@ struct MinimalHUDWrapper: View {
             // Text value - use square size
             return notchDimensions.height
         }
+    }
+
+    // Right side (progress bar or value): must be at least as wide as media content
+    private var rightPanelWidth: CGFloat {
+        max(baseRightPanelWidth, mediaViewModel.currentRightPanelWidth)
     }
 
     // How far the black background extends into the notch area to fill the gap

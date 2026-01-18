@@ -20,7 +20,18 @@ struct FloatingApp: Equatable {
         guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) else {
             return nil
         }
-        let name = appURL.deletingPathExtension().lastPathComponent
+
+        // Use CFBundleName for accurate app name matching (same as yabai reports)
+        // This fixes apps like iTerm2 where path is "iTerm.app" but name is "iTerm2"
+        let name: String
+        if let bundle = Bundle(url: appURL),
+           let bundleName = bundle.object(forInfoDictionaryKey: "CFBundleName") as? String {
+            name = bundleName
+        } else {
+            // Fallback to path-based name
+            name = appURL.deletingPathExtension().lastPathComponent
+        }
+
         return FloatingApp(name: name, bundleIdentifier: bundleIdentifier)
     }
 
@@ -48,12 +59,9 @@ class FloatingAppController {
 
     /// Toggle app: focus existing window (moving to current space) or open/activate
     func toggle(_ app: FloatingApp) {
-        // Check if app has any windows
         if let windowId = findExistingWindow(for: app) {
-            print("📁 FloatingAppController: Found existing \(app.name) window \(windowId), focusing")
             focusAndMoveToCurrentSpace(windowId: windowId)
         } else {
-            print("📁 FloatingAppController: No \(app.name) window found, opening")
             openApp(app)
         }
     }
@@ -62,12 +70,21 @@ class FloatingAppController {
     private func findExistingWindow(for app: FloatingApp) -> Int? {
         let windows = yabaiService.getAllWindows()
 
-        // Find first window for this app that isn't a system/utility window
+        // Find first window for this app
+        // For Finder: exclude empty titles and progress dialogs
+        // For other apps: allow empty titles (e.g., System Settings has empty title)
         let appWindow = windows.first { window in
-            window.app == app.name &&
-            window.title != "" &&  // Exclude empty title windows
-            !window.title.contains("Moving") &&  // Exclude Finder progress dialogs
-            !window.title.contains("Copying")
+            guard window.app == app.name else { return false }
+
+            // Finder-specific filters
+            if app.bundleIdentifier == "com.apple.finder" {
+                return window.title != "" &&
+                       !window.title.contains("Moving") &&
+                       !window.title.contains("Copying")
+            }
+
+            // Other apps: just match by name
+            return true
         }
 
         return appWindow?.id
@@ -87,7 +104,6 @@ class FloatingAppController {
     /// Open/activate the app
     private func openApp(_ app: FloatingApp) {
         guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: app.bundleIdentifier) else {
-            print("⚠️ FloatingAppController: Could not find \(app.name)")
             return
         }
 
@@ -98,21 +114,9 @@ class FloatingAppController {
         // For Finder, open home directory to ensure a window opens
         if app.bundleIdentifier == "com.apple.finder" {
             let homeURL = FileManager.default.homeDirectoryForCurrentUser
-            NSWorkspace.shared.open([homeURL], withApplicationAt: appURL, configuration: config) { _, error in
-                if let error = error {
-                    print("⚠️ FloatingAppController: Failed to open \(app.name): \(error)")
-                } else {
-                    print("✅ FloatingAppController: Opened \(app.name)")
-                }
-            }
+            NSWorkspace.shared.open([homeURL], withApplicationAt: appURL, configuration: config)
         } else {
-            NSWorkspace.shared.openApplication(at: appURL, configuration: config) { _, error in
-                if let error = error {
-                    print("⚠️ FloatingAppController: Failed to open \(app.name): \(error)")
-                } else {
-                    print("✅ FloatingAppController: Opened \(app.name)")
-                }
-            }
+            NSWorkspace.shared.openApplication(at: appURL, configuration: config)
         }
     }
 }

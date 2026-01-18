@@ -226,6 +226,8 @@ struct MediaHUDView: View {
             // Initialize cached expanded width
             cachedExpandedWidth = calculateExpandedWidth()
             cachedExpandedTrackId = info.trackIdentifier
+            // Publish initial width to view model
+            viewModel.currentRightPanelWidth = rightPanelWidth
             // Initialize based on config
             if config.mediaHUDRightPanelMode == .trackInfo {
                 showingTrackInfo = true
@@ -243,6 +245,10 @@ struct MediaHUDView: View {
             if newMode == .trackInfo {
                 trackInfoPinned = true  // Pin it so it doesn't auto-hide
             }
+        }
+        .onChange(of: rightPanelWidth) { newWidth in
+            // Publish width to view model so overlay HUD can match it
+            viewModel.currentRightPanelWidth = newWidth
         }
         .onReceive(NotificationCenter.default.publisher(for: .mediaHUDToggleDisplay)) { _ in
             toggleTrackInfoDisplay()

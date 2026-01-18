@@ -158,6 +158,7 @@ class NotchHUDController: ObservableObject {
         // Create the view ONCE with the persistent view model
         let hudView = MinimalHUDWrapper(
             viewModel: overlayViewModel,
+            mediaViewModel: mediaViewModel,
             notchDimensions: notchDimensions,
             isVisible: Binding(
                 get: { [weak self] in self?.overlayViewModel.isVisible ?? false },
