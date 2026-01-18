@@ -143,6 +143,7 @@ final class ProgressBarAnimator: ObservableObject {
             lock.lock()
             targetChangesPerFrame = 0
             lock.unlock()
+
             return
         }
 

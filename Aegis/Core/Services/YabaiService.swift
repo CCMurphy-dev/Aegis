@@ -89,7 +89,6 @@ final class YabaiService {
         let event = String(decoding: buffer.prefix(count), as: UTF8.self)
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // print("📨 FIFO received yabai event: '\(event)'")
         Task { await handleYabaiEvent(event) }
     }
 
@@ -184,14 +183,36 @@ final class YabaiService {
             let json = try await command.run(["-m", "query", "--spaces"])
             let decoded = try JSONDecoder().decode([Space].self, from: Data(json.utf8))
 
+            // Check if spaces actually changed before updating and publishing
+            let spacesChanged = dataQueue.sync { [weak self] () -> Bool in
+                guard let self = self else { return false }
+                let oldSpaceIds = Set(self.spaces.keys)
+                let newSpaceIds = Set(decoded.map { $0.id })
+
+                // Quick check: different count or different IDs
+                if oldSpaceIds != newSpaceIds {
+                    return true
+                }
+
+                // Deeper check: compare focused state
+                for space in decoded {
+                    if let oldSpace = self.spaces[space.id], oldSpace.focused != space.focused {
+                        return true
+                    }
+                }
+                return false
+            }
+
             // Write to cache synchronously (barrier) so data is available before we return
             dataQueue.sync(flags: .barrier) { [weak self] in
                 self?.spaces = Dictionary(uniqueKeysWithValues: decoded.map { ($0.id, $0) })
             }
 
-            // Publish event on main queue AFTER cache write completes
-            DispatchQueue.main.async { [weak self] in
-                self?.eventRouter.publish(.spaceChanged, data: ["spaces": decoded])
+            // Only publish event if spaces actually changed
+            if spacesChanged {
+                DispatchQueue.main.async { [weak self] in
+                    self?.eventRouter.publish(.spaceChanged, data: ["spaces": decoded])
+                }
             }
         } catch {
             logError("yabai spaces query failed: \(error)")
@@ -203,6 +224,30 @@ final class YabaiService {
             let json = try await command.run(["-m", "query", "--windows"])
             let decoded = try JSONDecoder().decode([WindowInfo].self, from: Data(json.utf8))
 
+            // Check if windows actually changed before updating and publishing
+            let windowsChanged = dataQueue.sync { [weak self] () -> Bool in
+                guard let self = self else { return false }
+                let oldWindowIds = Set(self.windows.keys)
+                let newWindowIds = Set(decoded.map { $0.id })
+
+                // Quick check: different count or different IDs
+                if oldWindowIds != newWindowIds {
+                    return true
+                }
+
+                // Deeper check: compare focus state and space assignment
+                for window in decoded {
+                    if let oldWindow = self.windows[window.id] {
+                        if oldWindow.hasFocus != window.hasFocus ||
+                           oldWindow.space != window.space ||
+                           oldWindow.isMinimized != window.isMinimized {
+                            return true
+                        }
+                    }
+                }
+                return false
+            }
+
             // Write to cache synchronously (barrier) so data is available before we return
             dataQueue.sync(flags: .barrier) { [weak self] in
                 guard let self = self else { return }
@@ -211,9 +256,11 @@ final class YabaiService {
                 self.updateWindowOrderCache()
             }
 
-            // Publish event on main queue AFTER cache write completes
-            DispatchQueue.main.async { [weak self] in
-                self?.eventRouter.publish(.windowsChanged, data: ["windows": decoded])
+            // Only publish event if windows actually changed
+            if windowsChanged {
+                DispatchQueue.main.async { [weak self] in
+                    self?.eventRouter.publish(.windowsChanged, data: ["windows": decoded])
+                }
             }
         } catch {
             logError("yabai windows query failed: \(error)")
@@ -363,18 +410,45 @@ final class YabaiService {
         }
     }
 
+    // Cache app icons to avoid repeated disk I/O on every refresh
+    // Limited to 100 entries to prevent unbounded growth
+    private var appIconCache: [String: NSImage] = [:]
+    private let appIconCacheLimit = 100
+
     private func getAppIcon(for appName: String) -> NSImage? {
+        // Check cache first
+        if let cached = appIconCache[appName] {
+            return cached
+        }
+
+        var icon: NSImage?
+
         // Try to get app icon from workspace
         if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: appName) ??
                         NSWorkspace.shared.urlsForApplications(withBundleIdentifier: appName).first {
-            return NSWorkspace.shared.icon(forFile: appURL.path)
+            icon = NSWorkspace.shared.icon(forFile: appURL.path)
         }
+
         // Fallback: try to find by app name
-        let runningApps = NSWorkspace.shared.runningApplications
-        if let app = runningApps.first(where: { $0.localizedName == appName || $0.bundleIdentifier == appName }) {
-            return app.icon
+        if icon == nil {
+            let runningApps = NSWorkspace.shared.runningApplications
+            if let app = runningApps.first(where: { $0.localizedName == appName || $0.bundleIdentifier == appName }) {
+                icon = app.icon
+            }
         }
-        return nil
+
+        // Cache the result with size limit
+        if let icon = icon {
+            // Clear oldest entries if cache is full (simple FIFO-ish behavior)
+            if appIconCache.count >= appIconCacheLimit {
+                // Remove ~20% of entries to avoid thrashing
+                let keysToRemove = Array(appIconCache.keys.prefix(appIconCacheLimit / 5))
+                keysToRemove.forEach { appIconCache.removeValue(forKey: $0) }
+            }
+            appIconCache[appName] = icon
+        }
+
+        return icon
     }
 
     // MARK: - Commands (ALL serialized)
@@ -528,22 +602,14 @@ final class YabaiService {
     }
 
     func toggleStackAllWindowsInCurrentSpace() {
-        print("📚 Toggling stack for all windows in current space")
         Task {
             do {
                 // Query yabai directly to get the actual focused space (cache may be stale)
                 let focusedSpaceIndex = getFocusedSpaceIndexSync()
-                print("🔍 Focused space index: \(focusedSpaceIndex)")
 
                 let spaceWindows = windows.values.filter { $0.space == focusedSpaceIndex }
-                print("🔍 Found \(spaceWindows.count) windows on space \(focusedSpaceIndex)")
-                print("🔍 Window IDs: \(spaceWindows.map { $0.id })")
-                print("🔍 Stack indices: \(spaceWindows.map { "\($0.id):\($0.stackIndex)" })")
 
-                guard spaceWindows.count >= 2 else {
-                    print("❌ Need at least 2 windows to stack (found \(spaceWindows.count))")
-                    return
-                }
+                guard spaceWindows.count >= 2 else { return }
 
                 // Check if any windows are already stacked
                 let hasStacks = spaceWindows.contains { $0.stackIndex > 0 }
@@ -551,8 +617,6 @@ final class YabaiService {
                 if hasStacks {
                     // Unstack: warp each stacked window to separate them
                     let stackWindows = spaceWindows.filter { $0.stackIndex > 0 }.sorted { $0.stackIndex < $1.stackIndex }
-
-                    print("🔓 Unstacking \(stackWindows.count) windows")
 
                     // Try warping each stacked window in different directions to separate them
                     let directions = ["east", "south", "west", "north"]
@@ -680,7 +744,7 @@ final class YabaiService {
         return getFocusedSpaceSync()?.index ?? Self.cachedFocusedSpaceIndex
     }
 
-    /// Query yabai synchronously for the currently focused space (fresh data, not cached)
+    /// Query yabai for the currently focused space (uses cache, refreshes in background)
     /// Use this when you need accurate space type information (e.g., for fullscreen detection)
     /// Set forceRefresh to true to bypass the throttle (use sparingly)
     func getFocusedSpaceSync(forceRefresh: Bool = false) -> Space? {
@@ -696,7 +760,19 @@ final class YabaiService {
         }
         Self.lastFocusedSpaceQuery = now
 
-        // Synchronously query yabai for the focused space
+        // Return cached value immediately, refresh in background to avoid blocking main thread
+        let cachedResult = Self.cachedFocusedSpace ?? dataQueue.sync { spaces.values.first { $0.index == Self.cachedFocusedSpaceIndex } }
+
+        // Refresh cache in background (non-blocking)
+        DispatchQueue.global(qos: .userInitiated).async {
+            self.refreshFocusedSpaceCache()
+        }
+
+        return cachedResult
+    }
+
+    /// Background refresh of focused space cache - called asynchronously to avoid blocking main thread
+    private func refreshFocusedSpaceCache() {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/yabai")
         task.arguments = ["-m", "query", "--spaces", "--space"]
@@ -715,14 +791,10 @@ final class YabaiService {
             if let spaceData = try? JSONDecoder().decode(Space.self, from: Data(json.utf8)) {
                 Self.cachedFocusedSpaceIndex = spaceData.index
                 Self.cachedFocusedSpace = spaceData
-                return spaceData
             }
         } catch {
             print("❌ Failed to get focused space: \(error)")
         }
-
-        // Fallback to cached data
-        return Self.cachedFocusedSpace ?? dataQueue.sync { spaces.values.first { $0.index == Self.cachedFocusedSpaceIndex } }
     }
 
     /// Invalidate the focused space cache (call when space changes to ensure fresh data on next query)

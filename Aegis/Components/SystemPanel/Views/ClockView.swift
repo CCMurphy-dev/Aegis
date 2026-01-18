@@ -5,6 +5,13 @@ struct ClockView: View {
     @State private var currentTime = Date()
     @State private var timer: AnyCancellable?
 
+    // Static formatter to avoid recreation on every render
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"  // 24-hour format, e.g., "14:45"
+        return formatter
+    }()
+
     var body: some View {
         Text(timeString)
             .monospacedDigit()
@@ -17,9 +24,7 @@ struct ClockView: View {
     }
 
     private var timeString: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm" // 24-hour format, e.g., "14:45"
-        return formatter.string(from: currentTime)
+        Self.timeFormatter.string(from: currentTime)
     }
 
     /// Start a timer that syncs to the minute boundary, then fires every 60s

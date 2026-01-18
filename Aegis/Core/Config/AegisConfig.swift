@@ -195,32 +195,66 @@ class AegisConfig: ObservableObject {
     /// Note: Launcher apps are automatically added to exclusions via `excludedApps` computed property
     @Published var baseExcludedApps: Set<String> = ["Finder", "Aegis"]
 
+    /// Cached excluded apps set - invalidated when launcherApps or baseExcludedApps changes
+    private var _excludedAppsCache: Set<String>?
+    private var _excludedAppsCacheKey: String = ""
+
     /// Apps to exclude from showing in space indicators
     /// Combines baseExcludedApps with resolved launcher app names
+    /// Results are cached to avoid repeated Bundle lookups on every access
     var excludedApps: Set<String> {
+        // Create cache key from inputs
+        let cacheKey = "\(baseExcludedApps.sorted().joined())-\(launcherApps.joined())"
+
+        // Return cached value if inputs haven't changed
+        if let cached = _excludedAppsCache, cacheKey == _excludedAppsCacheKey {
+            return cached
+        }
+
+        // Rebuild cache
         var excluded = baseExcludedApps
-        // Add launcher apps by resolving bundle IDs to app names
         for bundleId in launcherApps {
             if let appName = Self.appNameFromBundleId(bundleId) {
                 excluded.insert(appName)
             }
         }
+
+        _excludedAppsCache = excluded
+        _excludedAppsCacheKey = cacheKey
         return excluded
     }
 
     /// Resolve bundle identifier to app name (as reported by the system/yabai)
     /// Uses CFBundleName from Info.plist, falling back to file name
+    private static var bundleNameCache: [String: String] = [:]
+
     private static func appNameFromBundleId(_ bundleId: String) -> String? {
+        // Check cache first
+        if let cached = bundleNameCache[bundleId] {
+            return cached
+        }
+
         guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
             return nil
         }
+
+        var name: String?
+
         // Try to get the bundle name from Info.plist (what yabai uses)
         if let bundle = Bundle(url: appURL),
            let bundleName = bundle.object(forInfoDictionaryKey: "CFBundleName") as? String {
-            return bundleName
+            name = bundleName
+        } else {
+            // Fallback to file name without extension
+            name = appURL.deletingPathExtension().lastPathComponent
         }
-        // Fallback to file name without extension
-        return appURL.deletingPathExtension().lastPathComponent
+
+        // Cache the result
+        if let name = name {
+            bundleNameCache[bundleId] = name
+        }
+
+        return name
     }
 
     // MARK: - App Switcher Settings
@@ -247,6 +281,10 @@ class AegisConfig: ObservableObject {
 
     /// Enable haptic feedback on layout actions
     @Published var enableLayoutActionHaptics: Bool = true
+
+    /// Expand context button label when scrolling to select action
+    /// When disabled, only the icon changes - saves CPU from SwiftUI re-renders
+    @Published var expandContextButtonOnScroll: Bool = true
 
     /// Launch Aegis automatically when macOS starts
     @Published var launchAtLogin: Bool = true {
@@ -661,6 +699,7 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(showAppNameInExpansion, forKey: "showAppNameInExpansion")
         UserDefaults.standard.set(useSwipeToDestroySpace, forKey: "useSwipeToDestroySpace")
         UserDefaults.standard.set(enableLayoutActionHaptics, forKey: "enableLayoutActionHaptics")
+        UserDefaults.standard.set(expandContextButtonOnScroll, forKey: "expandContextButtonOnScroll")
         UserDefaults.standard.set(windowIconExpansionAutoCollapseDelay, forKey: "windowIconExpansionAutoCollapseDelay")
         UserDefaults.standard.set(actionLabelAutoHideDelay, forKey: "actionLabelAutoHideDelay")
 
@@ -929,6 +968,9 @@ class AegisConfig: ObservableObject {
         }
         if let val = UserDefaults.standard.object(forKey: "enableLayoutActionHaptics") as? Bool {
             enableLayoutActionHaptics = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "expandContextButtonOnScroll") as? Bool {
+            expandContextButtonOnScroll = val
         }
         if let val = UserDefaults.standard.object(forKey: "windowIconExpansionAutoCollapseDelay") as? Double {
             windowIconExpansionAutoCollapseDelay = val
@@ -1229,6 +1271,7 @@ class AegisConfig: ObservableObject {
         showAppNameInExpansion = false
         useSwipeToDestroySpace = true
         enableLayoutActionHaptics = true
+        expandContextButtonOnScroll = true
         windowIconExpansionAutoCollapseDelay = 2.0
         actionLabelAutoHideDelay = 1.5
 

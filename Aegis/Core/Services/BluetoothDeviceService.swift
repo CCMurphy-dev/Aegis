@@ -412,6 +412,36 @@ class BluetoothDeviceService: NSObject {
     }
 
     private func fetchBatteryFromSystemProfiler(deviceAddress: String) -> Int? {
+        // Use cached result if available and fresh (within 30 seconds)
+        let cacheKey = normalizeAddress(deviceAddress)
+
+        Self.batteryCacheLock.lock()
+        let cached = Self.batteryCache[cacheKey]
+        Self.batteryCacheLock.unlock()
+
+        if let cached = cached,
+           Date().timeIntervalSince(cached.timestamp) < 30 {
+            return cached.level
+        }
+
+        // Run system_profiler on background queue to avoid blocking main thread
+        // For the sync return, we return nil and let the retry mechanism handle it
+        // The actual fetch happens asynchronously
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            self?.fetchBatteryFromSystemProfilerAsync(deviceAddress: deviceAddress)
+        }
+
+        // Return cached value if exists (even if stale), otherwise nil
+        Self.batteryCacheLock.lock()
+        let staleValue = Self.batteryCache[cacheKey]?.level
+        Self.batteryCacheLock.unlock()
+        return staleValue
+    }
+
+    private static var batteryCache: [String: (level: Int, timestamp: Date)] = [:]
+    private static let batteryCacheLock = NSLock()
+
+    private func fetchBatteryFromSystemProfilerAsync(deviceAddress: String) {
         // Run system_profiler to get Bluetooth data
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/sbin/system_profiler")
@@ -442,45 +472,43 @@ class BluetoothDeviceService: NSObject {
 
                                     logInfo("🎧 BluetoothDeviceService: Found device '\(deviceName)' in system_profiler, checking battery keys...")
 
-                                    // Battery key priority: Left/Right earbuds first (average), then Main, then Case, then generic
-                                    // AirPods report: device_batteryLevelLeft, device_batteryLevelRight, device_batteryLevelCase
-                                    // Other devices may use: device_batteryLevel, device_batteryLevelMain
+                                    var batteryLevel: Int?
 
-                                    // Try left/right earbud levels first (for AirPods)
+                                    // Battery key priority: Left/Right earbuds first (average), then Main, then Case, then generic
                                     let leftLevel = parseBatteryString(deviceInfo["device_batteryLevelLeft"] as? String)
                                     let rightLevel = parseBatteryString(deviceInfo["device_batteryLevelRight"] as? String)
 
                                     if let left = leftLevel, let right = rightLevel {
                                         let avg = (left + right) / 2
                                         logInfo("🎧 BluetoothDeviceService: Battery (L/R avg): \(avg)% (L:\(left)%, R:\(right)%)")
-                                        return avg
+                                        batteryLevel = avg
                                     } else if let left = leftLevel {
                                         logInfo("🎧 BluetoothDeviceService: Battery (Left only): \(left)%")
-                                        return left
+                                        batteryLevel = left
                                     } else if let right = rightLevel {
                                         logInfo("🎧 BluetoothDeviceService: Battery (Right only): \(right)%")
-                                        return right
-                                    }
-
-                                    // Try main level
-                                    if let main = parseBatteryString(deviceInfo["device_batteryLevelMain"] as? String) {
+                                        batteryLevel = right
+                                    } else if let main = parseBatteryString(deviceInfo["device_batteryLevelMain"] as? String) {
                                         logInfo("🎧 BluetoothDeviceService: Battery (Main): \(main)%")
-                                        return main
-                                    }
-
-                                    // Try case level (for AirPods when earbuds are in case)
-                                    if let caseLevel = parseBatteryString(deviceInfo["device_batteryLevelCase"] as? String) {
+                                        batteryLevel = main
+                                    } else if let caseLevel = parseBatteryString(deviceInfo["device_batteryLevelCase"] as? String) {
                                         logInfo("🎧 BluetoothDeviceService: Battery (Case): \(caseLevel)%")
-                                        return caseLevel
-                                    }
-
-                                    // Try generic battery level
-                                    if let generic = parseBatteryString(deviceInfo["device_batteryLevel"] as? String) {
+                                        batteryLevel = caseLevel
+                                    } else if let generic = parseBatteryString(deviceInfo["device_batteryLevel"] as? String) {
                                         logInfo("🎧 BluetoothDeviceService: Battery (Generic): \(generic)%")
-                                        return generic
+                                        batteryLevel = generic
+                                    } else {
+                                        logInfo("🎧 BluetoothDeviceService: No battery keys found for device. Available keys: \(deviceInfo.keys.sorted())")
                                     }
 
-                                    logInfo("🎧 BluetoothDeviceService: No battery keys found for device. Available keys: \(deviceInfo.keys.sorted())")
+                                    // Cache the result (thread-safe)
+                                    if let level = batteryLevel {
+                                        let cacheKey = self.normalizeAddress(deviceAddress)
+                                        Self.batteryCacheLock.lock()
+                                        Self.batteryCache[cacheKey] = (level: level, timestamp: Date())
+                                        Self.batteryCacheLock.unlock()
+                                    }
+                                    return
                                 }
                             }
                         }
@@ -492,8 +520,6 @@ class BluetoothDeviceService: NSObject {
         } catch {
             logInfo("🎧 BluetoothDeviceService: Failed to fetch battery level: \(error)")
         }
-
-        return nil
     }
 
     /// Parse battery string like "85%" to Int

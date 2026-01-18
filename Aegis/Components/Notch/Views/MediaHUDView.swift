@@ -42,9 +42,21 @@ struct MediaHUDView: View {
     // Internal guard to persist "skip collapse" behavior across the brief
     // window during which the controller may reset its public flag.
     @State private var skipCollapseOnHide = false
+    // Cached expanded width - recalculated only when track changes
+    @State private var cachedExpandedWidth: CGFloat = 0
+    @State private var cachedExpandedTrackId: String = ""
 
-    // Calculate expanded width based on track info text
+    // Calculate expanded width based on track info text (cached)
     private var expandedRightPanelWidth: CGFloat {
+        // Return cached value if track hasn't changed
+        if info.trackIdentifier == cachedExpandedTrackId && cachedExpandedWidth > 0 {
+            return cachedExpandedWidth
+        }
+        return baseRightPanelWidth  // Fallback until cache is updated
+    }
+
+    // Calculate expanded width for a track (pure function for cache updates)
+    private func calculateExpandedWidth() -> CGFloat {
         let titleWidth = info.title.width(using: trackTitleFont)
         let artistWidth = info.artist.width(using: trackArtistFont)
 
@@ -128,9 +140,6 @@ struct MediaHUDView: View {
                 .offset(x: showRightPanel ? 0 : -(notchDimensions.width / 2 + notchGapFill))
             }
             .frame(width: sideMaxWidth + notchDimensions.width + sideMaxWidth, height: notchDimensions.height)
-            .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isVisible)
-            .animation(.spring(response: 0.25, dampingFraction: 0.8), value: viewModel.isOverlayActive)
-            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: useExpandedWidth)
             .allowsHitTesting(false)
 
             // CONTENT LAYER: Positioned normally without overlap
@@ -165,7 +174,7 @@ struct MediaHUDView: View {
                         Spacer(minLength: 0)
                     } else {
                         // Visualizer: centered
-                        MediaVisualizerView(isPlaying: info.isPlaying)
+                        MediaVisualizerView(isPlaying: info.isPlaying, useBlurEffect: config.visualizerUseBlurEffect)
                             .frame(width: rightPanelWidth, height: notchDimensions.height)
                     }
                 }
@@ -173,19 +182,22 @@ struct MediaHUDView: View {
                 .clipped()
                 .opacity(showRightPanel ? 1 : 0)
                 .offset(x: showRightPanel ? 0 : -notchDimensions.width / 2)
-                .animation(.spring(response: 0.25, dampingFraction: 0.8), value: shouldShowTrackInfo)
-                .animation(.spring(response: 0.25, dampingFraction: 0.8), value: viewModel.isOverlayActive)
             }
             .frame(width: sideMaxWidth + notchDimensions.width + sideMaxWidth, height: notchDimensions.height)
-            .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isVisible)
-            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: useExpandedWidth)
         }
         // Total width: sideMaxWidth + notchWidth + sideMaxWidth (animates with content)
         .frame(width: sideMaxWidth + notchDimensions.width + sideMaxWidth, height: notchDimensions.height)
+        // Consolidated animations - single animation block for all state changes
+        .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isVisible)
+        .animation(.spring(response: 0.25, dampingFraction: 0.8), value: viewModel.isOverlayActive)
+        .animation(.spring(response: 0.25, dampingFraction: 0.8), value: shouldShowTrackInfo)
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: useExpandedWidth)
         .onChange(of: info.trackIdentifier) { _ in
             // Reset pinned state when track changes so auto-display works for new songs
             trackInfoPinned = false
+            // Update cached expanded width for new track
+            cachedExpandedWidth = calculateExpandedWidth()
+            cachedExpandedTrackId = info.trackIdentifier
             // Show track info temporarily on track change
             showTrackInfo()
         }
@@ -211,6 +223,9 @@ struct MediaHUDView: View {
             }
         }
         .onAppear {
+            // Initialize cached expanded width
+            cachedExpandedWidth = calculateExpandedWidth()
+            cachedExpandedTrackId = info.trackIdentifier
             // Initialize based on config
             if config.mediaHUDRightPanelMode == .trackInfo {
                 showingTrackInfo = true
@@ -429,106 +444,83 @@ struct AlbumArtView: View {
 // MARK: - Music Visualizer (compact 5 bars)
 struct MediaVisualizerView: View {
     let isPlaying: Bool
+    let useBlurEffect: Bool
 
-    @ObservedObject private var config = AegisConfig.shared
-    @State private var barHeights: [CGFloat] = [6, 10, 14, 10, 6]
-    private let barCount = 5
-    private let timer = Timer.publish(every: 0.2, on: .main, in: .common).autoconnect()
-
-    var body: some View {
-        Group {
-            if config.visualizerUseBlurEffect {
-                // Blur effect mode: bars show blurred wallpaper
-                BlurVisualizerBars(barHeights: barHeights, isPlaying: isPlaying)
-            } else {
-                // Standard mode: solid white bars
-                SolidVisualizerBars(barHeights: barHeights, isPlaying: isPlaying)
-            }
-        }
-        .frame(height: 22)  // Match window icon height
-        .onAppear {
-            if isPlaying {
-                updateBars()
-            }
-        }
-        .onReceive(timer) { _ in
-            if isPlaying {
-                updateBars()
-            }
-        }
-        .onChange(of: isPlaying) { newValue in
-            if !newValue {
-                resetBars()
-            } else {
-                updateBars()
-            }
-        }
-    }
-
-    private func updateBars() {
-        // Randomize heights - scaled down for compact display
-        barHeights = [
-            CGFloat.random(in: 4...10),
-            CGFloat.random(in: 6...14),
-            CGFloat.random(in: 8...18),
-            CGFloat.random(in: 6...14),
-            CGFloat.random(in: 4...10)
-        ]
-    }
-
-    private func resetBars() {
-        barHeights = [3, 3, 3, 3, 3]
-    }
-}
-
-// MARK: - Solid Visualizer Bars (default mode)
-private struct SolidVisualizerBars: View {
-    let barHeights: [CGFloat]
-    let isPlaying: Bool
+    @State private var h0: CGFloat = 6
+    @State private var h1: CGFloat = 10
+    @State private var h2: CGFloat = 14
+    @State private var h3: CGFloat = 10
+    @State private var h4: CGFloat = 6
+    @State private var animationTimer: Timer?
 
     var body: some View {
         HStack(spacing: 2) {
-            ForEach(0..<5, id: \.self) { i in
-                Capsule()
-                    .fill(Color.white.opacity(0.9))
-                    .frame(width: 2, height: isPlaying ? barHeights[safe: i] ?? 8 : 3)
-                    .animation(
-                        .easeInOut(duration: 0.35),
-                        value: barHeights[safe: i]
-                    )
+            VisualizerBar(height: isPlaying ? h0 : 3, useBlur: useBlurEffect)
+            VisualizerBar(height: isPlaying ? h1 : 3, useBlur: useBlurEffect)
+            VisualizerBar(height: isPlaying ? h2 : 3, useBlur: useBlurEffect)
+            VisualizerBar(height: isPlaying ? h3 : 3, useBlur: useBlurEffect)
+            VisualizerBar(height: isPlaying ? h4 : 3, useBlur: useBlurEffect)
+        }
+        .frame(height: 22)
+        .onAppear {
+            if isPlaying { startTimer() }
+        }
+        .onDisappear {
+            stopTimer()
+        }
+        .onChange(of: isPlaying) { newValue in
+            if newValue {
+                startTimer()
+            } else {
+                stopTimer()
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    h0 = 3; h1 = 3; h2 = 3; h3 = 3; h4 = 3
+                }
             }
+        }
+    }
+
+    private func startTimer() {
+        guard animationTimer == nil else { return }
+        updateBars()
+        // 2.5 FPS - optimized for low CPU usage (background ambient indicator)
+        animationTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { _ in
+            updateBars()
+        }
+    }
+
+    private func stopTimer() {
+        animationTimer?.invalidate()
+        animationTimer = nil
+    }
+
+    private func updateBars() {
+        // Batch update with single animation
+        withAnimation(.easeInOut(duration: 0.25)) {
+            h0 = .random(in: 4...10)
+            h1 = .random(in: 6...14)
+            h2 = .random(in: 8...18)
+            h3 = .random(in: 6...14)
+            h4 = .random(in: 4...10)
         }
     }
 }
 
-// MARK: - Blur Visualizer Bars (transparent blur effect)
-private struct BlurVisualizerBars: View {
-    let barHeights: [CGFloat]
-    let isPlaying: Bool
-
-    // Calculate total width of all bars + spacing
-    private var totalWidth: CGFloat {
-        let barWidth: CGFloat = 2
-        let spacing: CGFloat = 2
-        return (barWidth * 5) + (spacing * 4)
-    }
+// MARK: - Single Visualizer Bar
+private struct VisualizerBar: View {
+    let height: CGFloat
+    let useBlur: Bool
 
     var body: some View {
-        // Use a blur rectangle masked by the bar shapes
-        VisualizerBlurView()
-            .frame(width: totalWidth, height: 22)
-            .mask(
-                HStack(spacing: 2) {
-                    ForEach(0..<5, id: \.self) { i in
-                        Capsule()
-                            .frame(width: 2, height: isPlaying ? barHeights[safe: i] ?? 8 : 3)
-                            .animation(
-                                .easeInOut(duration: 0.35),
-                                value: barHeights[safe: i]
-                            )
-                    }
-                }
-            )
+        if useBlur {
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .frame(width: 2, height: height)
+        } else {
+            Capsule()
+                .fill(Color.white.opacity(0.9))
+                .frame(width: 2, height: height)
+        }
     }
 }
 
@@ -557,25 +549,29 @@ struct TrackInfoView: View {
     let collapsedWidth: CGFloat      // Fixed collapsed width for overflow calculation
     let isExpanded: Bool             // Whether panel is expanded
 
+    // Cached text widths - only recalculated when title/artist changes
+    @State private var cachedTitleWidth: CGFloat = 0
+    @State private var cachedArtistWidth: CGFloat = 0
+    @State private var cachedTrackId: String = ""
+
     // Available width for text when collapsed (minus padding)
     private var collapsedTextWidth: CGFloat {
         collapsedWidth - 16  // 8pt padding on each side
     }
 
-    // Calculate text widths using shared font constants
-    private var titleTextWidth: CGFloat {
-        info.title.width(using: trackTitleFont)
-    }
-    private var artistTextWidth: CGFloat {
-        info.artist.width(using: trackArtistFont)
-    }
+    // Use cached text widths
+    private var titleTextWidth: CGFloat { cachedTitleWidth }
+    private var artistTextWidth: CGFloat { cachedArtistWidth }
 
-    // Check which texts overflow
+    // Check which texts overflow (only valid if cache is initialized)
+    // Small tolerance (2pt) to account for text rendering variations
+    private let overflowTolerance: CGFloat = 2
+
     private var titleOverflows: Bool {
-        titleTextWidth > collapsedTextWidth
+        cachedTitleWidth > 0 && titleTextWidth > (collapsedTextWidth + overflowTolerance)
     }
     private var artistOverflows: Bool {
-        artistTextWidth > collapsedTextWidth
+        cachedArtistWidth > 0 && artistTextWidth > (collapsedTextWidth + overflowTolerance)
     }
     private var anyTextOverflows: Bool {
         titleOverflows || artistOverflows
@@ -630,6 +626,8 @@ struct TrackInfoView: View {
         .frame(width: containerWidth, alignment: .leading)
         .clipped()
         .onAppear {
+            // Calculate initial text widths
+            updateCachedWidths()
             // Start scrolling if already in collapsed state with overflow
             if !isExpanded && anyTextOverflows {
                 startScrolling()
@@ -642,23 +640,45 @@ struct TrackInfoView: View {
             handleExpandedChange(newIsExpanded: newIsExpanded)
         }
         .onChange(of: info.trackIdentifier) { _ in
-            // Track changed - stop scrolling immediately, will restart after collapse
+            // Track changed - FIRST stop any existing scrolling, then recalculate widths
             scrollController.stop()
+            updateCachedWidths()
         }
+    }
+
+    /// Update cached text widths - called when track changes
+    private func updateCachedWidths() {
+        // Always recalculate when called - the caller decides when to call this
+        // (on appear, on track change)
+        cachedTitleWidth = info.title.width(using: trackTitleFont)
+        cachedArtistWidth = info.artist.width(using: trackArtistFont)
+        cachedTrackId = info.trackIdentifier
     }
 
     private func handleExpandedChange(newIsExpanded: Bool) {
         if newIsExpanded {
             scrollController.stop()
-        } else if anyTextOverflows {
-            startScrolling()
+        } else {
+            // Ensure cache is fresh before checking overflow
+            updateCachedWidths()
+            if anyTextOverflows {
+                startScrolling()
+            }
         }
     }
 
     private func startScrolling() {
-        let titleDistance = titleOverflows ? titleTextWidth + gap : 0
-        let artistDistance = artistOverflows ? artistTextWidth + gap : 0
+        // Double-check overflow with fresh calculation as a safety measure
+        let currentTitleWidth = info.title.width(using: trackTitleFont)
+        let currentArtistWidth = info.artist.width(using: trackArtistFont)
+        let availableWidth = collapsedTextWidth + overflowTolerance
+
+        let titleDistance = currentTitleWidth > availableWidth ? currentTitleWidth + gap : 0
+        let artistDistance = currentArtistWidth > availableWidth ? currentArtistWidth + gap : 0
         let maxDistance = max(titleDistance, artistDistance)
+
+        // Only start scrolling if there's actually a distance to scroll
+        guard maxDistance > 0 else { return }
         scrollController.start(distance: maxDistance)
     }
 }
@@ -701,8 +721,8 @@ final class MarqueeScrollController: ObservableObject {
         phase = .initialDelay
         startTime = CACurrentMediaTime()
 
-        // Use a 30fps timer - sufficient for smooth text scrolling, half the energy of 60fps
-        let newTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+        // Use a 20fps timer - sufficient for smooth text scrolling, 67% less energy than 60fps
+        let newTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 20.0, repeats: true) { [weak self] _ in
             self?.tick()
         }
         timer = newTimer

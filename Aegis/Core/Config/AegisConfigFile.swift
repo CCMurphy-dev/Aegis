@@ -98,6 +98,7 @@ struct AegisConfigData: Codable {
     var showAppNameInExpansion: Bool?
     var useSwipeToDestroySpace: Bool?
     var enableLayoutActionHaptics: Bool?
+    var expandContextButtonOnScroll: Bool?
     var launchAtLogin: Bool?
 
     // Behavior Settings - Auto-Hide & Delays
@@ -342,6 +343,7 @@ extension AegisConfig {
         if let v = data.showAppNameInExpansion { showAppNameInExpansion = v }
         if let v = data.useSwipeToDestroySpace { useSwipeToDestroySpace = v }
         if let v = data.enableLayoutActionHaptics { enableLayoutActionHaptics = v }
+        if let v = data.expandContextButtonOnScroll { expandContextButtonOnScroll = v }
         if let v = data.launchAtLogin { launchAtLogin = v }
 
         // Behavior Settings - Auto-Hide & Delays
@@ -553,6 +555,7 @@ extension AegisConfig {
             showAppNameInExpansion: showAppNameInExpansion,
             useSwipeToDestroySpace: useSwipeToDestroySpace,
             enableLayoutActionHaptics: enableLayoutActionHaptics,
+            expandContextButtonOnScroll: expandContextButtonOnScroll,
             launchAtLogin: launchAtLogin,
 
             // Behavior Settings - Auto-Hide & Delays
@@ -768,6 +771,7 @@ osascript -e 'id of app "AppName"'
 |--------|------|---------|-------------|
 | `launchAtLogin` | bool | `true` | Start Aegis when macOS starts |
 | `enableLayoutActionHaptics` | bool | `true` | Haptic feedback on layout actions |
+| `expandContextButtonOnScroll` | bool | `true` | Show label when scrolling context button (disable to save CPU) |
 | `windowIconExpansionAutoCollapseDelay` | number | `2.0` | Seconds before expanded window collapses |
 
 ---

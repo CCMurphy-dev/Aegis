@@ -82,7 +82,7 @@ struct YabaiSetupPromptView: View {
             }
 
             // Note about first-time setup
-            Text("Note: The setup script requires sudo to install the notification helper.")
+            Text("Note: The setup script will create files in ~/.config/aegis/ and register yabai signals.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }

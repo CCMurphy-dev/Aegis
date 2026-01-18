@@ -245,7 +245,6 @@ class HUDLayoutCoordinator: ObservableObject {
         if !activeModules.isEmpty {
             // Space indicators should be pushed away from HUD edges
             let leftEdge = getLeftEdge()
-            let rightEdge = getRightEdge()
             let screenCenter = screenWidth / 2
 
             // Calculate how far the HUD extends left of center
@@ -253,21 +252,11 @@ class HUDLayoutCoordinator: ObservableObject {
 
             // Push space indicators left by this amount plus some padding
             spaceIndicatorOffset = -(extensionLeftOfCenter + minSpaceToNotch)
-
-            print("🎨 HUDLayoutCoordinator: Layout updated")
-            print("   totalHUDWidth: \(totalHUDWidth)")
-            print("   leftEdge: \(leftEdge)")
-            print("   rightEdge: \(rightEdge)")
-            print("   screenCenter: \(screenCenter)")
-            print("   extensionLeftOfCenter: \(extensionLeftOfCenter)")
-            print("   spaceIndicatorOffset: \(spaceIndicatorOffset)")
         } else {
             spaceIndicatorOffset = 0
-            print("🎨 HUDLayoutCoordinator: Layout cleared (no active modules)")
         }
 
         // Increment version to force view update
         layoutVersion += 1
-        print("🎨 HUDLayoutCoordinator: layoutVersion incremented to \(layoutVersion)")
     }
 }

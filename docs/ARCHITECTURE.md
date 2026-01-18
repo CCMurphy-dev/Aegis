@@ -1,7 +1,7 @@
 # Aegis Architecture Overview
 
 **Last Updated**: January 2026
-**Version**: v0.6.0 (January 15, 2026)
+**Version**: v1.0.1 (January 18, 2026)
 
 ## Executive Summary
 

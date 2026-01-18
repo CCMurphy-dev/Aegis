@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2025-01-18
+
+### Added
+- `expandContextButtonOnScroll` config option to disable context button label expansion when scrolling
+  - When disabled, only the icon changes during scroll - saves CPU from SwiftUI re-renders
+  - Scroll handler optimized to skip all label-related work when disabled
+
+### Changed
+- Removed debug print statements from YabaiService and MenuBarController
+- Removed unused `checkYabaiStatus()` method from MenuBarController
+
+### Fixed
+- App switcher no longer affected by residual scroll momentum from menu bar
+  - 200ms cooldown after activation prevents unintended selection cycling
+
 ## [1.0.1] - 2025-01-18
 
 ### Fixed

@@ -38,14 +38,72 @@ final class AppSwitcherService {
     /// Scroll accumulator for Cmd+scroll activation
     private var cmdScrollAccumulator: CGFloat = 0
 
+    /// Cached app icons by name - persists across activations
+    private var appIconCache: [String: NSImage] = [:]
+
+    /// Whether the icon cache needs refreshing (set true when apps change)
+    private var iconCacheNeedsRefresh: Bool = true
+
     // MARK: - Init
 
     private init() {
         logInfo("AppSwitcherService initialized")
+        // Pre-warm icon cache with running apps
+        refreshIconCache(force: true)
+
+        // Listen for app launch/quit to update cache
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(appDidLaunchOrTerminate),
+            name: NSWorkspace.didLaunchApplicationNotification,
+            object: nil
+        )
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(appDidLaunchOrTerminate),
+            name: NSWorkspace.didTerminateApplicationNotification,
+            object: nil
+        )
+    }
+
+    @objc private func appDidLaunchOrTerminate(_ notification: Notification) {
+        // Mark cache as needing refresh when apps change
+        iconCacheNeedsRefresh = true
+    }
+
+    /// Track if a refresh is already in progress
+    private var isRefreshingIconCache = false
+
+    /// Refresh icon cache from running apps (only when needed - event-driven)
+    private func refreshIconCache(force: Bool = false) {
+        // Skip if cache is fresh and not forced
+        guard force || iconCacheNeedsRefresh else { return }
+
+        // Skip if refresh already in progress
+        guard !isRefreshingIconCache else { return }
+
+        iconCacheNeedsRefresh = false
+        isRefreshingIconCache = true
+
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let runningApps = NSWorkspace.shared.runningApplications
+            var newCache: [String: NSImage] = [:]
+            for app in runningApps {
+                if let name = app.localizedName, let icon = app.icon {
+                    newCache[name] = icon
+                }
+            }
+            DispatchQueue.main.async {
+                self?.appIconCache.merge(newCache) { _, new in new }
+                self?.isRefreshingIconCache = false
+            }
+        }
     }
 
     deinit {
         stop()
+        // Remove workspace notification observers
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
 
     // MARK: - Public API
@@ -96,7 +154,6 @@ final class AppSwitcherService {
         guard isActive, selectedIndex < windows.count else { return }
 
         let selectedWindow = windows[selectedIndex]
-        print("🔀 Confirming selection: index=\(selectedIndex), windowId=\(selectedWindow.id), title=\(selectedWindow.title), app=\(selectedWindow.appName)")
         dismissSwitcher()
 
         // Focus the selected window via yabai
@@ -511,14 +568,9 @@ final class AppSwitcherService {
                 return true
             }
 
-            // Get app icons - use reduce to handle duplicate keys (e.g., Firefox plugin containers)
-            let runningApps = NSWorkspace.shared.runningApplications
-            var appIconsByName: [String: NSImage] = [:]
-            for app in runningApps {
-                if let name = app.localizedName, let icon = app.icon {
-                    appIconsByName[name] = icon
-                }
-            }
+            // Use cached icons - much faster than fetching on every activation
+            // Refresh cache in background for any new apps
+            refreshIconCache()
 
             // Group windows by space, starting with focused space
             var groups: [SpaceGroup] = []
@@ -543,9 +595,9 @@ final class AppSwitcherService {
 
                 guard !spaceWindows.isEmpty else { continue }
 
-                let switcherWindows: [SwitcherWindow] = spaceWindows.map { window in
-                    // Try to get icon by bundle ID first, then by app name
-                    let icon = appIconsByName[window.app]
+                let switcherWindows: [SwitcherWindow] = spaceWindows.map { [weak self] window in
+                    // Use cached icon for faster lookup
+                    let icon = self?.appIconCache[window.app]
 
                     return SwitcherWindow(
                         id: window.id,
@@ -571,11 +623,6 @@ final class AppSwitcherService {
 
             self.spaceGroups = groups
             self.allWindows = flatWindows
-
-            print("🔀 Refreshed switcher: \(groups.count) spaces, \(flatWindows.count) windows")
-            for (idx, window) in flatWindows.enumerated() {
-                print("🔀   [\(idx)] id=\(window.id) app=\(window.appName) title=\(window.title)")
-            }
 
         } catch {
             logError("Failed to query yabai: \(error)")
@@ -625,10 +672,9 @@ final class AppSwitcherService {
                 }
 
                 // Then focus the specific window
-                let result = try await yabaiCommand.run(["-m", "window", "--focus", "\(window.id)"])
-                print("🔀 Focused window: \(window.title) (id: \(window.id)) on space \(window.spaceIndex), minimized=\(window.isMinimized), yabai result: '\(result)'")
+                _ = try await yabaiCommand.run(["-m", "window", "--focus", "\(window.id)"])
             } catch {
-                print("🔀 ❌ Failed to focus window \(window.id): \(error)")
+                logError("Failed to focus window \(window.id): \(error)")
             }
         }
     }

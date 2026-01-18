@@ -193,46 +193,29 @@ struct MenuBarView: View {
                     }
                     .offset(x: -(config.menuBarEdgePadding + config.spaceIndicatorSpacing + 32))  // Extend under button
                     .mask(
-                        GeometryReader { maskGeometry in
-                            ZStack {
-                                // Base white (shows content)
-                                Rectangle()
-                                    .fill(Color.white)
+                        // Simplified mask using HStack of gradients - avoids expensive blend modes
+                        HStack(spacing: 0) {
+                            // Left fade - hide content as it scrolls under the button
+                            LinearGradient(
+                                colors: [.clear, .white],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                            .frame(width: isScrolled ? (config.menuBarEdgePadding + config.spaceIndicatorSpacing + 32 + 20) : 0)
 
-                                // Left fade - hide content as it scrolls under the button
-                                LinearGradient(
-                                    gradient: Gradient(stops: [
-                                        .init(color: .clear, location: 0.0),
-                                        .init(color: .black, location: 0.3),
-                                        .init(color: .black, location: 1.0)
-                                    ]),
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                                .frame(width: config.menuBarEdgePadding + config.spaceIndicatorSpacing + 32 + 20)  // Button area + fade
-                                .blendMode(.destinationOut)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .opacity(isScrolled ? 1.0 : 0.0)
+                            // Middle - full visibility
+                            Rectangle()
+                                .fill(Color.white)
 
-                                // Right fade - smooth fade before notch/HUD
-                                // With destinationOut: clear = keep content, black = cut out content
-                                LinearGradient(
-                                    gradient: Gradient(stops: [
-                                        .init(color: .clear, location: 0.0),   // Keep content at start
-                                        .init(color: .clear, location: 0.4),   // Still keep content
-                                        .init(color: .black, location: 1.0)    // Cut out at right edge
-                                    ]),
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                                .frame(width: 60)  // Width of the fade zone
-                                .blendMode(.destinationOut)  // Cut out content where gradient is black
-                                .frame(maxWidth: .infinity, alignment: .trailing)
-                            }
-                            .animation(.easeInOut(duration: 0.2), value: isScrolled)
-                            .compositingGroup()
-                            .drawingGroup()
+                            // Right fade - smooth fade before notch/HUD
+                            LinearGradient(
+                                colors: [.white, .clear],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                            .frame(width: 60)
                         }
+                        .animation(.easeInOut(duration: 0.2), value: isScrolled)
                     )
                         }
 
@@ -584,6 +567,20 @@ class AppLauncherScrollView: NSView {
     }
 }
 
+// MARK: - Action Icon View (extracted for performance)
+// Separate struct to minimize re-renders when only icon changes
+private struct ActionIconView: View {
+    let icon: String
+    let isHovered: Bool
+
+    var body: some View {
+        Text(icon)
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundColor(.white.opacity(isHovered ? 1.0 : 0.6))
+            .frame(width: 16, height: 16)
+    }
+}
+
 // MARK: - Layout Actions Button
 
 struct LayoutActionsButton: View {
@@ -617,16 +614,18 @@ struct LayoutActionsButton: View {
         ("New Space", "+", { $0.onSpaceCreate() })
     ]
 
+    // Computed properties to avoid array access in body
+    private var currentIcon: String { actions[selectedActionIndex].icon }
+    private var currentLabel: String { actions[selectedActionIndex].label }
+
     var body: some View {
         // Main button - label expands to the right
         HStack(spacing: 0) {
-            Text(actions[selectedActionIndex].icon)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.white.opacity(isHovered ? 1.0 : 0.6))
-                .frame(width: 16, height: 16)
+            // Icon view - only updates when selectedActionIndex changes
+            ActionIconView(icon: currentIcon, isHovered: isHovered)
 
             if showActionLabel {
-                Text(actions[selectedActionIndex].label)
+                Text(currentLabel)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.white.opacity(0.9))
                     .frame(width: 95, alignment: .leading)
@@ -637,19 +636,9 @@ struct LayoutActionsButton: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
         .background(
-            ZStack {
-                // Backdrop blur effect when label is showing to cover spaces behind
-                if showActionLabel {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.black.opacity(0.4))
-                        .blur(radius: 8)
-                        .padding(-8)
-                }
-
-                // Main button background matching space indicators
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(showActionLabel ? Color.white.opacity(0.2) : (isHovered ? Color.white.opacity(0.15) : Color.white.opacity(0.12)))
-            }
+            // Simplified background - no conditional blur that forces re-render
+            RoundedRectangle(cornerRadius: 8)
+                .fill(showActionLabel ? Color.white.opacity(0.2) : (isHovered ? Color.white.opacity(0.15) : Color.white.opacity(0.12)))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8)
@@ -657,9 +646,11 @@ struct LayoutActionsButton: View {
                 .opacity((isHovered || showActionLabel) ? 1.0 : 0.0)
         )
         .scaleEffect(isHovered ? 1.02 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
+        // Use simpler easeOut animation - less CPU than spring
+        .animation(.easeOut(duration: 0.15), value: isHovered)
+        // Match spacer animation timing for synchronized expansion
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showActionLabel)
-        .animation(.spring(response: 0.2, dampingFraction: 0.8), value: selectedActionIndex)
+        // No animation on selectedActionIndex - it changes rapidly during scroll
         .background(
             // Use GeometryReader to capture frame for menu positioning
             GeometryReader { geo in
@@ -691,12 +682,10 @@ struct LayoutActionsButton: View {
     }
 
     private func executeSelectedAction() {
-        print("🎯 Executing action: \(actions[selectedActionIndex].label)")
         actions[selectedActionIndex].execute(self)
     }
 
     private func showContextMenu() {
-        print("🖱️ showContextMenu called, buttonFrame: \(buttonFrame)")
 
         let menu = NSMenu()
         menu.autoenablesItems = false
@@ -708,8 +697,6 @@ struct LayoutActionsButton: View {
         // Query yabai synchronously for the actual focused space (more accurate than cache)
         let focusedSpaceIndex = yabaiService.getFocusedSpaceIndexSync()
         let focusedSpace = spaces.first(where: { $0.index == focusedSpaceIndex })
-
-        print("🔍 Menu: focused space = \(focusedSpaceIndex), total spaces = \(spaces.count)")
 
         // Get window count for current space
         let windowCount = focusedSpace.map { yabaiService.getWindowIconsForSpace($0.index).count } ?? 0
@@ -860,18 +847,25 @@ struct LayoutActionsButton: View {
         let spaceWindows = focusedSpace.map { yabaiService.getWindowIconsForSpace($0.index) } ?? []
 
         if spaceWindows.count >= 2 {
+            // Pre-scale icons once and cache them to avoid repeated scaling
+            let iconSize = NSSize(width: 16, height: 16)
+            var scaledIcons: [Int: NSImage] = [:]
+            for window in spaceWindows {
+                if let icon = window.icon {
+                    let scaled = NSImage(size: iconSize)
+                    scaled.lockFocus()
+                    icon.draw(in: NSRect(origin: .zero, size: iconSize))
+                    scaled.unlockFocus()
+                    scaledIcons[window.id] = scaled
+                }
+            }
+
             // Create a submenu item for each window that can be the stack target
             for targetWindow in spaceWindows {
                 let targetTitle = targetWindow.title.isEmpty ? targetWindow.appName : String(targetWindow.title.prefix(30))
                 let targetItem = NSMenuItem(title: targetTitle, action: nil, keyEquivalent: "")
-                // Set scaled icon for target window
-                if let icon = targetWindow.icon {
-                    let scaledIcon = NSImage(size: NSSize(width: 16, height: 16))
-                    scaledIcon.lockFocus()
-                    icon.draw(in: NSRect(x: 0, y: 0, width: 16, height: 16))
-                    scaledIcon.unlockFocus()
-                    targetItem.image = scaledIcon
-                }
+                targetItem.image = scaledIcons[targetWindow.id]
+
                 let windowsToStackSubmenu = NSMenu()
                 windowsToStackSubmenu.autoenablesItems = false
 
@@ -884,14 +878,7 @@ struct LayoutActionsButton: View {
                         keyEquivalent: ""
                     )
                     sourceItem.target = menuTarget
-                    // Set scaled icon for source window
-                    if let icon = sourceWindow.icon {
-                        let scaledIcon = NSImage(size: NSSize(width: 16, height: 16))
-                        scaledIcon.lockFocus()
-                        icon.draw(in: NSRect(x: 0, y: 0, width: 16, height: 16))
-                        scaledIcon.unlockFocus()
-                        sourceItem.image = scaledIcon
-                    }
+                    sourceItem.image = scaledIcons[sourceWindow.id]
                     // Store both window IDs: source to stack onto target
                     sourceItem.representedObject = ["source": sourceWindow.id, "target": targetWindow.id]
                     windowsToStackSubmenu.addItem(sourceItem)
@@ -1056,51 +1043,13 @@ struct LayoutActionsButton: View {
         // Show menu aligned with the button
         if let event = NSApp.currentEvent, let window = event.window {
             let locationInWindow = event.locationInWindow
-            print("📍 Menu location in window: \(locationInWindow)")
             menu.popUp(positioning: nil, at: locationInWindow, in: window.contentView)
         } else if let window = NSApp.keyWindow, let contentView = window.contentView {
             // Fallback: use button frame if no event
             let windowPoint = NSPoint(x: buttonFrame.minX, y: window.frame.height - buttonFrame.minY)
-            print("📍 Fallback menu location: \(windowPoint)")
             menu.popUp(positioning: nil, at: windowPoint, in: contentView)
         }
 
-    }
-
-    private func checkYabaiStatus() -> String {
-        // Check if yabai is running
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        task.arguments = ["yabai", "-m", "query", "--spaces"]
-
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = pipe
-
-        do {
-            try task.run()
-            task.waitUntilExit()
-
-            if task.terminationStatus == 0 {
-                // Check SA status
-                let saTask = Process()
-                saTask.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-                saTask.arguments = ["yabai", "-m", "query", "--windows"]
-                let saPipe = Pipe()
-                saTask.standardOutput = saPipe
-                saTask.standardError = saPipe
-
-                try? saTask.run()
-                saTask.waitUntilExit()
-
-                let hasSA = saTask.terminationStatus == 0
-                return hasSA ? "✓ Yabai running, SA loaded" : "⚠ Yabai running, SA not loaded"
-            } else {
-                return "✗ Yabai not responding"
-            }
-        } catch {
-            return "✗ Yabai not running"
-        }
     }
 }
 
@@ -1334,13 +1283,11 @@ class LayoutActionsMenuTarget: NSObject {
         guard let windowIds = sender.representedObject as? [String: Int],
               let sourceId = windowIds["source"],
               let targetId = windowIds["target"] else { return }
-        print("📚 Stacking window \(sourceId) onto \(targetId)...")
         yabaiService?.stackWindow(sourceId, onto: targetId)
     }
 
     @objc func stackAllOnto(_ sender: NSMenuItem) {
         guard let targetId = sender.representedObject as? Int else { return }
-        print("📚 Stacking all windows onto \(targetId)...")
         yabaiService?.stackAllWindowsOnto(targetId)
     }
 }
@@ -1385,12 +1332,12 @@ struct ScrollableActionSelector: NSViewRepresentable {
         var actionCount: Int
         var showLabel: Binding<Bool>
         var scrollAccumulator: CGFloat = 0
-        var lastHapticIndex: Int = 0
-        var hideTask: DispatchWorkItem?
+        var isLabelShowing: Bool = false  // Track locally to avoid redundant binding updates
+        var hideWorkItem: DispatchWorkItem?  // Reusable work item - more efficient than Timer
 
         // Adjust sensitivity: higher = less sensitive (need more scroll)
-        // Using 3 for vertical scroll - trackpad deltas are typically 0.5-1.0 per event
-        let scrollThreshold: CGFloat = 3
+        // Using 6 for less frequent updates - reduces CPU by requiring more scroll to change action
+        let scrollThreshold: CGFloat = 6
 
         private let config = AegisConfig.shared
 
@@ -1398,22 +1345,26 @@ struct ScrollableActionSelector: NSViewRepresentable {
             self.selectedIndex = selectedIndex
             self.actionCount = actionCount
             self.showLabel = showLabel
-            self.lastHapticIndex = selectedIndex.wrappedValue
+            self.isLabelShowing = showLabel.wrappedValue
         }
 
         func handleScroll(delta: CGFloat) {
-            // Cancel previous hide task
-            hideTask?.cancel()
+            // Only manage label expansion if enabled - skip all related work when disabled
+            if config.expandContextButtonOnScroll {
+                // Cancel existing hide work item
+                hideWorkItem?.cancel()
 
-            // Show label while scrolling
-            showLabel.wrappedValue = true
+                // Show label while scrolling
+                if !isLabelShowing {
+                    isLabelShowing = true
+                    showLabel.wrappedValue = true
+                }
+            }
 
             // Accumulate scroll delta (negative = scroll up, positive = scroll down)
             scrollAccumulator += delta
 
             // Calculate how many actions to move
-            // Negative delta (scroll up) should move to previous action (decrease index)
-            // Positive delta (scroll down) should move to next action (increase index)
             let actionSteps = Int(scrollAccumulator / scrollThreshold)
 
             if actionSteps != 0 {
@@ -1434,20 +1385,22 @@ struct ScrollableActionSelector: NSViewRepresentable {
                     if config.enableLayoutActionHaptics {
                         NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
                     }
-
-                    print("🔄 Selected action index: \(newIndex) (action: \(["Rotate 90°", "Rotate 180°", "Rotate 270°", "Flip Horizontal", "Flip Vertical", "Balance", "Toggle Layout", "Stack/Unstack", "New Space"][newIndex]))")
                 }
 
                 // Reset accumulator
                 scrollAccumulator = 0
             }
 
-            // Hide label after a delay
-            let task = DispatchWorkItem { [weak self] in
-                self?.showLabel.wrappedValue = false
+            // Schedule hide after delay - only if expansion is enabled
+            if config.expandContextButtonOnScroll {
+                let workItem = DispatchWorkItem { [weak self] in
+                    guard let self = self else { return }
+                    self.isLabelShowing = false
+                    self.showLabel.wrappedValue = false
+                }
+                hideWorkItem = workItem
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: workItem)
             }
-            hideTask = task
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: task)
         }
     }
 }
@@ -1515,22 +1468,17 @@ class ScrollActionView: NSView {
 
         let delta = event.deltaY
 
-        print("📜 ScrollActionView scrollWheel - phase: \(event.phase.rawValue), deltaY: \(delta)")
-
         // Only respond to vertical scroll
         if abs(delta) > 0.1 {
-            print("   ✅ Passing to handler")
             onScrollChange?(delta)
         }
     }
 
     override func mouseDown(with event: NSEvent) {
-        print("👆 ScrollActionView mouseDown called")
         onTap?()
     }
 
     override func rightMouseDown(with event: NSEvent) {
-        print("🖱️ ScrollActionView rightMouseDown called")
         onRightClick?()
     }
 }

@@ -129,7 +129,36 @@ struct WindowIcon: Identifiable, Equatable {
     let isMinimized: Bool
     let isHidden: Bool
 
+    // Pre-computed expanded width to avoid repeated font measurements
+    let expandedWidth: CGFloat
+
+    init(id: Int, title: String, app: String, appName: String, icon: NSImage?, frame: CGRect?, hasFocus: Bool, stackIndex: Int, isMinimized: Bool, isHidden: Bool) {
+        self.id = id
+        self.title = title
+        self.app = app
+        self.appName = appName
+        self.icon = icon
+        self.frame = frame
+        self.hasFocus = hasFocus
+        self.stackIndex = stackIndex
+        self.isMinimized = isMinimized
+        self.isHidden = isHidden
+
+        // Pre-compute expanded width once during init
+        let titleFont = NSFont.systemFont(ofSize: 11, weight: .medium)
+        let titleWidth = title.width(using: titleFont)
+        let appFont = NSFont.systemFont(ofSize: 9)
+        let appWidth = appName.width(using: appFont)
+        self.expandedWidth = min(max(titleWidth, appWidth) + 8, 100)  // 100 = maxExpandedWidth
+    }
+
     static func == (lhs: WindowIcon, rhs: WindowIcon) -> Bool {
-        lhs.id == rhs.id && lhs.title == rhs.title && lhs.app == rhs.app
+        lhs.id == rhs.id &&
+        lhs.title == rhs.title &&
+        lhs.app == rhs.app &&
+        lhs.hasFocus == rhs.hasFocus &&
+        lhs.stackIndex == rhs.stackIndex &&
+        lhs.isMinimized == rhs.isMinimized &&
+        lhs.isHidden == rhs.isHidden
     }
 }

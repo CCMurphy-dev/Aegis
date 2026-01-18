@@ -66,11 +66,12 @@ final class AppSwitcherWindowController {
     }
 
     func show(spaceGroups: [SpaceGroup], allWindows: [SwitcherWindow], selectedIndex: Int, searchQuery: String = "") {
+        // Batch updates to reduce SwiftUI view recalculations
+        // Update data properties first (before isVisible triggers display)
+        viewModel.searchQuery = searchQuery
         viewModel.spaceGroups = spaceGroups
         viewModel.allWindows = allWindows
         viewModel.selectedIndex = selectedIndex
-        viewModel.searchQuery = searchQuery
-        viewModel.isVisible = true
         viewModel.resetMouseTracking()
 
         // Calculate window size based on content
@@ -78,15 +79,23 @@ final class AppSwitcherWindowController {
         let windowHeight: CGFloat = calculateHeight(for: spaceGroups, hasSearchQuery: !searchQuery.isEmpty)
         let windowSize = NSSize(width: windowWidth, height: windowHeight)
 
-        // Center on main screen
+        // Center on main screen - only update frame if size changed significantly
         if let screen = NSScreen.main {
             let screenFrame = screen.frame
             let origin = NSPoint(
                 x: screenFrame.midX - windowSize.width / 2,
                 y: screenFrame.midY - windowSize.height / 2 + 50
             )
-            window?.setFrame(NSRect(origin: origin, size: windowSize), display: true)
+            let newFrame = NSRect(origin: origin, size: windowSize)
+
+            // Only call setFrame if frame actually changed (avoid expensive window resize)
+            if let currentFrame = window?.frame, !currentFrame.equalTo(newFrame) {
+                window?.setFrame(newFrame, display: false)  // display: false - view will update via SwiftUI
+            }
         }
+
+        // Set visible last to trigger single view update with all data ready
+        viewModel.isVisible = true
 
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: false)  // Don't steal focus from current app
@@ -247,7 +256,8 @@ struct AppSwitcherView: View {
                 },
                 onScrolled: { direction in
                     viewModel.onScroll?(direction)
-                }
+                },
+                isVisible: viewModel.isVisible
             )
         )
         .opacity(viewModel.isVisible ? 1 : 0)
@@ -288,6 +298,7 @@ struct MouseTrackingView: NSViewRepresentable {
     let onMouseMoved: (CGPoint) -> Void
     let onMouseClicked: (CGPoint) -> Void
     let onScrolled: ((Int) -> Void)?  // Direction: -1 for up/previous, +1 for down/next
+    let isVisible: Bool  // Track visibility to reset scroll state on show
 
     func makeNSView(context: Context) -> MouseTrackingNSView {
         let view = MouseTrackingNSView()
@@ -301,6 +312,12 @@ struct MouseTrackingView: NSViewRepresentable {
         nsView.onMouseMoved = onMouseMoved
         nsView.onMouseClicked = onMouseClicked
         nsView.onScrolled = onScrolled
+
+        // Reset scroll state when becoming visible
+        // This prevents residual scroll from menu bar from affecting app switcher
+        if isVisible {
+            nsView.resetScrollState()
+        }
     }
 }
 
@@ -312,6 +329,16 @@ class MouseTrackingNSView: NSView {
 
     // Scroll accumulation for two-finger gesture
     private var scrollAccumulator: CGFloat = 0
+
+    // Timestamp when the view became active - used to ignore residual scroll momentum
+    private var activationTime: Date = Date()
+
+    /// Reset scroll state when the switcher appears
+    /// Call this when showing the app switcher to prevent residual scroll from previous context
+    func resetScrollState() {
+        scrollAccumulator = 0
+        activationTime = Date()
+    }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -344,6 +371,14 @@ class MouseTrackingNSView: NSView {
     }
 
     override func scrollWheel(with event: NSEvent) {
+        // Ignore scroll events for 200ms after activation
+        // This prevents residual scroll momentum from previous context (e.g., menu bar)
+        // from immediately cycling the app switcher selection
+        let cooldownPeriod: TimeInterval = 0.2
+        guard Date().timeIntervalSince(activationTime) > cooldownPeriod else {
+            return
+        }
+
         // Ignore momentum phase - only respond to actual finger gestures
         // This prevents over-scrolling after the user lifts their fingers
         guard event.phase == .began || event.phase == .changed || event.phase == [] else {

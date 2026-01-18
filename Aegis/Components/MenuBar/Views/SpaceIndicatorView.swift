@@ -23,7 +23,6 @@ struct SpaceIndicatorView: View {
     @State private var isHovered = false  // True when mouse is over this space indicator
 
     private let config = AegisConfig.shared
-    private let maxExpandedWidth: CGFloat = 100
 
     var body: some View {
         Group {
@@ -124,7 +123,7 @@ struct SpaceIndicatorView: View {
                             }
                             .frame(
                                 width: expandedWindowId == windowIcon.id
-                                    ? calculatedWidth(for: windowIcon)
+                                    ? windowIcon.expandedWidth  // Use pre-computed width
                                     : 0,
                                 alignment: .leading
                             )
@@ -182,20 +181,18 @@ struct SpaceIndicatorView: View {
                 RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(isActive ? Color.white.opacity(0.18) : .clear, lineWidth: 1)
             )
-            .overlay(alignment: .topLeading) {
-                // Focus indicator dot inside bottom edge of indicator
-                GeometryReader { geometry in
-                    let focusedIndex = windowIcons.firstIndex(where: { $0.hasFocus })
-                    let xPosition = focusedIndex != nil ? calculateDotPosition(for: focusedIndex!) : 0
+            .overlay(alignment: .bottomLeading) {
+                // Focus indicator dot at bottom edge - use bottomLeading alignment to avoid GeometryReader
+                let focusedIndex = windowIcons.firstIndex(where: { $0.hasFocus })
+                let xPosition = focusedIndex != nil ? calculateDotPosition(for: focusedIndex!) : 0
 
-                    Circle()
-                        .fill(Color.white)
-                        .frame(width: 3, height: 3)
-                        .offset(x: xPosition - 1.5, y: geometry.size.height - 1.5)
-                        .opacity(focusedIndex != nil ? 1 : 0)
-                        .animation(.smooth(duration: 0.3), value: xPosition)
-                }
-                .allowsHitTesting(false)
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 3, height: 3)
+                    .offset(x: xPosition - 1.5, y: 1.5)  // Offset down slightly to sit on bottom edge
+                    .opacity(focusedIndex != nil ? 1 : 0)
+                    .animation(.smooth(duration: 0.3), value: xPosition)
+                    .allowsHitTesting(false)
             }
             .scaleEffect(isHovered ? 1.02 : 1.0)
             .shadow(color: isActive ? .white.opacity(0.12) : .clear, radius: 6)
@@ -261,9 +258,9 @@ struct SpaceIndicatorView: View {
             xPosition += 22  // Icon width
             xPosition += 6   // Spacing in icon's HStack (always present between icon and title area)
 
-            // If this icon is expanded, add the title width
+            // If this icon is expanded, add the title width (use pre-computed)
             if expandedWindowId == windowIcons[i].id {
-                xPosition += calculatedWidth(for: windowIcons[i])
+                xPosition += windowIcons[i].expandedWidth
             }
 
             xPosition += 6  // Spacing after this icon (from parent HStack)
@@ -304,20 +301,6 @@ struct SpaceIndicatorView: View {
         // or right-clicks a different icon (which will collapse this one)
     }
 
-    private func calculatedWidth(for icon: WindowIcon) -> CGFloat {
-        let titleFont = NSFont.systemFont(ofSize: 11, weight: .medium)
-        let titleWidth = icon.title.width(using: titleFont)
-
-        var maxWidth = titleWidth
-
-        if config.showAppNameInExpansion {
-            let appFont = NSFont.systemFont(ofSize: 9)
-            let appWidth = icon.appName.width(using: appFont)
-            maxWidth = max(titleWidth, appWidth)
-        }
-
-        return min(maxWidth + 8, maxExpandedWidth)
-    }
 
     private var backgroundColor: Color {
         if isActive {
@@ -402,11 +385,23 @@ struct RightClickableIcon: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: ClickableIconView, context: Context) {
-        nsView.windowId = windowId
-        nsView.icon = icon
-        nsView.isHovered = isHovered
-        nsView.isMinimized = isMinimized
-        nsView.isWindowHidden = isHidden
+        // Only update properties that changed to avoid unnecessary redraws
+        if nsView.windowId != windowId {
+            nsView.windowId = windowId
+        }
+        if nsView.icon !== icon {
+            nsView.icon = icon
+        }
+        if nsView.isHovered != isHovered {
+            nsView.isHovered = isHovered
+        }
+        if nsView.isMinimized != isMinimized {
+            nsView.isMinimized = isMinimized
+        }
+        if nsView.isWindowHidden != isHidden {
+            nsView.isWindowHidden = isHidden
+        }
+        // Closures always update (no way to compare)
         nsView.onDragStarted = onDragStarted
         nsView.onDragEnded = onDragEnded
     }
@@ -416,9 +411,18 @@ struct RightClickableIcon: NSViewRepresentable {
 
 final class ClickableIconView: NSView {
     var windowId: Int = 0
-    var icon: NSImage?
+    var icon: NSImage? {
+        didSet {
+            if icon !== oldValue {
+                cachedImage = nil
+                needsDisplay = true
+            }
+        }
+    }
     var isHovered = false {
         didSet {
+            guard isHovered != oldValue else { return }
+            cachedImage = nil
             needsDisplay = true
             // Animate scale on hover
             NSAnimationContext.runAnimationGroup { context in
@@ -431,11 +435,23 @@ final class ClickableIconView: NSView {
         }
     }
     var isMinimized = false {
-        didSet { needsDisplay = true }
+        didSet {
+            guard isMinimized != oldValue else { return }
+            cachedImage = nil
+            needsDisplay = true
+        }
     }
     var isWindowHidden = false {
-        didSet { needsDisplay = true }
+        didSet {
+            guard isWindowHidden != oldValue else { return }
+            cachedImage = nil
+            needsDisplay = true
+        }
     }
+
+    // Cached rendered image to avoid expensive redraws
+    private var cachedImage: NSImage?
+    private var cachedBounds: NSRect = .zero
 
     var onLeftClick: (() -> Void)?
     var onRightClick: (() -> Void)?
@@ -541,17 +557,26 @@ final class ClickableIconView: NSView {
         super.draw(dirtyRect)
         guard let icon = icon else { return }
 
-        NSGraphicsContext.saveGraphicsState()
+        // Use cached image if available and bounds haven't changed
+        if let cached = cachedImage, cachedBounds == bounds {
+            cached.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1.0)
+            return
+        }
+
+        // Render to cached image
+        let rendered = NSImage(size: bounds.size)
+        rendered.lockFocus()
 
         // Draw hover glow background
         if isHovered {
             // Draw outer glow
-            let glowPath = NSBezierPath(roundedRect: bounds.insetBy(dx: -2, dy: -2), xRadius: 7, yRadius: 7)
+            let glowRect = NSRect(x: -2, y: -2, width: bounds.width + 4, height: bounds.height + 4)
+            let glowPath = NSBezierPath(roundedRect: glowRect, xRadius: 7, yRadius: 7)
             NSColor.white.withAlphaComponent(0.15).setFill()
             glowPath.fill()
 
             // Draw inner background
-            let bgPath = NSBezierPath(roundedRect: bounds, xRadius: 5, yRadius: 5)
+            let bgPath = NSBezierPath(roundedRect: NSRect(origin: .zero, size: bounds.size), xRadius: 5, yRadius: 5)
             NSColor.white.withAlphaComponent(0.2).setFill()
             bgPath.fill()
 
@@ -570,13 +595,20 @@ final class ClickableIconView: NSView {
 
         // Draw icon with reduced opacity for minimized/hidden windows
         icon.draw(
-            in: bounds,
+            in: NSRect(origin: .zero, size: bounds.size),
             from: .zero,
             operation: .sourceOver,
             fraction: finalOpacity
         )
 
-        NSGraphicsContext.restoreGraphicsState()
+        rendered.unlockFocus()
+
+        // Cache the rendered image
+        cachedImage = rendered
+        cachedBounds = bounds
+
+        // Draw the cached image
+        rendered.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1.0)
     }
 
 }
