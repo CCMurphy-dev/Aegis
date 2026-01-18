@@ -25,11 +25,12 @@ class MenuBarCoordinator {
 
     func show() {
         // Create ViewModel
-        viewModel = MenuBarViewModel(yabaiService: yabaiService)
+        let vm = MenuBarViewModel(yabaiService: yabaiService)
+        viewModel = vm
 
         // SwiftUI content with action handlers
         let contentView = MenuBarView(
-            viewModel: viewModel!,
+            viewModel: vm,
             onSpaceClick: { [weak self] index in
                 self?.yabaiService.focusSpace(index)
             },
@@ -108,20 +109,9 @@ class MenuBarCoordinator {
     private func checkAndUpdateFullscreenStatus() {
         let spaces = yabaiService.getCurrentSpaces()
         if let focusedSpace = spaces.first(where: { $0.focused }) {
-            // Check both yabai fullscreen and native macOS fullscreen
-            let isYabaiFullscreen = focusedSpace.type == "fullscreen"
-
-            // Check if any window in the current space is in native fullscreen
-            let windowIcons = yabaiService.getWindowIconsForSpace(focusedSpace.index)
-            let hasNativeFullscreen = windowIcons.contains { window in
-                // Get the full WindowInfo to check isNativeFullscreen
-                if let windowInfo = yabaiService.getWindow(window.id) {
-                    return windowInfo.isNativeFullscreen
-                }
-                return false
-            }
-
-            let isFullscreen = isYabaiFullscreen || hasNativeFullscreen
+            // Check both yabai's fullscreen type AND native macOS fullscreen
+            // yabai reports is-native-fullscreen on the Space when a window is in native fullscreen mode
+            let isFullscreen = focusedSpace.isNativeFullscreen || focusedSpace.type == "fullscreen"
             windowController.updateVisibilityForSpace(isFullscreen: isFullscreen)
         }
     }
@@ -133,6 +123,10 @@ class MenuBarCoordinator {
 
         // CRITICAL: Check fullscreen status whenever spaces change
         checkAndUpdateFullscreenStatus()
+
+        // Re-order window to ensure visibility during space transitions
+        // This helps prevent the native menu bar from briefly appearing
+        windowController.reorderWindowForSpaceTransition()
     }
 
     func updateWindows() {
@@ -148,5 +142,8 @@ class MenuBarCoordinator {
         if let viewModel = viewModel {
             hudController.connectMenuBarViewModel(viewModel)
         }
+
+        // Connect fullscreen state observation so media HUD hides with menu bar
+        hudController.observeFullscreenState(from: windowController)
     }
 }

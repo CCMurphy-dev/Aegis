@@ -146,10 +146,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             menuBarController.connectHUDVisibility(from: notchHUDController)
         }
 
-        // Connect yabai service for fullscreen detection (music HUD suppression)
-        if let yabaiService, let notchHUDController {
-            notchHUDController.connectYabaiService(yabaiService)
-        }
     }
 
     // MARK: - Event Subscriptions

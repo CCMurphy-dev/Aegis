@@ -16,6 +16,7 @@ struct Space: Identifiable, Codable, Equatable {
     var label: String?
     var type: String  // "bsp", "float", "fullscreen", etc.
     var focused: Bool
+    var isNativeFullscreen: Bool  // True when a window on this space is in native macOS fullscreen
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -23,6 +24,7 @@ struct Space: Identifiable, Codable, Equatable {
         case label
         case type
         case focused = "has-focus"
+        case isNativeFullscreen = "is-native-fullscreen"
     }
 }
 

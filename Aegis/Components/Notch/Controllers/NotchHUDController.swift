@@ -6,7 +6,6 @@ class NotchHUDController: ObservableObject {
     private let systemInfoService: SystemInfoService
     private let musicService: MediaService
     private let eventRouter: EventRouter
-    private weak var yabaiService: YabaiService?
 
     // Separate windows for music, volume/brightness, device connection, and focus
     private var mediaWindow: NSWindow!
@@ -14,8 +13,7 @@ class NotchHUDController: ObservableObject {
     private var deviceWindow: NSWindow!
     private var focusWindow: NSWindow!
 
-    private var hideTimer: Timer?
-    private var hideDeadline: TimeInterval = 0  // Timestamp when overlay should hide
+    private var hideWorkItem: DispatchWorkItem?  // Scheduled hide for overlay HUD
     private var isAnimatingOverlay = false  // Track if overlay is mid-animation
 
     // Auto-hide timer for media HUD
@@ -49,6 +47,12 @@ class NotchHUDController: ObservableObject {
     // Notch dimensions for width calculations
     private var notchDimensions: NotchDimensions?
 
+    // Fullscreen state from menu bar (used to suppress media HUD in fullscreen)
+    private var isInFullscreenSpace = false
+    // Track if we're showing a brief track change notification in fullscreen
+    // When true, skip the collapse animation on hide (just slide out directly)
+    private var isFullscreenTrackChangeMode = false
+
     init(systemInfoService: SystemInfoService,
          musicService: MediaService,
          eventRouter: EventRouter) {
@@ -66,11 +70,19 @@ class NotchHUDController: ObservableObject {
             .sink { [weak self] showMusic in
                 guard let self = self else { return }
                 if !showMusic && self.mediaViewModel.isVisible {
-                    print("🎵 Config changed: hiding media HUD")
                     self.hideMediaHUD()
                 }
             }
             .store(in: &cancellables)
+
+    }
+
+    deinit {
+        // Clean up all timers to prevent leaks
+        mediaAutoHideTimer?.invalidate()
+        deviceAutoHideTimer?.invalidate()
+        focusAutoHideTimer?.invalidate()
+        hideWorkItem?.cancel()
     }
 
     /// Connect to menu bar view model for layout coordination
@@ -78,9 +90,47 @@ class NotchHUDController: ObservableObject {
         self.menuBarViewModel = viewModel
     }
 
-    /// Connect to yabai service for fullscreen detection
-    func connectYabaiService(_ service: YabaiService) {
-        self.yabaiService = service
+    /// Observe fullscreen state from menu bar window controller
+    /// When menu bar hides (fullscreen), hide media HUD after a short delay
+    /// When menu bar shows (exiting fullscreen), re-show media HUD if music is still playing
+    func observeFullscreenState(from windowController: MenuBarWindowController) {
+        windowController.$currentSpaceIsFullscreen
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isFullscreen in
+                guard let self = self else { return }
+
+                let wasInFullscreen = self.isInFullscreenSpace
+                // Store the fullscreen state
+                self.isInFullscreenSpace = isFullscreen
+
+                if isFullscreen && self.mediaViewModel.isVisible {
+                    // Menu bar is hiding (fullscreen) - hide media HUD after a short delay
+                    // This allows the transition to complete before hiding
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        // Only hide if still in fullscreen (user might have exited quickly)
+                        if self.isInFullscreenSpace && self.mediaViewModel.isVisible {
+                            self.hideMediaHUD()
+                        }
+                    }
+                } else if !isFullscreen && wasInFullscreen {
+                    // Exiting fullscreen - re-show media HUD if music is still playing
+                    // Small delay to allow the transition to complete
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        // Only show if still not in fullscreen and media is playing
+                        if !self.isInFullscreenSpace &&
+                           self.mediaViewModel.info.isPlaying &&
+                           !self.mediaViewModel.isDismissed &&
+                           AegisConfig.shared.showMediaHUD {
+                            self.showMediaHUD()
+                            // Schedule auto-hide if enabled
+                            if AegisConfig.shared.mediaHUDAutoHide {
+                                self.scheduleMediaAutoHide()
+                            }
+                        }
+                    }
+                }
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Window Preparation (called once at app startup)
@@ -177,6 +227,10 @@ class NotchHUDController: ObservableObject {
             isVisible: Binding(
                 get: { [weak self] in self?.isMediaHUDVisible ?? false },
                 set: { [weak self] in self?.isMediaHUDVisible = $0 }
+            ),
+            isFullscreenTrackChangeMode: Binding(
+                get: { [weak self] in self?.isFullscreenTrackChangeMode ?? false },
+                set: { [weak self] in self?.isFullscreenTrackChangeMode = $0 }
             )
         )
 
@@ -342,8 +396,8 @@ class NotchHUDController: ObservableObject {
             }
         }
 
-        // Bump hide deadline (lightweight timestamp update)
-        bumpHideDeadline()
+        // Reschedule auto-hide (cancels previous, starts fresh 1.5s countdown)
+        scheduleOverlayHide()
     }
 
     func showBrightness(level: Float) {
@@ -366,19 +420,16 @@ class NotchHUDController: ObservableObject {
             }
         }
 
-        // Bump hide deadline (lightweight timestamp update)
-        bumpHideDeadline()
+        // Reschedule auto-hide (cancels previous, starts fresh 1.5s countdown)
+        scheduleOverlayHide()
     }
 
     func showMedia(info: MediaInfo) {
         let config = AegisConfig.shared
-        print("🎵 NotchHUDController.showMusic: isPlaying=\(info.isPlaying), currentlyVisible=\(mediaViewModel.isVisible), isDismissed=\(mediaViewModel.isDismissed)")
 
         // Check if media HUD is disabled in config
         if !config.showMediaHUD {
-            // If HUD is visible, hide it
             if mediaViewModel.isVisible {
-                print("🎵 NotchHUDController: Media HUD disabled, hiding")
                 hideMediaHUD()
             }
             return
@@ -386,19 +437,8 @@ class NotchHUDController: ObservableObject {
 
         // If not playing, hide the media HUD
         if !info.isPlaying {
-            print("🎵 NotchHUDController: Playback stopped, hiding media HUD")
             hideMediaHUD()
             lastTrackIdentifier = nil
-            return
-        }
-
-        // Check if fullscreen app matches the now-playing app (suppress HUD for video players in fullscreen)
-        if let nowPlayingBundleId = info.bundleIdentifier,
-           shouldSuppressMediaHUDForFullscreen(nowPlayingBundleId: nowPlayingBundleId) {
-            print("🎵 NotchHUDController: Suppressing media HUD - fullscreen app matches now-playing app (\(nowPlayingBundleId))")
-            if mediaViewModel.isVisible {
-                hideMediaHUD()
-            }
             return
         }
 
@@ -411,21 +451,29 @@ class NotchHUDController: ObservableObject {
 
         // Don't show if user dismissed (until track changes)
         if mediaViewModel.isDismissed {
-            print("🎵 NotchHUDController: HUD dismissed by user, not showing")
             return
         }
 
+        // Handle fullscreen mode
+        if isInFullscreenSpace {
+            // In fullscreen: only show briefly for track changes (background music app)
+            if isNewTrack {
+                isFullscreenTrackChangeMode = true
+                showMediaHUD()
+                scheduleMediaAutoHide()
+            }
+            return
+        }
+
+        // Not in fullscreen - ensure flag is cleared
+        isFullscreenTrackChangeMode = false
+
         // Show HUD if not already visible OR if track changed (to bring it back)
         if !mediaViewModel.isVisible || isNewTrack {
-            print("🎵 NotchHUDController: Showing media HUD (isNewTrack: \(isNewTrack))")
             showMediaHUD()
-
-            // Schedule auto-hide if enabled
             if config.mediaHUDAutoHide {
                 scheduleMediaAutoHide()
             }
-        } else {
-            print("🎵 NotchHUDController: Media HUD already visible, just updated info")
         }
     }
 
@@ -434,11 +482,8 @@ class NotchHUDController: ObservableObject {
         let config = AegisConfig.shared
         mediaAutoHideTimer?.invalidate()
 
-        print("🎵 Scheduling media HUD auto-hide in \(config.mediaHUDAutoHideDelay)s")
         mediaAutoHideTimer = Timer.scheduledTimer(withTimeInterval: config.mediaHUDAutoHideDelay, repeats: false) { [weak self] _ in
-            guard let self = self else { return }
-            print("🎵 Auto-hide timer fired, hiding media HUD")
-            self.hideMediaHUD()
+            self?.hideMediaHUD()
         }
     }
 
@@ -634,74 +679,56 @@ class NotchHUDController: ObservableObject {
     // MARK: - Private helpers - Media HUD
 
     private func showMediaHUD() {
-        print("🎵 showMediaHUD() called - currentlyVisible: \(mediaViewModel.isVisible)")
-
-        // If already visible, nothing to do (data already updated in ViewModel)
+        // If already visible, ensure window is shown
         guard !mediaViewModel.isVisible else {
-            // Ensure window is actually visible (might have been hidden)
             if mediaWindow.alphaValue < 1 || !mediaWindow.isVisible {
-                print("🎵 showMediaHUD: Window was hidden, bringing back - alphaValue: \(mediaWindow.alphaValue), isVisible: \(mediaWindow.isVisible)")
                 mediaWindow.alphaValue = 1
                 mediaWindow.orderFrontRegardless()
-            } else {
-                print("🎵 showMediaHUD: Already visible and window is properly shown")
             }
             return
         }
 
-        print("🎵 showMediaHUD: Ordering window front with full opacity")
         // Order window front with full opacity immediately
         mediaWindow.alphaValue = 1
         mediaWindow.orderFrontRegardless()
 
         // Force a layout pass with initial state (isVisible = false)
-        // This ensures the view starts in its hidden position
         mediaWindow.layoutIfNeeded()
-        print("🎵 showMediaHUD: Layout forced, scheduling animation")
 
-        // Update layout coordinator - Media HUD is showing
-        updateMediaHUDLayout(isVisible: true)
+        // Update layout coordinator (skip in fullscreen track change mode)
+        if !isFullscreenTrackChangeMode {
+            updateMediaHUDLayout(isVisible: true)
+        }
 
-        // Then animate to visible state
-        // The MinimalHUDSide components will slide in smoothly
+        // Animate to visible state
         DispatchQueue.main.async {
-            print("🎵 showMediaHUD: Setting mediaViewModel.isVisible = true (triggering slide-in animation)")
             self.mediaViewModel.isVisible = true
         }
     }
 
     private func hideMediaHUD() {
-        print("🎵 hideMediaHUD() called - currentlyVisible: \(mediaViewModel.isVisible)")
-
         // Check if already hidden
-        if !mediaViewModel.isVisible {
-            print("🎵 hideMediaHUD: Already hidden, nothing to do")
-            return
-        }
+        guard mediaViewModel.isVisible else { return }
 
         // Cancel auto-hide timer
         mediaAutoHideTimer?.invalidate()
         mediaAutoHideTimer = nil
 
-        print("🎵 hideMediaHUD: Setting mediaViewModel.isVisible = false (triggering slide-out animation)")
-        // Trigger slide-out animation via view model
-        // MinimalHUDSide components will slide back under the notch
+        // Trigger slide-out animation
         mediaViewModel.isVisible = false
 
-        // Update layout coordinator - Media HUD is hiding
-        updateMediaHUDLayout(isVisible: false)
+        // Update layout coordinator (skip in fullscreen track change mode)
+        if isFullscreenTrackChangeMode {
+            isFullscreenTrackChangeMode = false
+        } else {
+            updateMediaHUDLayout(isVisible: false)
+        }
 
         // After animation completes, hide the windows
-        // Allow extra time for spring animation to finish (0.3s spring response + buffer)
-        print("🎵 hideMediaHUD: Scheduled window hiding in 0.4s")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            // Only hide if still supposed to be hidden
             if !self.mediaViewModel.isVisible {
-                print("🎵 hideMediaHUD: Animation complete, hiding windows (alphaValue: 0, orderOut)")
                 self.mediaWindow.alphaValue = 0
                 self.mediaWindow.orderOut(nil)
-            } else {
-                print("🎵 hideMediaHUD: Animation complete but HUD is visible again, keeping windows shown")
             }
         }
     }
@@ -739,40 +766,30 @@ class NotchHUDController: ObservableObject {
             }
         }
 
-        // Start hide timer if not already running
-        if hideTimer == nil {
-            startHideTimer()
-        }
+        // Schedule auto-hide (cancels any previous schedule)
+        scheduleOverlayHide()
     }
 
     // MARK: - Auto-hide
 
-    /// Bump the hide deadline (lightweight - just updates timestamp)
-    private func bumpHideDeadline() {
-        hideDeadline = Date().timeIntervalSinceReferenceDate + 1.5
-    }
+    /// Schedule overlay HUD to hide after 1.5s
+    /// Each call cancels the previous schedule, effectively "bumping" the deadline
+    private func scheduleOverlayHide() {
+        // Cancel any pending hide
+        hideWorkItem?.cancel()
 
-    /// Start the hide timer (only called once when showing)
-    private func startHideTimer() {
-        hideTimer?.invalidate()
-        // Check every 0.1s if we've passed the deadline
-        hideTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            if Date().timeIntervalSinceReferenceDate >= self.hideDeadline {
-                self.hideOverlayHUD()
-            }
+        // Schedule a new hide after 1.5s
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.hideOverlayHUD()
         }
+        hideWorkItem = workItem
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: workItem)
     }
 
     private func hideOverlayHUD() {
-        // Stop the timer
-        hideTimer?.invalidate()
-        hideTimer = nil
-
-        // Only hide if still past deadline (could have been bumped)
-        guard Date().timeIntervalSinceReferenceDate >= hideDeadline else {
-            return
-        }
+        // Clear the work item reference
+        hideWorkItem = nil
 
         // Mark as animating
         isAnimatingOverlay = true
@@ -819,48 +836,6 @@ class NotchHUDController: ObservableObject {
         overlayViewModel.progressAnimator.resetDiagnostics()
     }
 
-    // MARK: - Fullscreen Suppression
-
-    /// Check if the media HUD should be suppressed because the fullscreen app matches the now-playing app
-    /// This prevents the media HUD from appearing over video players when they're in fullscreen
-    private func shouldSuppressMediaHUDForFullscreen(nowPlayingBundleId: String) -> Bool {
-        guard let yabaiService = yabaiService else {
-            return false
-        }
-
-        // Get current spaces to find the focused one
-        let spaces = yabaiService.getCurrentSpaces()
-        guard let focusedSpace = spaces.first(where: { $0.focused }) else {
-            return false
-        }
-
-        // Get windows in the focused space
-        let windows = yabaiService.getWindowIconsForSpace(focusedSpace.index)
-
-        // Check if any window in the current space is in native fullscreen
-        for windowIcon in windows {
-            if let windowInfo = yabaiService.getWindow(windowIcon.id),
-               windowInfo.isNativeFullscreen {
-                // Found a native fullscreen window - check if its app matches the now-playing app
-                let fullscreenAppBundleId = getBundleIdentifier(forAppNamed: windowInfo.app)
-                if fullscreenAppBundleId == nowPlayingBundleId {
-                    return true
-                }
-            }
-        }
-
-        return false
-    }
-
-    /// Get bundle identifier for an app by its name
-    private func getBundleIdentifier(forAppNamed appName: String) -> String? {
-        let runningApps = NSWorkspace.shared.runningApplications
-        if let app = runningApps.first(where: { $0.localizedName == appName }) {
-            return app.bundleIdentifier
-        }
-        return nil
-    }
-
     // MARK: - Layout Coordination
 
     /// Update the layout coordinator with the media HUD dimensions
@@ -881,8 +856,6 @@ class NotchHUDController: ObservableObject {
             isVisible: isVisible,
             width: totalWidth
         )
-
-        print("🎨 Layout Coordinator: Media HUD \(isVisible ? "shown" : "hidden"), width: \(totalWidth) (left: \(leftSideWidth), notch: \(notchDimensions.width), right: \(rightSideWidth))")
     }
 
     /// Update the layout coordinator with the overlay HUD dimensions (volume/brightness)
@@ -890,7 +863,6 @@ class NotchHUDController: ObservableObject {
         guard let notchDimensions = notchDimensions else { return }
 
         // Calculate ACTUAL visible width of the overlay HUD
-        // These are compact indicators on one side of the notch
         let sideWidth = notchDimensions.height + notchDimensions.padding / 2
         let totalWidth = sideWidth + notchDimensions.width + sideWidth
 
@@ -900,7 +872,5 @@ class NotchHUDController: ObservableObject {
             isVisible: isVisible,
             width: totalWidth
         )
-
-        print("🎨 Layout Coordinator: \(isVolume ? "Volume" : "Brightness") HUD \(isVisible ? "shown" : "hidden"), width: \(totalWidth)")
     }
 }

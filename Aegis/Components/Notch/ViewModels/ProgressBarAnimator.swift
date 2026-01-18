@@ -93,7 +93,10 @@ final class ProgressBarAnimator: ObservableObject {
     deinit {
         if let displayLink = displayLink {
             CVDisplayLinkStop(displayLink)
+            // Note: CVDisplayLink is automatically released when the Swift reference is dropped
+            // (it's a CFTypeRef bridged type), but we nil it explicitly for clarity
         }
+        self.displayLink = nil
     }
 
     /// Called every frame (vsync) - runs OFF main thread for maximum performance

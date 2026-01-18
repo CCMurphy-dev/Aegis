@@ -10,6 +10,9 @@ struct MediaHUDView: View {
     @ObservedObject var viewModel: MediaHUDViewModel
     let notchDimensions: NotchDimensions
     @Binding var isVisible: Bool
+    // When true, this indicates the HUD was shown for a fullscreen track change.
+    // In that mode we should avoid collapsing the expanded width before sliding out.
+    @Binding var isFullscreenTrackChangeMode: Bool
 
     // State to control which mode we're in
     @State private var showingTrackInfo = false
@@ -36,6 +39,9 @@ struct MediaHUDView: View {
     // Whether to use expanded width for track info
     @State private var useExpandedWidth = false
     @State private var collapseTimer: Timer?
+    // Internal guard to persist "skip collapse" behavior across the brief
+    // window during which the controller may reset its public flag.
+    @State private var skipCollapseOnHide = false
 
     // Calculate expanded width based on track info text
     private var expandedRightPanelWidth: CGFloat {
@@ -183,6 +189,27 @@ struct MediaHUDView: View {
             // Show track info temporarily on track change
             showTrackInfo()
         }
+        .onChange(of: isVisible) { newVisible in
+            // When HUD is hidden, cancel any pending collapse timer. If we were
+            // shown as a fullscreen track-change, keep the expanded width until
+            // the slide-out animation completes (avoid collapsing first).
+            if !newVisible {
+                collapseTimer?.invalidate()
+                collapseTimer = nil
+
+                if skipCollapseOnHide {
+                    // Reset the guard after animations finish on the controller side
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                        skipCollapseOnHide = false
+                    }
+                } else {
+                    // Ensure we collapse to default width when fully hidden
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        useExpandedWidth = false
+                    }
+                }
+            }
+        }
         .onAppear {
             // Initialize based on config
             if config.mediaHUDRightPanelMode == .trackInfo {
@@ -234,10 +261,17 @@ struct MediaHUDView: View {
             useExpandedWidth = true
         }
 
-        // Schedule collapse to standard width after 3 seconds
-        collapseTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { _ in
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                useExpandedWidth = false
+        // If we're in fullscreen track-change mode, avoid scheduling the
+        // collapse animation so the HUD can slide out directly without
+        // first collapsing to the default width.
+        if isFullscreenTrackChangeMode {
+            skipCollapseOnHide = true
+        } else {
+            // Schedule collapse to standard width after 3 seconds
+            collapseTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { _ in
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    useExpandedWidth = false
+                }
             }
         }
 
@@ -668,10 +702,11 @@ final class MarqueeScrollController: ObservableObject {
         startTime = CACurrentMediaTime()
 
         // Use a 30fps timer - sufficient for smooth text scrolling, half the energy of 60fps
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+        let newTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
             self?.tick()
         }
-        RunLoop.current.add(timer!, forMode: .common)
+        timer = newTimer
+        RunLoop.current.add(newTimer, forMode: .common)
     }
 
     func stop() {

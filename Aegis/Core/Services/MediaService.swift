@@ -11,7 +11,10 @@ class MediaService {
     private var currentInfo: MediaInfo?
 
     // Cache album art per track to handle payloads without artwork
+    // Limited to 10 entries to prevent unbounded memory growth
     private var cachedAlbumArt: [String: NSImage] = [:]
+    private var albumArtCacheOrder: [String] = []  // Track insertion order for LRU eviction
+    private let maxCachedAlbumArt = 10
 
     // Process running the mediaremote-adapter stream
     private var streamProcess: Process?
@@ -139,20 +142,13 @@ class MediaService {
             if let data = Data(base64Encoded: trimmed),
                let image = NSImage(data: data) {
                 albumArt = image
-                cachedAlbumArt[trackId] = image  // Cache for this track
-                print("🎵 MediaService: Album art decoded and cached (\(data.count) bytes)")
+                cacheAlbumArt(image, forTrack: trackId)
             } else {
                 print("⚠️ MediaService: Failed to decode/create album art")
             }
         } else {
             // No album art in payload - try to use cached version for THIS track only
-            if let cached = cachedAlbumArt[trackId] {
-                albumArt = cached
-                print("🎵 MediaService: Using cached album art for \(title)")
-            } else {
-                // No cached art for this track - leave as nil (don't show previous track's art)
-                print("⚠️ MediaService: No album art available for \(title)")
-            }
+            albumArt = cachedAlbumArt[trackId]
         }
 
         // Create new MediaInfo
@@ -191,6 +187,26 @@ class MediaService {
             // Publish to event router
             eventRouter.publish(.mediaPlaybackChanged, data: ["info": newInfo])
         }
+    }
+
+    // MARK: - Album Art Cache
+
+    /// Cache album art with LRU eviction to prevent unbounded memory growth
+    private func cacheAlbumArt(_ image: NSImage, forTrack trackId: String) {
+        // Remove if already cached (will re-add at end)
+        if let existingIndex = albumArtCacheOrder.firstIndex(of: trackId) {
+            albumArtCacheOrder.remove(at: existingIndex)
+        }
+
+        // Evict oldest if at capacity
+        while albumArtCacheOrder.count >= maxCachedAlbumArt {
+            let oldest = albumArtCacheOrder.removeFirst()
+            cachedAlbumArt.removeValue(forKey: oldest)
+        }
+
+        // Add new entry
+        cachedAlbumArt[trackId] = image
+        albumArtCacheOrder.append(trackId)
     }
 
     // MARK: - Public API

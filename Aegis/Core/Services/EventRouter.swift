@@ -10,7 +10,6 @@ enum AppEvent: CaseIterable {
     case brightnessChanged
     case mediaPlaybackChanged
     case mediaTrackChanged
-    case systemStateChanged
     case bluetoothDeviceConnected
     case bluetoothDeviceDisconnected
     case audioOutputDeviceChanged  // Fired when default audio output changes

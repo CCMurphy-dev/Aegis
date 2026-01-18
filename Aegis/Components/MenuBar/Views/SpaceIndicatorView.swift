@@ -54,20 +54,16 @@ struct SpaceIndicatorView: View {
             }
     }
 
-    private var emptySpaceSpacer: some View {
-        Spacer()
-            .frame(width: 0, height: 22)
-    }
-
     private var spaceContent: some View {
         HStack(alignment: .center, spacing: 6) {
             spaceNumberView
 
             if windowIcons.isEmpty {
-                emptySpaceSpacer
-            }
-
-            if !windowIcons.isEmpty {
+                // Invisible spacer that matches the height of populated space indicators
+                // Height matches the VStack intrinsic height (title 13px + app name 11px + spacing 2px = ~26px)
+                Spacer()
+                    .frame(width: 0, height: 26)
+            } else {
                 windowIconsContent
             }
         }
@@ -179,36 +175,33 @@ struct SpaceIndicatorView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(backgroundColor)
-                .animation(.easeInOut(duration: 0.25), value: isActive)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(isActive ? Color.white.opacity(0.18) : .clear, lineWidth: 1)
-                .animation(.easeInOut(duration: 0.25), value: isActive)
-        )
-        .overlay(alignment: .topLeading) {
-            // Focus indicator dot inside bottom edge of indicator
-            GeometryReader { geometry in
-                if let focusedIndex = windowIcons.firstIndex(where: { $0.hasFocus }) {
-                    let xPosition = calculateDotPosition(for: focusedIndex)
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(backgroundColor)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(isActive ? Color.white.opacity(0.18) : .clear, lineWidth: 1)
+            )
+            .overlay(alignment: .topLeading) {
+                // Focus indicator dot inside bottom edge of indicator
+                GeometryReader { geometry in
+                    let focusedIndex = windowIcons.firstIndex(where: { $0.hasFocus })
+                    let xPosition = focusedIndex != nil ? calculateDotPosition(for: focusedIndex!) : 0
 
                     Circle()
                         .fill(Color.white)
                         .frame(width: 3, height: 3)
-                        .offset(x: xPosition - 1.5, y: geometry.size.height - 1.5)  // Centered on bottom border
-                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: xPosition)
-                        .transition(.opacity)
+                        .offset(x: xPosition - 1.5, y: geometry.size.height - 1.5)
+                        .opacity(focusedIndex != nil ? 1 : 0)
+                        .animation(.smooth(duration: 0.3), value: xPosition)
                 }
+                .allowsHitTesting(false)
             }
-            .allowsHitTesting(false)
-        }
-        .scaleEffect(isHovered ? 1.02 : 1.0)
-        .shadow(color: isActive ? .white.opacity(0.12) : .clear, radius: 6)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
-        .animation(.easeInOut(duration: 0.25), value: isActive)
-        .onHover { isHovered = $0 }
+            .scaleEffect(isHovered ? 1.02 : 1.0)
+            .shadow(color: isActive ? .white.opacity(0.12) : .clear, radius: 6)
+            .animation(.smooth(duration: 0.25), value: isActive)
+            .animation(.smooth(duration: 0.15), value: isHovered)
+            .onHover { isHovered = $0 }
         // Add invisible padding to expand drop zone
         // Use asymmetric padding: no top padding to maintain alignment, bottom padding for drop zone
         .padding(.horizontal, 4)
@@ -328,7 +321,7 @@ struct SpaceIndicatorView: View {
 
     private var backgroundColor: Color {
         if isActive {
-            return Color.white.opacity(0.18)  // Reduced from 0.25
+            return Color.white.opacity(0.18)
         } else if isHovered {
             return Color.white.opacity(0.15)
         } else {
@@ -474,13 +467,14 @@ final class ClickableIconView: NSView {
             removeTrackingArea(trackingArea)
         }
 
-        trackingArea = NSTrackingArea(
+        let newTrackingArea = NSTrackingArea(
             rect: bounds,
             options: [.mouseEnteredAndExited, .activeInKeyWindow],
             owner: self,
             userInfo: nil
         )
-        addTrackingArea(trackingArea!)
+        trackingArea = newTrackingArea
+        addTrackingArea(newTrackingArea)
     }
 
     override func mouseEntered(with event: NSEvent) {

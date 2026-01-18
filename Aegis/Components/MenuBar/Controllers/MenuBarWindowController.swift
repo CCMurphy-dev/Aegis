@@ -1,13 +1,20 @@
 import Cocoa
 import SwiftUI
+import Combine
 
 // MARK: - MenuBarWindowController
 // Manages the menu bar window lifecycle and visibility
 
-class MenuBarWindowController {
+class MenuBarWindowController: ObservableObject {
     private var menuBarWindow: MenuBarWindow?
     private let config = AegisConfig.shared
-    private var currentSpaceIsFullscreen = false
+
+    // Window levels - computed once to avoid repeated CGWindowLevelForKey calls
+    private let normalLevel = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)))
+    private let hiddenLevel = NSWindow.Level(rawValue: -1)
+
+    /// Published fullscreen state that other components can observe
+    @Published private(set) var currentSpaceIsFullscreen = false
 
     // MARK: - Window Creation
 
@@ -44,7 +51,7 @@ class MenuBarWindowController {
         menuBarWindow?.isOpaque = false
         menuBarWindow?.backgroundColor = .clear
         // Use mainMenu level (24) which is below notifications but above normal windows
-        menuBarWindow?.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)))
+        menuBarWindow?.level = normalLevel
 
         // Keep .canJoinAllSpaces so window appears on all normal Spaces
         // We'll hide it explicitly when entering fullscreen Spaces
@@ -79,9 +86,6 @@ class MenuBarWindowController {
         // Only apply this logic if we're not in a fullscreen space
         guard !currentSpaceIsFullscreen else { return }
 
-        let normalLevel = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)))
-        let hiddenLevel = NSWindow.Level(rawValue: -1)
-
         if nativeMenuActive {
             // Native menu is active, hide behind it
             if menuBarWindow?.level != hiddenLevel {
@@ -96,6 +100,24 @@ class MenuBarWindowController {
             if menuBarWindow?.ignoresMouseEvents == true {
                 menuBarWindow?.ignoresMouseEvents = false
             }
+        }
+    }
+
+    // MARK: - Window Ordering
+
+    /// Re-assert window visibility after space transitions
+    /// Call this when a space change is detected to ensure the custom menu bar
+    /// stays above the native menu bar during the transition animation
+    func reorderWindowForSpaceTransition() {
+        guard let window = menuBarWindow else { return }
+        guard !currentSpaceIsFullscreen else { return }
+
+        // Re-order window to ensure it's properly attached to new space
+        window.orderFront(nil)
+
+        // Re-assert the window level to ensure it's above native menu bar
+        if window.level != normalLevel {
+            window.level = normalLevel
         }
     }
 

@@ -7,15 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2025-01-18
+
+### Added
+- App launcher button for floating apps in the menu bar
+  - Hover-reveal label animation
+  - Configurable floating apps via `aegis.json` config file
+- Auto-scroll for new spaces created behind the notch
+
 ### Changed
 - Renamed Music HUD components to Media HUD for clarity
   - Now accurately reflects that it handles all media types (video, audio from any app)
   - Internal naming: MusicInfo → MediaInfo, MusicHUDView → MediaHUDView, etc.
   - Config properties renamed: `showMusicHUD` → `showMediaHUD`, `musicHUDRightPanelMode` → `mediaHUDRightPanelMode`
   - Backward compatible: existing UserDefaults and JSON config keys still work
+- Reduced backup polling interval to 60 seconds (event-driven updates are primary)
+- Consolidated window sorting logic into shared helper method
 
 ### Fixed
+- Empty focused spaces now correctly show active/highlighted state
+- Space destruction now focuses adjacent space (browser tab-like behavior)
+- Fixed brief flash of native macOS menu bar during space transitions
+- Fixed jarring double-scroll animation when spaces were destroyed
+- Empty space indicators now match height of populated indicators
 - Removed unused MediaHUDTapView dead code
+- Removed duplicate battery polling
+- Removed unused NetworkStatusMonitor code
 
 ## [0.8.0] - 2025-01-17
 

@@ -118,19 +118,20 @@ struct MenuBarView: View {
                         // Scrollable spaces area (full width)
                         ScrollViewReader { scrollProxy in
                             ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(alignment: .top, spacing: config.spaceIndicatorSpacing) {
+                                HStack(alignment: .center, spacing: config.spaceIndicatorSpacing) {
                                     ForEach(viewModel.spaces) { space in
                                         // Use the windowIconsBySpace dictionary directly (it's @Published)
                                         let windowIcons = viewModel.windowIconsBySpace[space.index] ?? []
                                         let allWindowIcons = viewModel.getAllWindowIcons(for: space)
 
                                         // Derive isActive from window focus state (same source as the focus dot)
-                                        // This keeps the space highlight in sync with the focus indicator
+                                        // For empty spaces, fall back to space.focused since there's no window to check
                                         let hasWindowFocus = windowIcons.contains(where: { $0.hasFocus })
+                                        let isActive = hasWindowFocus || (windowIcons.isEmpty && space.focused)
 
                                         SpaceIndicatorView(
                                             space: space,
-                                            isActive: hasWindowFocus,
+                                            isActive: isActive,
                                             windowIcons: windowIcons,
                                             allWindowIcons: allWindowIcons,
                                             onWindowClick: onWindowClick,
@@ -142,7 +143,7 @@ struct MenuBarView: View {
                                             draggedWindowId: $draggedWindowId,
                                             expandedWindowId: $viewModel.expandedWindowId
                                         )
-                                        .id("\(space.id)-\(viewModel.windowIconsVersion)")
+                                        .id(space.id)  // Stable ID - only changes when space itself changes
                                         .transition(.asymmetric(
                                             insertion: .move(edge: .leading).combined(with: .opacity),
                                             removal: .move(edge: .top).combined(with: .opacity)
@@ -150,7 +151,6 @@ struct MenuBarView: View {
                                     }
                                 }
                                 .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewModel.spaces.count)
-                                .animation(.easeInOut(duration: 0.2), value: viewModel.windowIconsBySpace)  // Animate when dictionary changes
                                 .padding(.leading, config.menuBarEdgePadding + config.spaceIndicatorSpacing + 32)  // Start after button
                                 // Extra trailing padding allows scrolling content past the notch area
                                 // This creates scrollable space so user can scroll left to reveal spaces hidden behind notch/HUD
@@ -170,17 +170,19 @@ struct MenuBarView: View {
                             isScrolled = value < -5
                         }
                         .onChange(of: viewModel.spaces) { newSpaces in
-                            // Only auto-scroll when spaces are added/removed (count changes)
-                            // Don't auto-scroll when just switching focus - preserve user's scroll position
+                            // Only auto-scroll when spaces are ADDED (not removed or focus changed)
+                            // This ensures newly created spaces behind the notch become visible
+                            // For removal, SwiftUI handles scroll position automatically
                             let newCount = newSpaces.count
-                            if newCount != previousSpaceCount {
+                            if newCount > previousSpaceCount {
                                 previousSpaceCount = newCount
-                                // Scroll to newly focused space when spaces change
                                 if let focusedSpace = newSpaces.first(where: { $0.focused }) {
-                                    withAnimation(.easeInOut(duration: 0.3)) {
-                                        scrollProxy.scrollTo("\(focusedSpace.id)-\(viewModel.windowIconsVersion)", anchor: .center)
+                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                        scrollProxy.scrollTo(focusedSpace.id, anchor: .leading)
                                     }
                                 }
+                            } else {
+                                previousSpaceCount = newCount
                             }
                         }
                         .onAppear {

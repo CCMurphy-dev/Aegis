@@ -2,6 +2,16 @@ import Foundation
 import Combine
 import Network
 
+// MARK: - Network Status
+
+enum NetworkStatus: Equatable {
+    case wifi(strength: Double)
+    case ethernet
+    case disconnected
+}
+
+// MARK: - System Status Monitor
+
 class SystemStatusMonitor: ObservableObject {
     // MARK: - Published status
     @Published var batteryLevel: Float = 1.0

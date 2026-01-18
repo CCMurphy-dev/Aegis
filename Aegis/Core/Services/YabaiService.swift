@@ -1,5 +1,5 @@
 import Foundation
-import AppKit   // Only needed if you're using NSImage, NSWorkspace, etc.
+import AppKit
 
 
 // MARK: - YabaiService (SAFE, EVENT-DRIVEN)
@@ -12,6 +12,10 @@ final class YabaiService {
     private var spaces: [Int: Space] = [:]
     private var windows: [Int: WindowInfo] = [:]
 
+    // Cache window order per space to prevent shuffling on focus changes
+    // Key: space index, Value: ordered array of window IDs
+    private var windowOrderCache: [Int: [Int]] = [:]
+
     private let dataQueue = DispatchQueue(label: "com.aegis.yabai.data", attributes: .concurrent)
 
     // FIFO
@@ -20,9 +24,9 @@ final class YabaiService {
 
     private let pipeQueue = DispatchQueue(label: "com.aegis.yabai.pipe")
 
-    // Debounce tracking to prevent multiple rapid refreshes causing UI flash
+    // Debounce tracking to prevent multiple rapid refreshes
     private var lastRefreshTime: Date = .distantPast
-    private let refreshDebounceInterval: TimeInterval = 0.3  // 300ms debounce
+    private let refreshDebounceInterval: TimeInterval = 0.1  // 100ms debounce for normal refreshes
 
     private lazy var pipePath: String = {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
@@ -98,6 +102,24 @@ final class YabaiService {
             name: NSWorkspace.didActivateApplicationNotification,
             object: nil
         )
+
+        // Also observe space changes (critical for fullscreen detection)
+        // macOS switches to a new Space when entering native fullscreen
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(activeSpaceChanged),
+            name: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil
+        )
+    }
+
+    @objc private func activeSpaceChanged(_ notification: Notification) {
+        // Invalidate cache since we're switching spaces
+        invalidateFocusedSpaceCache()
+        // Delay refresh to allow yabai to update its internal state
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            Task { await self?.refreshAll(source: "activeSpaceChanged", forceRefresh: true) }
+        }
     }
 
     @objc private func appChanged(_ notification: Notification) {
@@ -105,11 +127,9 @@ final class YabaiService {
         // Skip if Aegis itself is being activated (happens when clicking on Aegis UI)
         if let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
            app.bundleIdentifier == Bundle.main.bundleIdentifier {
-            print("🔄 [DEBUG] appChanged triggered (NSWorkspace) - SKIPPED (Aegis self-activation)")
             return
         }
 
-        print("🔄 [DEBUG] appChanged triggered (NSWorkspace)")
         // Delay refresh to allow yabai to update its internal state
         // Without this delay, yabai returns stale focused space data
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
@@ -120,21 +140,24 @@ final class YabaiService {
     // MARK: - Events
 
     private func handleYabaiEvent(_ event: String) async {
-        print("🔄 [DEBUG] FIFO event: '\(event)'")
         switch event {
         case "space_changed":
             // Space changes are critical for UI - always force refresh to update focus indicator
+            invalidateFocusedSpaceCache()
             await refreshAll(source: "FIFO:space_changed", forceRefresh: true)
         case "space_created", "space_destroyed":
+            invalidateFocusedSpaceCache()
+            // Clean up stale window order cache entries for destroyed spaces
+            cleanupWindowOrderCache()
             await refreshAll(source: "FIFO:\(event)")
         case "window_focused":
             // Window focus may change the active space (e.g., clicking a window on another space)
-            // Force refresh to ensure focus state is accurate
+            invalidateFocusedSpaceCache()
             await refreshAll(source: "FIFO:window_focused", forceRefresh: true)
         case "window_created", "window_destroyed", "window_moved":
-            print("🔄 [DEBUG] refreshWindows from FIFO:\(event)")
             await refreshWindows()
         default:
+            invalidateFocusedSpaceCache()
             await refreshAll(source: "FIFO:default(\(event))")
         }
     }
@@ -146,11 +169,9 @@ final class YabaiService {
         let now = Date()
         let timeSinceLast = now.timeIntervalSince(lastRefreshTime)
         if !forceRefresh && timeSinceLast < refreshDebounceInterval {
-            print("🔄 [DEBUG] refreshAll SKIPPED (debounce) - source: \(source), timeSinceLast: \(String(format: "%.3f", timeSinceLast))s")
             return
         }
         lastRefreshTime = now
-        print("🔄 [DEBUG] refreshAll EXECUTING\(forceRefresh ? " (FORCED)" : "") - source: \(source)")
 
         // Run both queries in parallel for better performance
         async let spacesTask: () = refreshSpaces()
@@ -163,13 +184,6 @@ final class YabaiService {
             let json = try await command.run(["-m", "query", "--spaces"])
             let decoded = try JSONDecoder().decode([Space].self, from: Data(json.utf8))
 
-            // Debug: log which space yabai reports as focused
-            if let focusedSpace = decoded.first(where: { $0.focused }) {
-                print("🔄 [DEBUG] refreshSpaces: yabai reports space \(focusedSpace.index) as focused")
-            } else {
-                print("🔄 [DEBUG] refreshSpaces: NO focused space reported by yabai!")
-            }
-
             // Write to cache synchronously (barrier) so data is available before we return
             dataQueue.sync(flags: .barrier) { [weak self] in
                 self?.spaces = Dictionary(uniqueKeysWithValues: decoded.map { ($0.id, $0) })
@@ -180,7 +194,7 @@ final class YabaiService {
                 self?.eventRouter.publish(.spaceChanged, data: ["spaces": decoded])
             }
         } catch {
-            print("❌ yabai spaces failed:", error)
+            logError("yabai spaces query failed: \(error)")
         }
     }
 
@@ -191,7 +205,10 @@ final class YabaiService {
 
             // Write to cache synchronously (barrier) so data is available before we return
             dataQueue.sync(flags: .barrier) { [weak self] in
-                self?.windows = Dictionary(uniqueKeysWithValues: decoded.map { ($0.id, $0) })
+                guard let self = self else { return }
+                self.windows = Dictionary(uniqueKeysWithValues: decoded.map { ($0.id, $0) })
+                // Update window order cache when windows change
+                self.updateWindowOrderCache()
             }
 
             // Publish event on main queue AFTER cache write completes
@@ -199,7 +216,7 @@ final class YabaiService {
                 self?.eventRouter.publish(.windowsChanged, data: ["windows": decoded])
             }
         } catch {
-            print("❌ yabai windows failed:", error)
+            logError("yabai windows query failed: \(error)")
         }
     }
 
@@ -218,34 +235,104 @@ final class YabaiService {
     func getWindowIconsForSpace(_ spaceIndex: Int) -> [WindowIcon] {
         let excludedApps = AegisConfig.shared.excludedApps
         return dataQueue.sync {
-            windows.values
-                // Filter to only real windows:
-                // - AXWindow role (exclude popups/panels with AXGroup role)
-                // - AXStandardWindow subrole (exclude dialogs like AXDialog, AXSystemDialog)
-                // - Exception: minimized windows report AXDialog subrole, so allow those
+            // Get filtered windows for this space
+            let spaceWindows = windows.values
                 .filter { $0.space == spaceIndex && !excludedApps.contains($0.app) && $0.role == "AXWindow" && ($0.subrole == "AXStandardWindow" || $0.isMinimized) }
-                .map { window in
-                    WindowIcon(
-                        id: window.id,
-                        title: window.title,
-                        app: window.app,
-                        appName: window.app,  // Use app name as display name
-                        icon: getAppIcon(for: window.app),
-                        frame: window.frame,
-                        hasFocus: window.hasFocus,
-                        stackIndex: window.stackIndex,
-                        isMinimized: window.isMinimized,
-                        isHidden: window.isHidden
-                    )
+
+            let currentWindowIds = Set(spaceWindows.map { $0.id })
+            let cachedOrder = windowOrderCache[spaceIndex] ?? []
+
+            // Check if we need to recalculate order (windows added or removed)
+            let cachedIds = Set(cachedOrder)
+            let needsRecalculation = currentWindowIds != cachedIds
+
+            // Build the final order
+            let orderedIds: [Int]
+            if needsRecalculation {
+                // Calculate fresh order using shared sorting logic
+                let sorted = sortWindowsByPosition(Array(spaceWindows))
+                orderedIds = sorted.map { $0.id }
+            } else {
+                // Use cached order (stable across focus changes)
+                orderedIds = cachedOrder
+            }
+
+            // Create a lookup for window data
+            let windowLookup = Dictionary(uniqueKeysWithValues: spaceWindows.map { ($0.id, $0) })
+
+            // Build icons in the stable order, then apply active/inactive sorting
+            let icons = orderedIds.compactMap { id -> WindowIcon? in
+                guard let window = windowLookup[id] else { return nil }
+                return WindowIcon(
+                    id: window.id,
+                    title: window.title,
+                    app: window.app,
+                    appName: window.app,
+                    icon: getAppIcon(for: window.app),
+                    frame: window.frame,
+                    hasFocus: window.hasFocus,
+                    stackIndex: window.stackIndex,
+                    isMinimized: window.isMinimized,
+                    isHidden: window.isHidden
+                )
+            }
+
+            // Final sort: active windows first, then inactive, preserving relative order within each group
+            let activeIcons = icons.filter { !$0.isMinimized && !$0.isHidden }
+            let inactiveIcons = icons.filter { $0.isMinimized || $0.isHidden }
+
+            return activeIcons + inactiveIcons
+        }
+    }
+
+    /// Sort windows by x-position, with stacked windows sorted by stack-index
+    /// Shared sorting logic used by both getWindowIconsForSpace and updateWindowOrderCache
+    private func sortWindowsByPosition(_ windows: [WindowInfo]) -> [WindowInfo] {
+        windows.sorted { lhs, rhs in
+            let lhsX = lhs.frame?.origin.x ?? CGFloat.greatestFiniteMagnitude
+            let rhsX = rhs.frame?.origin.x ?? CGFloat.greatestFiniteMagnitude
+
+            // Check if stacked (same x-position within tolerance)
+            if abs(lhsX - rhsX) < 10 {
+                // Stacked: sort by stack-index
+                if lhs.stackIndex != rhs.stackIndex {
+                    return lhs.stackIndex < rhs.stackIndex
                 }
-                .sorted { lhs, rhs in
-                    // Sort by x-position (left to right) to match desktop layout
-                    // If frames are missing, fall back to ID sorting
-                    guard let lhsFrame = lhs.frame, let rhsFrame = rhs.frame else {
-                        return lhs.id < rhs.id
-                    }
-                    return lhsFrame.origin.x < rhsFrame.origin.x
-                }
+                return lhs.id < rhs.id
+            }
+
+            // Non-stacked: sort by x-position
+            if lhsX != rhsX {
+                return lhsX < rhsX
+            }
+            return lhs.id < rhs.id
+        }
+    }
+
+    /// Update the cached window order for a space (call when windows are added/removed/moved)
+    private func updateWindowOrderCache() {
+        let excludedApps = AegisConfig.shared.excludedApps
+
+        // Group windows by space and calculate order
+        var newCache: [Int: [Int]] = [:]
+
+        for (spaceIndex, _) in spaces {
+            let spaceWindows = windows.values
+                .filter { $0.space == spaceIndex && !excludedApps.contains($0.app) && $0.role == "AXWindow" && ($0.subrole == "AXStandardWindow" || $0.isMinimized) }
+
+            let sorted = sortWindowsByPosition(Array(spaceWindows))
+            newCache[spaceIndex] = sorted.map { $0.id }
+        }
+
+        windowOrderCache = newCache
+    }
+
+    /// Remove stale entries from windowOrderCache for spaces that no longer exist
+    private func cleanupWindowOrderCache() {
+        dataQueue.async(flags: .barrier) { [weak self] in
+            guard let self = self else { return }
+            let currentSpaceIndices = Set(self.spaces.values.map { $0.index })
+            self.windowOrderCache = self.windowOrderCache.filter { currentSpaceIndices.contains($0.key) }
         }
     }
 
@@ -277,6 +364,21 @@ final class YabaiService {
 
     func focusSpace(_ index: Int) {
         Task {
+            // Check if target space is native fullscreen
+            // yabai's "space --focus" doesn't work for native fullscreen spaces
+            // Instead, we focus a window on that space which switches to it
+            let targetSpace = dataQueue.sync { spaces.values.first { $0.index == index } }
+
+            if let space = targetSpace, space.isNativeFullscreen {
+                // Find a window on this fullscreen space and focus it instead
+                let windowOnSpace = dataQueue.sync { windows.values.first { $0.space == index } }
+                if let window = windowOnSpace {
+                    try? await command.run(["-m", "window", "--focus", "\(window.id)"])
+                    return
+                }
+            }
+
+            // Normal space focus for non-fullscreen spaces
             try? await command.run(["-m", "space", "--focus", "\(index)"])
         }
     }
@@ -288,6 +390,8 @@ final class YabaiService {
             if isMinimized {
                 try? await command.run(["-m", "window", "--deminimize", "\(id)"])
             }
+
+            // yabai's "window --focus" works for fullscreen windows - it switches to the space
             try? await command.run(["-m", "window", "--focus", "\(id)"])
         }
     }
@@ -337,6 +441,13 @@ final class YabaiService {
 
     func destroySpace(_ index: Int) {
         Task {
+            // If destroying the focused space, focus the previous space first
+            // (like closing a browser tab - focus moves left)
+            let focusedSpace = getCurrentSpaces().first { $0.focused }
+            if focusedSpace?.index == index && index > 1 {
+                try? await command.run(["-m", "space", "--focus", "\(index - 1)"])
+            }
+
             try? await command.run(["-m", "space", "\(index)", "--destroy"])
             await refreshSpaces()
         }
@@ -545,13 +656,26 @@ final class YabaiService {
 
     private static var lastFocusedSpaceQuery = Date.distantPast
     private static var cachedFocusedSpaceIndex = 1
+    private static var cachedFocusedSpace: Space?
     private static let focusedSpaceQueryThrottle: TimeInterval = 0.1 // Max 10 queries/sec
 
     func getFocusedSpaceIndexSync() -> Int {
-        // Rate limit: return cached value if queried too recently
+        return getFocusedSpaceSync()?.index ?? Self.cachedFocusedSpaceIndex
+    }
+
+    /// Query yabai synchronously for the currently focused space (fresh data, not cached)
+    /// Use this when you need accurate space type information (e.g., for fullscreen detection)
+    /// Set forceRefresh to true to bypass the throttle (use sparingly)
+    func getFocusedSpaceSync(forceRefresh: Bool = false) -> Space? {
+        // Rate limit: return cached value if queried too recently (unless forced)
         let now = Date()
-        if now.timeIntervalSince(Self.lastFocusedSpaceQuery) < Self.focusedSpaceQueryThrottle {
-            return Self.cachedFocusedSpaceIndex
+        if !forceRefresh && now.timeIntervalSince(Self.lastFocusedSpaceQuery) < Self.focusedSpaceQueryThrottle {
+            // Return from static cache if available
+            if let cached = Self.cachedFocusedSpace {
+                return cached
+            }
+            // Fallback to spaces dictionary
+            return dataQueue.sync { spaces.values.first { $0.index == Self.cachedFocusedSpaceIndex } }
         }
         Self.lastFocusedSpaceQuery = now
 
@@ -573,13 +697,21 @@ final class YabaiService {
 
             if let spaceData = try? JSONDecoder().decode(Space.self, from: Data(json.utf8)) {
                 Self.cachedFocusedSpaceIndex = spaceData.index
-                return spaceData.index
+                Self.cachedFocusedSpace = spaceData
+                return spaceData
             }
         } catch {
             print("❌ Failed to get focused space: \(error)")
         }
 
-        return Self.cachedFocusedSpaceIndex // Fallback to cached value
+        // Fallback to cached data
+        return Self.cachedFocusedSpace ?? dataQueue.sync { spaces.values.first { $0.index == Self.cachedFocusedSpaceIndex } }
+    }
+
+    /// Invalidate the focused space cache (call when space changes to ensure fresh data on next query)
+    func invalidateFocusedSpaceCache() {
+        Self.lastFocusedSpaceQuery = .distantPast
+        Self.cachedFocusedSpace = nil
     }
 
     func getYabaiVersion() -> String {

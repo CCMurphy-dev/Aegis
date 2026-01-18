@@ -1,24 +1,25 @@
 import Foundation
 import CoreAudio
-import IOKit.ps
 import AppKit
 
-// Model for system state
+// Model for system state (volume and brightness only - battery handled by BatteryStatusMonitor)
 struct SystemState {
     var volume: Float
     var brightness: Float
-    var batteryLevel: Float
-    var isCharging: Bool
     var isMuted: Bool
 }
 
 // Service to monitor system volume, brightness, battery
 class SystemInfoService {
     private let eventRouter: EventRouter
-    private var currentState = SystemState(volume: 0, brightness: 0, batteryLevel: 0, isCharging: false, isMuted: false)
+    private var currentState = SystemState(volume: 0, brightness: 0, isMuted: false)
 
     // Audio device ID for volume monitoring
     private var audioDeviceID: AudioDeviceID = 0
+
+    // Track registered audio listener addresses to remove on device change
+    // Stored as tuples of (deviceID, address) for cleanup
+    private var registeredVolumeListenerAddresses: [(AudioDeviceID, AudioObjectPropertyAddress)] = []
 
     // Track previous non-zero volume to detect mute via volume = 0
     private var previousNonZeroVolume: Float = 0.5
@@ -41,7 +42,8 @@ class SystemInfoService {
         setupDefaultDeviceChangeMonitoring()
         setupVolumeMonitoring()
         setupBrightnessMonitoring()
-        setupBatteryMonitoring()
+        // Note: Battery monitoring is handled by BatteryStatusMonitor (event-based via IOPowerSource)
+        // which is bound to SystemStatusMonitor.shared - no polling needed here
         setupKeyEventMonitoring()
     }
 
@@ -91,8 +93,20 @@ class SystemInfoService {
     }
     
     // MARK: - Volume Monitoring
-    
+
+    /// Clear the list of registered listeners when switching devices
+    /// Note: CoreAudio's AudioObjectRemovePropertyListenerBlock requires the exact same block pointer,
+    /// which isn't possible with Swift closures. The old listeners will become orphaned on the old device
+    /// but won't fire since that device is no longer the default output. We track addresses to prevent
+    /// duplicate registration on the same device.
+    private func removeVolumeListeners() {
+        registeredVolumeListenerAddresses.removeAll()
+    }
+
     private func setupVolumeMonitoring() {
+        // Remove listeners from previous device before setting up new ones
+        removeVolumeListeners()
+
         // Get default audio output device
         var deviceID = AudioDeviceID(0)
         var deviceIDSize = UInt32(MemoryLayout<AudioDeviceID>.size)
@@ -138,43 +152,57 @@ class SystemInfoService {
         }
 
         // Register for volume change notifications
-        address.mSelector = kAudioDevicePropertyVolumeScalar
-        address.mScope = kAudioDevicePropertyScopeOutput
+        var volumeListenerAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyVolumeScalar,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
 
         if hasVolumeProperty {
             AudioObjectAddPropertyListenerBlock(
                 audioDeviceID,
-                &address,
+                &volumeListenerAddress,
                 DispatchQueue.main
             ) { [weak self] _, _ in
                 self?.volumeDidChange()
             }
+            registeredVolumeListenerAddresses.append((audioDeviceID, volumeListenerAddress))
         }
 
         // Register for mute change notifications
-        address.mSelector = kAudioDevicePropertyMute
+        var muteAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyMute,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
 
         // Try to register on main element first
-        if AudioObjectHasProperty(audioDeviceID, &address) {
+        if AudioObjectHasProperty(audioDeviceID, &muteAddress) {
             AudioObjectAddPropertyListenerBlock(
                 audioDeviceID,
-                &address,
+                &muteAddress,
                 DispatchQueue.main
             ) { [weak self] _, _ in
                 self?.volumeDidChange()
             }
+            registeredVolumeListenerAddresses.append((audioDeviceID, muteAddress))
         }
 
         // Also try master channel (element 0)
-        address.mElement = 0
-        if AudioObjectHasProperty(audioDeviceID, &address) {
+        var muteAddressElement0 = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyMute,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: 0
+        )
+        if AudioObjectHasProperty(audioDeviceID, &muteAddressElement0) {
             AudioObjectAddPropertyListenerBlock(
                 audioDeviceID,
-                &address,
+                &muteAddressElement0,
                 DispatchQueue.main
             ) { [weak self] _, _ in
                 self?.volumeDidChange()
             }
+            registeredVolumeListenerAddresses.append((audioDeviceID, muteAddressElement0))
         }
 
         // For Bluetooth devices that don't expose volume property,
@@ -327,43 +355,6 @@ class SystemInfoService {
         eventRouter.publish(.brightnessChanged, data: ["level": brightness])
     }
     
-    // MARK: - Battery Monitoring
-    
-    private func setupBatteryMonitoring() {
-        // Poll battery every 5 seconds
-        Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
-            self?.checkBattery()
-        }
-        
-        // Get initial battery state
-        checkBattery()
-    }
-    
-    private func checkBattery() {
-        let powerInfo = IOPSCopyPowerSourcesInfo()?.takeRetainedValue()
-        let powerSources = IOPSCopyPowerSourcesList(powerInfo)?.takeRetainedValue() as? [CFTypeRef]
-        
-        guard let sources = powerSources, let source = sources.first else { return }
-        
-        let description = IOPSGetPowerSourceDescription(powerInfo, source)?.takeUnretainedValue() as? [String: Any]
-        
-        if let capacity = description?[kIOPSCurrentCapacityKey] as? Int,
-           let maxCapacity = description?[kIOPSMaxCapacityKey] as? Int {
-            let level = Float(capacity) / Float(maxCapacity)
-            
-            let isCharging = description?[kIOPSIsChargingKey] as? Bool ?? false
-            
-            if abs(level - currentState.batteryLevel) > 0.01 || isCharging != currentState.isCharging {
-                currentState.batteryLevel = level
-                currentState.isCharging = isCharging
-                eventRouter.publish(.systemStateChanged, data: [
-                    "battery": level,
-                    "charging": isCharging
-                ])
-            }
-        }
-    }
-    
     // MARK: - Key Event Monitoring (for max/min edge cases)
 
     private func setupKeyEventMonitoring() {
@@ -469,10 +460,5 @@ class SystemInfoService {
         // When muted, show level as 0; when unmuted, show the estimated volume
         let displayLevel: Float = estimatedBluetoothMuted ? 0.0 : estimatedBluetoothVolume
         eventRouter.publish(.volumeChanged, data: ["level": displayLevel, "isMuted": estimatedBluetoothMuted])
-    }
-
-    // Public getters
-    func getCurrentState() -> SystemState {
-        return currentState
     }
 }

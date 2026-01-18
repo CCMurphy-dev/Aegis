@@ -8,6 +8,31 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.0</title>
+            <sparkle:version>1.0.0</sparkle:version>
+            <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Sat, 18 Jan 2025 09:22:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.0</h2>
+                <ul>
+                    <li><strong>App Launcher Button</strong> - New floating apps launcher in the menu bar with hover-reveal animation</li>
+                    <li><strong>Configurable Floating Apps</strong> - Customize floating apps via aegis.json config file</li>
+                    <li><strong>Auto-scroll for New Spaces</strong> - Menu bar scrolls to reveal newly created spaces behind the notch</li>
+                    <li><strong>Media HUD Rename</strong> - Music HUD renamed to Media HUD (backward compatible)</li>
+                    <li><strong>Bug Fixes</strong> - Empty space focus, space destruction behavior, menu bar flash, scroll animations</li>
+                    <li><strong>Performance</strong> - Reduced polling, removed duplicate monitoring code</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.0/Aegis.app.zip"
+                length="2157542"
+                type="application/octet-stream"
+                sparkle:edSignature="gp/Zs4QI52tHpVUAA0/Nm4J2GQqbXAKX7zApOgypgbIHFmnFOQ957VzDUWiT6DkUburcwkvRb+lIGUDfqNP5CQ==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 0.8.0</title>
             <sparkle:version>0.8.0</sparkle:version>
             <sparkle:shortVersionString>0.8.0</sparkle:shortVersionString>
@@ -28,8 +53,6 @@
                 type="application/octet-stream"
                 sparkle:edSignature="A0uGfcOGT+Qoxs2uioQN5+6pw4Ud5S39RuGhlWF6fTkjv0a3aBtvTSGlkhA3FTaFps6vMlqJafX7nmpaTifrBQ==" />
         </item>
-
-        <!-- Previous Releases -->
         <item>
             <title>Version 0.7.0</title>
             <sparkle:version>0.7.0</sparkle:version>

@@ -36,7 +36,8 @@ final class LogService {
 
     private init() {
         // Use ~/Library/Logs/Aegis/ as the standard macOS location
-        let libraryLogs = fileManager.urls(for: .libraryDirectory, in: .userDomainMask).first!
+        let libraryLogs = (fileManager.urls(for: .libraryDirectory, in: .userDomainMask).first
+            ?? fileManager.temporaryDirectory)
             .appendingPathComponent("Logs")
             .appendingPathComponent("Aegis")
         self.logDirectory = libraryLogs

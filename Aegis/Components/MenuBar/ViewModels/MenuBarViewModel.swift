@@ -17,6 +17,12 @@ class MenuBarViewModel: ObservableObject {
     private var updateTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
 
+    // Coalesce rapid updates to prevent double flash
+    // When both space and window events fire in quick succession,
+    // this batches them into a single UI update
+    private var pendingUpdateWorkItem: DispatchWorkItem?
+    private let updateCoalesceDelay: TimeInterval = 0.05  // 50ms coalesce window
+
     init(yabaiService: YabaiService) {
         self.yabaiService = yabaiService
 
@@ -32,19 +38,27 @@ class MenuBarViewModel: ObservableObject {
             )
         }
 
-        // Backup polling every 10 seconds
-        updateTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { [weak self] _ in
+        // Backup polling as safety net (event-driven updates are primary)
+        // Extended to 60 seconds since events from YabaiService should handle most updates
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { [weak self] _ in
             self?.updateSpaces()
         }
     }
 
     deinit {
         updateTimer?.invalidate()
+        pendingUpdateWorkItem?.cancel()
     }
 
     // MARK: - Update methods
 
     func updateSpaces() {
+        // Coalesce with any pending window updates to prevent double flash
+        scheduleCoalescedUpdate()
+    }
+
+    /// Internal method that performs the actual update
+    private func performUpdate() {
         spaces = yabaiService.getCurrentSpaces()
 
         // Also update window icons when spaces change
@@ -53,9 +67,25 @@ class MenuBarViewModel: ObservableObject {
             newIconsBySpace[space.index] = yabaiService.getWindowIconsForSpace(space.index)
         }
         windowIconsBySpace = newIconsBySpace
+        windowIconsVersion += 1
 
         // Clear expanded window if it no longer exists
         cleanupExpandedWindowIfNeeded(newIconsBySpace)
+    }
+
+    /// Schedule a coalesced update - multiple calls within the coalesce window
+    /// will be batched into a single update to prevent UI flashing
+    private func scheduleCoalescedUpdate() {
+        // Cancel any pending update
+        pendingUpdateWorkItem?.cancel()
+
+        // Schedule a new update after the coalesce delay
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.performUpdate()
+        }
+        pendingUpdateWorkItem = workItem
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + updateCoalesceDelay, execute: workItem)
     }
 
     /// Clear expandedWindowId if the window no longer exists in any space
@@ -70,44 +100,12 @@ class MenuBarViewModel: ObservableObject {
     }
 
     func refreshWindowIcons() {
-        // Ensure we're on main thread for @Published updates
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-
-            print("🔄 ViewModel refreshWindowIcons() - about to update")
-
-            // Trigger SwiftUI update for app icons
-            self.spaces = self.yabaiService.getCurrentSpaces()
-
-            // Rebuild window icons dictionary for all spaces
-            var newIconsBySpace: [Int: [WindowIcon]] = [:]
-            for space in self.spaces {
-                let icons = self.yabaiService.getWindowIconsForSpace(space.index)
-                newIconsBySpace[space.index] = icons
-                let windowIds = icons.map { String($0.id) }.joined(separator: ", ")
-                print("   - Space \(space.index): \(icons.count) icons in order: [\(windowIds)]")
-            }
-
-            // Clear expanded window if it no longer exists
-            self.cleanupExpandedWindowIfNeeded(newIconsBySpace)
-
-            // Update @Published property with animation
-            withAnimation(.easeInOut(duration: 0.3)) {
-                self.windowIconsBySpace = newIconsBySpace
-                self.windowIconsVersion += 1
-            }
-
-            print("🔄 ViewModel refreshed window icons (version \(self.windowIconsVersion))")
-            print("✅ ViewModel update complete")
-        }
+        // Coalesce with any pending space updates to prevent double flash
+        scheduleCoalescedUpdate()
     }
 
     func getWindowIcons(for space: Space) -> [WindowIcon] {
-        // Return from @Published dictionary
-        let icons = windowIconsBySpace[space.index] ?? []
-        let windowIds = icons.map { String($0.id) }.joined(separator: ", ")
-        print("🎨 getWindowIcons called for space \(space.index), returning \(icons.count) icons in order: [\(windowIds)]")
-        return icons
+        return windowIconsBySpace[space.index] ?? []
     }
 
     func getAllWindowIcons(for space: Space) -> [WindowIcon] {

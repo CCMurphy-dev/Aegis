@@ -22,7 +22,8 @@ class BatteryStatusMonitor: ObservableObject {
     private func startMonitoring() {
         // Create a callback for battery changes
         let callback: IOPowerSourceCallbackType = { context in
-            let monitor = Unmanaged<BatteryStatusMonitor>.fromOpaque(context!).takeUnretainedValue()
+            guard let context = context else { return }
+            let monitor = Unmanaged<BatteryStatusMonitor>.fromOpaque(context).takeUnretainedValue()
             monitor.updateBattery()
         }
 
