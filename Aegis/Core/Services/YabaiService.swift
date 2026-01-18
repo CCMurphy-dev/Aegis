@@ -503,6 +503,24 @@ final class YabaiService {
         }
     }
 
+    /// Move window to space, ensure it's floating, then focus (for launcher apps)
+    func moveWindowToSpaceFloatAndFocus(_ id: Int, spaceIndex: Int) {
+        Task {
+            // Move to space
+            try? await command.run(["-m", "window", "\(id)", "--space", "\(spaceIndex)"])
+            // Ensure floating (query first to avoid unnecessary toggle)
+            if let output = try? await command.run(["-m", "query", "--windows", "--window", "\(id)"]),
+               let data = output.data(using: .utf8),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let isFloating = json["is-floating"] as? Bool,
+               !isFloating {
+                try? await command.run(["-m", "window", "\(id)", "--toggle", "float"])
+            }
+            // Focus
+            try? await command.run(["-m", "window", "--focus", "\(id)"])
+        }
+    }
+
     /// Get all windows from cache
     func getAllWindows() -> [WindowInfo] {
         dataQueue.sync {

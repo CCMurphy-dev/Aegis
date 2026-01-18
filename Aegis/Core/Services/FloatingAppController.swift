@@ -90,7 +90,7 @@ class FloatingAppController {
         return appWindow?.id
     }
 
-    /// Focus window and move it to the current space
+    /// Focus window, move it to current space, and ensure it floats
     private func focusAndMoveToCurrentSpace(windowId: Int) {
         let spaces = yabaiService.getCurrentSpaces()
         guard let currentSpace = spaces.first(where: { $0.focused }) else {
@@ -98,7 +98,8 @@ class FloatingAppController {
             return
         }
 
-        yabaiService.moveWindowToSpaceAndFocus(windowId, spaceIndex: currentSpace.index)
+        // Move to current space as floating window
+        yabaiService.moveWindowToSpaceFloatAndFocus(windowId, spaceIndex: currentSpace.index)
     }
 
     /// Open/activate the app
