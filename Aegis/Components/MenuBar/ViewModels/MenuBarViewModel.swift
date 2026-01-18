@@ -116,6 +116,11 @@ class MenuBarViewModel: ObservableObject {
         return yabaiService.getAppIconsForSpace(space.index)
     }
 
+    /// Check if any window on this space has focus (including excluded apps)
+    func spaceHasFocusedWindow(_ spaceIndex: Int) -> Bool {
+        return yabaiService.spaceHasFocusedWindow(spaceIndex)
+    }
+
     // MARK: - Notch HUD Integration
 
     /// Connect to NotchHUDController to observe HUD visibility

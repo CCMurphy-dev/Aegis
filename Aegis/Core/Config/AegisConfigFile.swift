@@ -330,7 +330,7 @@ extension AegisConfig {
         if let v = data.systemStatusShadowRadius { systemStatusShadowRadius = CGFloat(v) }
 
         // Window Filtering
-        if let v = data.excludedApps { excludedApps = Set(v) }
+        if let v = data.excludedApps { baseExcludedApps = Set(v) }
 
         // App Switcher Settings
         if let v = data.appSwitcherEnabled { appSwitcherEnabled = v }
@@ -541,7 +541,7 @@ extension AegisConfig {
             systemStatusShadowRadius: Double(systemStatusShadowRadius),
 
             // Window Filtering
-            excludedApps: Array(excludedApps),
+            excludedApps: Array(baseExcludedApps),
 
             // App Switcher Settings
             appSwitcherEnabled: appSwitcherEnabled,
@@ -756,7 +756,7 @@ osascript -e 'id of app "AppName"'
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `maxAppIconsPerSpace` | int | `3` | Max window icons per space before overflow menu |
-| `excludedApps` | [string] | `["Finder", "Aegis"]` | Apps to hide from space indicators |
+| `excludedApps` | [string] | `["Finder", "Aegis"]` | Base apps to hide from space indicators (launcher apps are automatically excluded) |
 | `showAppNameInExpansion` | bool | `false` | Show app name below window title when expanded |
 | `useSwipeToDestroySpace` | bool | `true` | Enable swipe-up gesture to destroy spaces |
 

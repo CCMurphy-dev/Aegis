@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2025-01-18
+
+### Fixed
+- Launcher apps automatically excluded from space indicators
+  - Apps in `launcherApps` config no longer appear in space indicators
+  - Uses `CFBundleName` for accurate app name matching (e.g., iTerm2)
+- Space indicator highlight now works correctly with launcher apps
+  - Focus on excluded launcher apps still highlights the correct space
+  - Finder focus no longer incorrectly highlights space 1
+
 ## [1.0.0] - 2025-01-18
 
 ### Added

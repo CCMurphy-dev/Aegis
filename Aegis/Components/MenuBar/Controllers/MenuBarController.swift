@@ -124,10 +124,11 @@ struct MenuBarView: View {
                                         let windowIcons = viewModel.windowIconsBySpace[space.index] ?? []
                                         let allWindowIcons = viewModel.getAllWindowIcons(for: space)
 
-                                        // Derive isActive from window focus state (same source as the focus dot)
-                                        // For empty spaces, fall back to space.focused since there's no window to check
-                                        let hasWindowFocus = windowIcons.contains(where: { $0.hasFocus })
-                                        let isActive = hasWindowFocus || (windowIcons.isEmpty && space.focused)
+                                        // Derive isActive from window focus state (including excluded apps like launcher apps)
+                                        // This ensures the highlight shows even when focus is on an excluded app
+                                        // For empty spaces (no windows at all), fall back to space.focused
+                                        let spaceHasFocus = viewModel.spaceHasFocusedWindow(space.index)
+                                        let isActive = spaceHasFocus || space.focused
 
                                         SpaceIndicatorView(
                                             space: space,

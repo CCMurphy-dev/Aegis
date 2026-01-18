@@ -190,9 +190,38 @@ class AegisConfig: ObservableObject {
 
     // MARK: - Window Filtering
 
-    /// Apps to exclude from showing in space indicators (by app name)
+    /// Base apps to exclude from showing in space indicators (by app name)
     /// Aegis and Finder are excluded by default as they're not managed by Yabai
-    @Published var excludedApps: Set<String> = ["Finder", "Aegis"]
+    /// Note: Launcher apps are automatically added to exclusions via `excludedApps` computed property
+    @Published var baseExcludedApps: Set<String> = ["Finder", "Aegis"]
+
+    /// Apps to exclude from showing in space indicators
+    /// Combines baseExcludedApps with resolved launcher app names
+    var excludedApps: Set<String> {
+        var excluded = baseExcludedApps
+        // Add launcher apps by resolving bundle IDs to app names
+        for bundleId in launcherApps {
+            if let appName = Self.appNameFromBundleId(bundleId) {
+                excluded.insert(appName)
+            }
+        }
+        return excluded
+    }
+
+    /// Resolve bundle identifier to app name (as reported by the system/yabai)
+    /// Uses CFBundleName from Info.plist, falling back to file name
+    private static func appNameFromBundleId(_ bundleId: String) -> String? {
+        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
+            return nil
+        }
+        // Try to get the bundle name from Info.plist (what yabai uses)
+        if let bundle = Bundle(url: appURL),
+           let bundleName = bundle.object(forInfoDictionaryKey: "CFBundleName") as? String {
+            return bundleName
+        }
+        // Fallback to file name without extension
+        return appURL.deletingPathExtension().lastPathComponent
+    }
 
     // MARK: - App Switcher Settings
 

@@ -232,6 +232,23 @@ final class YabaiService {
         dataQueue.sync { windows[id] }
     }
 
+    /// Check if any window on this space has focus (including excluded apps like launcher apps)
+    /// Used to determine if the space indicator should show the active/highlighted state
+    /// Note: We still check excluded apps here because an excluded app (like iTerm2) being focused
+    /// should still highlight its space - we just don't show its icon in the indicator
+    func spaceHasFocusedWindow(_ spaceIndex: Int) -> Bool {
+        let excludedApps = AegisConfig.shared.baseExcludedApps  // Only base exclusions (Finder, Aegis)
+        return dataQueue.sync {
+            windows.values.contains { window in
+                window.space == spaceIndex &&
+                window.hasFocus &&
+                !excludedApps.contains(window.app) &&  // Exclude base apps (Finder, Aegis) from focus check
+                window.role == "AXWindow" &&
+                (window.subrole == "AXStandardWindow" || window.isMinimized)
+            }
+        }
+    }
+
     func getWindowIconsForSpace(_ spaceIndex: Int) -> [WindowIcon] {
         let excludedApps = AegisConfig.shared.excludedApps
         return dataQueue.sync {
