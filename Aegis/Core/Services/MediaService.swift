@@ -1,6 +1,5 @@
 import Foundation
 import AppKit
-import Combine
 
 /// Service to monitor system-wide "Now Playing" information using MediaRemote framework
 /// Works with ALL media sources: Music, Spotify, Safari, Firefox, Chrome, YouTube, etc.

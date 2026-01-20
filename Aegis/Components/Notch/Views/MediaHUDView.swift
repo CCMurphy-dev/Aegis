@@ -115,7 +115,7 @@ struct MediaHUDView: View {
                 // Left background - extends right into notch area
                 HStack(spacing: 0) {
                     Spacer(minLength: 0)
-                    LeftPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
+                    HUDLeftPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
                         .fill(Color.black)
                         .frame(width: notchDimensions.height + notchGapFill, height: notchDimensions.height)
                 }
@@ -130,7 +130,7 @@ struct MediaHUDView: View {
                 // Right background - extends left into notch area
                 // Hidden when overlay HUD (volume/brightness) is active
                 HStack(spacing: 0) {
-                    RightPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
+                    HUDRightPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
                         .fill(Color.black)
                         .frame(width: rightPanelWidth + notchGapFill, height: notchDimensions.height)
                     Spacer(minLength: 0)
@@ -168,13 +168,14 @@ struct MediaHUDView: View {
                             info: info,
                             containerWidth: rightPanelWidth,
                             collapsedWidth: baseRightPanelWidth,
-                            isExpanded: useExpandedWidth
+                            isExpanded: useExpandedWidth,
+                            isHUDVisible: isVisible
                         )
                             .frame(height: notchDimensions.height, alignment: .leading)
                         Spacer(minLength: 0)
                     } else {
                         // Visualizer: centered
-                        MediaVisualizerView(isPlaying: info.isPlaying, useBlurEffect: config.visualizerUseBlurEffect)
+                        MediaVisualizerView(isPlaying: info.isPlaying, useBlurEffect: config.visualizerUseBlurEffect, isHUDVisible: isVisible)
                             .frame(width: rightPanelWidth, height: notchDimensions.height)
                     }
                 }
@@ -312,96 +313,6 @@ extension Notification.Name {
     static let mediaHUDToggleDisplay = Notification.Name("mediaHUDToggleDisplay")
 }
 
-/// Shape for LEFT panel - curved outer edges, inner edge curves outward to connect with notch
-struct LeftPanelShape: Shape {
-    let cornerRadius: CGFloat
-    let topCornerRadius: CGFloat
-    let innerCornerRadius: CGFloat  // Curves outward to match notch's bottom corner
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-
-        // Top-left: outward curve (curves away from center)
-        path.move(to: CGPoint(x: topCornerRadius, y: 0))
-        path.addQuadCurve(
-            to: CGPoint(x: 0, y: topCornerRadius),
-            control: CGPoint(x: 0, y: 0)
-        )
-
-        // Left edge down to bottom corner
-        path.addLine(to: CGPoint(x: 0, y: rect.height - cornerRadius))
-
-        // Bottom-left rounded corner (inward curve)
-        path.addQuadCurve(
-            to: CGPoint(x: cornerRadius, y: rect.height),
-            control: CGPoint(x: 0, y: rect.height)
-        )
-
-        // Bottom edge to inner corner
-        path.addLine(to: CGPoint(x: rect.width - innerCornerRadius, y: rect.height))
-
-        // Bottom-right: outward curve (concave - matches notch's corner)
-        path.addQuadCurve(
-            to: CGPoint(x: rect.width, y: rect.height - innerCornerRadius),
-            control: CGPoint(x: rect.width, y: rect.height)
-        )
-
-        // Right edge straight up to top
-        path.addLine(to: CGPoint(x: rect.width, y: 0))
-
-        // Top edge back to start
-        path.addLine(to: CGPoint(x: topCornerRadius, y: 0))
-
-        return path
-    }
-}
-
-/// Shape for RIGHT panel - curved outer edges, inner edge curves outward to connect with notch
-struct RightPanelShape: Shape {
-    let cornerRadius: CGFloat
-    let topCornerRadius: CGFloat
-    let innerCornerRadius: CGFloat  // Curves outward to match notch's bottom corner
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-
-        // Start at top-left (connects to notch)
-        path.move(to: CGPoint(x: 0, y: 0))
-
-        // Left edge straight down to inner corner
-        path.addLine(to: CGPoint(x: 0, y: rect.height - innerCornerRadius))
-
-        // Bottom-left: outward curve (concave - matches notch's corner)
-        path.addQuadCurve(
-            to: CGPoint(x: innerCornerRadius, y: rect.height),
-            control: CGPoint(x: 0, y: rect.height)
-        )
-
-        // Bottom edge to outer corner
-        path.addLine(to: CGPoint(x: rect.width - cornerRadius, y: rect.height))
-
-        // Bottom-right rounded corner (inward curve)
-        path.addQuadCurve(
-            to: CGPoint(x: rect.width, y: rect.height - cornerRadius),
-            control: CGPoint(x: rect.width, y: rect.height)
-        )
-
-        // Right edge up to top corner
-        path.addLine(to: CGPoint(x: rect.width, y: topCornerRadius))
-
-        // Top-right: outward curve (curves away from center)
-        path.addQuadCurve(
-            to: CGPoint(x: rect.width - topCornerRadius, y: 0),
-            control: CGPoint(x: rect.width, y: 0)
-        )
-
-        // Top edge back to start
-        path.addLine(to: CGPoint(x: 0, y: 0))
-
-        return path
-    }
-}
-
 // MARK: - Album Art
 struct AlbumArtView: View {
     let albumArt: NSImage?
@@ -451,6 +362,7 @@ struct AlbumArtView: View {
 struct MediaVisualizerView: View {
     let isPlaying: Bool
     let useBlurEffect: Bool
+    var isHUDVisible: Bool = true  // When HUD is hidden, stop the timer
 
     @State private var h0: CGFloat = 6
     @State private var h1: CGFloat = 10
@@ -459,22 +371,27 @@ struct MediaVisualizerView: View {
     @State private var h4: CGFloat = 6
     @State private var animationTimer: Timer?
 
+    // Timer should only run when playing AND HUD is visible
+    private var shouldAnimate: Bool {
+        isPlaying && isHUDVisible
+    }
+
     var body: some View {
         HStack(spacing: 2) {
-            VisualizerBar(height: isPlaying ? h0 : 3, useBlur: useBlurEffect)
-            VisualizerBar(height: isPlaying ? h1 : 3, useBlur: useBlurEffect)
-            VisualizerBar(height: isPlaying ? h2 : 3, useBlur: useBlurEffect)
-            VisualizerBar(height: isPlaying ? h3 : 3, useBlur: useBlurEffect)
-            VisualizerBar(height: isPlaying ? h4 : 3, useBlur: useBlurEffect)
+            VisualizerBar(height: shouldAnimate ? h0 : 3, useBlur: useBlurEffect)
+            VisualizerBar(height: shouldAnimate ? h1 : 3, useBlur: useBlurEffect)
+            VisualizerBar(height: shouldAnimate ? h2 : 3, useBlur: useBlurEffect)
+            VisualizerBar(height: shouldAnimate ? h3 : 3, useBlur: useBlurEffect)
+            VisualizerBar(height: shouldAnimate ? h4 : 3, useBlur: useBlurEffect)
         }
         .frame(height: 22)
         .onAppear {
-            if isPlaying { startTimer() }
+            if shouldAnimate { startTimer() }
         }
         .onDisappear {
             stopTimer()
         }
-        .onChange(of: isPlaying) { newValue in
+        .onChange(of: shouldAnimate) { newValue in
             if newValue {
                 startTimer()
             } else {
@@ -530,30 +447,15 @@ private struct VisualizerBar: View {
     }
 }
 
-// MARK: - Visualizer Blur View (NSVisualEffectView wrapper)
-private struct VisualizerBlurView: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        // Use a light material that shows the wallpaper through
-        view.material = .hudWindow
-        view.blendingMode = .behindWindow
-        view.state = .active
-        view.wantsLayer = true
-        view.layer?.backgroundColor = NSColor.clear.cgColor
-        return view
-    }
-
-    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
-        // No updates needed
-    }
-}
-
 // MARK: - Track Info Display (shows on track change)
 struct TrackInfoView: View {
     let info: MediaInfo
     let containerWidth: CGFloat      // Current width (may be expanded or collapsed)
     let collapsedWidth: CGFloat      // Fixed collapsed width for overflow calculation
     let isExpanded: Bool             // Whether panel is expanded
+    var isHUDVisible: Bool = true    // When HUD is hidden, stop scrolling
+
+    @ObservedObject private var config = AegisConfig.shared
 
     // Cached text widths - only recalculated when title/artist changes
     @State private var cachedTitleWidth: CGFloat = 0
@@ -634,8 +536,8 @@ struct TrackInfoView: View {
         .onAppear {
             // Calculate initial text widths
             updateCachedWidths()
-            // Start scrolling if already in collapsed state with overflow
-            if !isExpanded && anyTextOverflows {
+            // Start scrolling if already in collapsed state with overflow (and marquee enabled)
+            if !isExpanded && anyTextOverflows && config.mediaHUDEnableMarquee {
                 startScrolling()
             }
         }
@@ -649,6 +551,25 @@ struct TrackInfoView: View {
             // Track changed - FIRST stop any existing scrolling, then recalculate widths
             scrollController.stop()
             updateCachedWidths()
+        }
+        .onChange(of: isHUDVisible) { newVisible in
+            // When HUD is hidden, stop scrolling to save CPU
+            if !newVisible {
+                scrollController.stop()
+            } else if !isExpanded && anyTextOverflows && config.mediaHUDEnableMarquee {
+                // Restart scrolling when HUD becomes visible again (if collapsed and text overflows)
+                startScrolling()
+            }
+        }
+        .onChange(of: config.mediaHUDEnableMarquee) { enabled in
+            // Toggle marquee on/off based on config change
+            if enabled {
+                if !isExpanded && anyTextOverflows && isHUDVisible {
+                    startScrolling()
+                }
+            } else {
+                scrollController.stop()
+            }
         }
     }
 
@@ -667,13 +588,16 @@ struct TrackInfoView: View {
         } else {
             // Ensure cache is fresh before checking overflow
             updateCachedWidths()
-            if anyTextOverflows {
+            if anyTextOverflows && config.mediaHUDEnableMarquee {
                 startScrolling()
             }
         }
     }
 
     private func startScrolling() {
+        // Don't start if marquee is disabled
+        guard config.mediaHUDEnableMarquee else { return }
+
         // Double-check overflow with fresh calculation as a safety measure
         let currentTitleWidth = info.title.width(using: trackTitleFont)
         let currentArtistWidth = info.artist.width(using: trackArtistFont)
@@ -824,10 +748,4 @@ struct MarqueeTextRow: View {
     }
 }
 
-// Helper extension for safe array access
-extension Array {
-    subscript(safe index: Int) -> Element? {
-        return indices.contains(index) ? self[index] : nil
-    }
-}
 

@@ -21,7 +21,7 @@ A comprehensive guide to installing, configuring, and using Aegis - a macOS menu
 Aegis transforms your macOS menu bar and notch area into a powerful control center for managing workspaces and windows. It provides:
 
 - **Visual workspace indicators** showing all spaces with window icons
-- **Notch HUD** for volume, brightness, now-playing music, Bluetooth devices, and Focus mode
+- **Notch HUD** for volume, brightness, now-playing music, Bluetooth devices, Focus mode, and system notifications
 - **System status** display (battery, WiFi, Focus mode, clock)
 - **Window management** via drag-drop and context menus
 
@@ -194,6 +194,7 @@ The notch area displays contextual information:
 | Bluetooth device disconnects | Device icon + name + "Disconnected" |
 | Focus mode enabled | Focus icon + mode name + "On" |
 | Focus mode disabled | Focus icon + mode name + "Off" |
+| System notification | App icon + title + body text |
 
 The HUD slides in from under the notch with smooth spring animation and auto-hides after a configurable delay.
 
@@ -219,6 +220,16 @@ The Media HUD shows album art on the left and either a **visualizer** or **track
 - Shows the actual Focus mode icon from your configuration (e.g., moon for Do Not Disturb, briefcase for Work)
 - Displays the mode name (e.g., "Study", "Work", "Personal")
 - Shows "On" (purple) when enabled, "Off" (gray) when disabled
+
+**Notification HUD:**
+- Intercepts system notifications from any app (Messages, Slack, WhatsApp, etc.)
+- Shows the app icon + notification title + body text in the notch area
+- Dismisses the native macOS notification banner automatically
+- Click anywhere on the HUD to open/focus the source app
+  - Uses Yabai to focus the app window (respects your window layout)
+  - Falls back to launching the app if no window exists
+- Auto-hides after 8 seconds (configurable)
+- Note: Native banner may briefly flash (~50-150ms) before being dismissed - this is a macOS limitation
 
 ### System Status
 
@@ -403,6 +414,19 @@ Right-click → Status → Link should show "Active"
 2. Focus mode changes must be made via Control Center or System Settings (not third-party apps)
 3. Check logs for "Focus" entries: `tail -f ~/Library/Logs/Aegis/aegis.log | grep Focus`
 4. Custom Focus modes should show their configured icon and name
+
+### Notification HUD doesn't appear
+
+1. Ensure Accessibility permission is granted (required for AXObserver)
+2. Check that notifications are enabled for the source app in System Settings → Notifications
+3. Check logs for "NotificationService" entries: `log show --predicate 'process == "Aegis"' --last 1m | grep Notification`
+4. If the app icon doesn't load, the bundle identifier may not be recognized - check if the app is running
+
+### Native notification banner flashes before dismissing
+
+This is a known macOS limitation. The Accessibility API fires after macOS has already rendered the notification. The flash duration (~50-150ms) cannot be reduced further. Aegis dismisses the banner as quickly as possible by:
+1. Dismissing BEFORE extracting notification content
+2. Using the "Close" action directly (not AXPress which opens the app)
 
 ### Link shows "Not configured"
 

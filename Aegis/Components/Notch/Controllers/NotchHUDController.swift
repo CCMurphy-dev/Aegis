@@ -6,12 +6,14 @@ class NotchHUDController: ObservableObject {
     private let systemInfoService: SystemInfoService
     private let musicService: MediaService
     private let eventRouter: EventRouter
+    private let yabaiService: YabaiService
 
-    // Separate windows for music, volume/brightness, device connection, and focus
+    // Separate windows for music, volume/brightness, device connection, focus, and notifications
     private var mediaWindow: NSWindow!
     private var overlayWindow: NSWindow!
     private var deviceWindow: NSWindow!
     private var focusWindow: NSWindow!
+    private var notificationWindow: NSWindow!
 
     private var hideWorkItem: DispatchWorkItem?  // Scheduled hide for overlay HUD
     private var isAnimatingOverlay = false  // Track if overlay is mid-animation
@@ -26,6 +28,12 @@ class NotchHUDController: ObservableObject {
     // Auto-hide timer for focus HUD
     private var focusAutoHideTimer: Timer?
 
+    // Auto-hide timer for notification HUD
+    private var notificationAutoHideTimer: Timer?
+
+    // Custom hosting view for notification HUD (allows click pass-through outside panels)
+    private var notificationHostingView: NotificationHUDHostingView<AnyView>?
+
     // Config observation
     private var cancellables = Set<AnyCancellable>()
 
@@ -34,6 +42,7 @@ class NotchHUDController: ObservableObject {
     private let mediaViewModel = MediaHUDViewModel()
     private let deviceViewModel = DeviceHUDViewModel()
     private let focusViewModel = FocusHUDViewModel()
+    private let notificationViewModel = NotificationHUDViewModel()
 
     /// Published property for media HUD visibility (forwarded from view model)
     @Published var isMediaHUDVisible: Bool = false
@@ -55,10 +64,17 @@ class NotchHUDController: ObservableObject {
 
     init(systemInfoService: SystemInfoService,
          musicService: MediaService,
-         eventRouter: EventRouter) {
+         eventRouter: EventRouter,
+         yabaiService: YabaiService) {
         self.systemInfoService = systemInfoService
         self.musicService = musicService
         self.eventRouter = eventRouter
+        self.yabaiService = yabaiService
+
+        // Set up Yabai integration for notification clicks
+        notificationViewModel.openAppHandler = { [weak self] appName, bundleIdentifier in
+            self?.focusOrLaunchApp(appName: appName, bundleIdentifier: bundleIdentifier)
+        }
 
         // Set up bindings to forward view model changes
         overlayViewModel.$isVisible.assign(to: &$isOverlayHUDVisible)
@@ -82,6 +98,7 @@ class NotchHUDController: ObservableObject {
         mediaAutoHideTimer?.invalidate()
         deviceAutoHideTimer?.invalidate()
         focusAutoHideTimer?.invalidate()
+        notificationAutoHideTimer?.invalidate()
         hideWorkItem?.cancel()
     }
 
@@ -141,6 +158,7 @@ class NotchHUDController: ObservableObject {
         prepareMediaWindow()
         prepareDeviceWindow()
         prepareFocusWindow()
+        prepareNotificationWindow()
     }
 
     private func prepareOverlayWindow() {
@@ -373,6 +391,85 @@ class NotchHUDController: ObservableObject {
         print("🎯 prepareFocusWindow: Focus HUD window prepared")
     }
 
+    private func prepareNotificationWindow() {
+        guard let screen = NSScreen.main else {
+            assertionFailure("No main screen available during notification window preparation")
+            return
+        }
+
+        let notchHeight = screen.safeAreaInsets.top
+        let notchDimensions = NotchDimensions.calculate(for: screen)
+
+        // Calculate HUD dimensions - match actual view panel widths
+        // Left panel: square for icon (notchDimensions.height)
+        // Right panel: reasonable max for text content
+        let leftPanelWidth = notchDimensions.height
+        let rightPanelWidth = min(notchDimensions.height * 3, 150)
+        let totalHUDWidth = leftPanelWidth + notchDimensions.width + rightPanelWidth
+
+        // Create window sized to exactly fit the HUD area, centered on the notch
+        // This allows clicks outside the HUD to pass through to the menu bar
+        let hudCenterX = screen.frame.midX
+        let windowFrame = NSRect(
+            x: hudCenterX - totalHUDWidth / 2,
+            y: screen.frame.origin.y + screen.frame.height - notchHeight,
+            width: totalHUDWidth,
+            height: notchHeight
+        )
+
+        // Create the persistent view ONCE with the view model
+        let hudView = NotificationHUDView(
+            viewModel: notificationViewModel,
+            notchDimensions: notchDimensions
+        )
+
+        // Window is now sized to the HUD, so no centering needed
+        let wrappedView = hudView
+            .frame(width: totalHUDWidth, height: notchHeight)
+
+        // Use custom hosting view that passes through clicks outside the HUD panels
+        let hostingView = NotificationHUDHostingView(rootView: AnyView(wrappedView))
+        hostingView.frame = NSRect(origin: .zero, size: windowFrame.size)
+        self.notificationHostingView = hostingView
+
+        // Set up click callback to open source app
+        hostingView.onPanelClick = { [weak self] in
+            print("🔔 NotificationHUD panel clicked - opening source app")
+            self?.notificationViewModel.openSourceApp()
+            self?.hideNotificationHUD()
+        }
+
+        notificationWindow = NotificationHUDWindow(
+            contentRect: windowFrame,
+            styleMask: [.borderless, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        notificationWindow.isOpaque = false
+        notificationWindow.backgroundColor = .clear
+        notificationWindow.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)) + 1)
+        // Start with ignoresMouseEvents = true, only enable when visible
+        notificationWindow.ignoresMouseEvents = true
+        notificationWindow.hasShadow = false
+        notificationWindow.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        notificationWindow.isReleasedWhenClosed = false
+        notificationWindow.contentView = hostingView
+
+        // Initialize panel bounds (not visible initially)
+        hostingView.updatePanelBounds(notchDimensions: notchDimensions, isVisible: false)
+
+        // CRITICAL: Ensure window is completely invisible and non-blocking when not showing
+        // 1. Set alpha to 0
+        // 2. Order out of window server
+        // 3. Move off-screen as extra safety (in case orderOut fails for some reason)
+        notificationWindow.alphaValue = 0
+        notificationWindow.ignoresMouseEvents = true
+        notificationWindow.orderOut(nil)
+        notificationWindow.setFrameOrigin(NSPoint(x: -10000, y: -10000))
+
+        print("🔔 prepareNotificationWindow: Notification HUD window prepared with size \(windowFrame.size)")
+    }
+
     // MARK: - Show HUDs
 
     func showVolume(level: Float, isMuted: Bool = false) {
@@ -577,13 +674,175 @@ class NotchHUDController: ObservableObject {
         }
     }
 
+    func showNotification(appName: String, title: String, body: String, bundleIdentifier: String) {
+        let config = AegisConfig.shared
+
+        // Check if notification HUD is disabled in config
+        guard config.showNotificationHUD else {
+            print("🔔 NotchHUDController: Notification HUD disabled in config")
+            return
+        }
+
+        print("🔔 NotchHUDController.showNotification: \(appName) - \(title)")
+
+        // Update view model
+        notificationViewModel.show(
+            appName: appName,
+            title: title,
+            body: body,
+            bundleIdentifier: bundleIdentifier
+        )
+
+        // Show the HUD
+        showNotificationHUD()
+
+        // Schedule auto-hide (consistent with device/focus HUDs)
+        scheduleNotificationAutoHide()
+    }
+
+    private func scheduleNotificationAutoHide() {
+        let config = AegisConfig.shared
+        guard config.notificationHUDAutoHide else { return }
+
+        notificationAutoHideTimer?.invalidate()
+
+        let delay = config.notificationHUDAutoHideDelay
+        print("🔔 Scheduling notification HUD auto-hide in \(delay)s")
+        notificationAutoHideTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            print("🔔 Auto-hide timer fired, hiding notification HUD")
+            self.hideNotificationHUD()
+        }
+    }
+
+    // MARK: - Private helpers - Notification HUD
+
+    /// Focus app window via Yabai, or launch/activate via NSWorkspace if not found
+    private func focusOrLaunchApp(appName: String, bundleIdentifier: String) {
+        // Try Yabai first (respects window management)
+        if !appName.isEmpty && yabaiService.focusWindowByAppName(appName) {
+            return
+        }
+
+        // Yabai didn't find a window - use NSWorkspace to launch/activate
+        guard !bundleIdentifier.isEmpty else {
+            // Try to activate by app name if no bundle identifier
+            if !appName.isEmpty,
+               let app = NSWorkspace.shared.runningApplications.first(where: { $0.localizedName == appName }) {
+                app.activate()
+            }
+            return
+        }
+
+        NSWorkspace.shared.launchApplication(
+            withBundleIdentifier: bundleIdentifier,
+            options: [],
+            additionalEventParamDescriptor: nil,
+            launchIdentifier: nil
+        )
+    }
+
+    private func showNotificationHUD() {
+        print("🔔 showNotificationHUD() called - currentlyVisible: \(notificationViewModel.isVisible)")
+
+        guard let screen = NSScreen.main, let notchDimensions = notchDimensions else {
+            print("🔔 showNotificationHUD: No screen or notch dimensions available")
+            return
+        }
+
+        // Tell media HUD to hide its right panel (to avoid overlap)
+        mediaViewModel.overlayDidShow()
+
+        // Calculate HUD dimensions to resize window to only cover the HUD area
+        // This is critical - by limiting the window size, clicks outside the HUD
+        // will pass through to the menu bar and other UI elements
+        let notchHeight = screen.safeAreaInsets.top
+        // Match actual view panel widths - left is icon, right is text
+        let leftPanelWidth = notchDimensions.height
+        let rightPanelWidth = min(notchDimensions.height * 3, 150)
+        let totalHUDWidth = leftPanelWidth + notchDimensions.width + rightPanelWidth
+
+        // Center the window on the notch
+        let hudCenterX = screen.frame.midX
+        let windowFrame = NSRect(
+            x: hudCenterX - totalHUDWidth / 2,
+            y: screen.frame.origin.y + screen.frame.height - notchHeight,
+            width: totalHUDWidth,
+            height: notchHeight
+        )
+
+        // Resize window to only cover the HUD area
+        notificationWindow.setFrame(windowFrame, display: false)
+
+        // Update the hosting view frame to match
+        notificationHostingView?.frame = NSRect(origin: .zero, size: windowFrame.size)
+
+        // Enable mouse events for click handling
+        notificationWindow.ignoresMouseEvents = false
+
+        // Order window front with full opacity immediately
+        notificationWindow.alphaValue = 1
+        notificationWindow.orderFrontRegardless()
+
+        // Update panel bounds so clicks are only captured within the HUD panels
+        notificationHostingView?.updatePanelBounds(notchDimensions: notchDimensions, isVisible: true)
+
+        // Force a layout pass
+        notificationWindow.layoutIfNeeded()
+
+        // The view model's show() already set isVisible = true, triggering animation
+    }
+
+    private func hideNotificationHUD() {
+        print("🔔 hideNotificationHUD() called - currentlyVisible: \(notificationViewModel.isVisible)")
+
+        if !notificationViewModel.isVisible {
+            print("🔔 hideNotificationHUD: Already hidden, nothing to do")
+            return
+        }
+
+        // Cancel auto-hide timer
+        notificationAutoHideTimer?.invalidate()
+        notificationAutoHideTimer = nil
+
+        // Disable mouse events immediately so clicks pass through
+        notificationWindow.ignoresMouseEvents = true
+
+        // Update panel bounds to stop capturing clicks during fade-out
+        if let notchDimensions = notchDimensions {
+            notificationHostingView?.updatePanelBounds(notchDimensions: notchDimensions, isVisible: false)
+        }
+
+        // Clear notification data to prevent stale click handling
+        // This prevents clicks on other HUDs from opening the previous notification's app
+        notificationViewModel.bundleIdentifier = ""
+        notificationViewModel.appName = ""
+
+        print("🔔 hideNotificationHUD: Setting notificationViewModel.isVisible = false")
+        notificationViewModel.isVisible = false
+
+        // After animation completes, hide the window and restore music panel
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            if !self.notificationViewModel.isVisible {
+                print("🔔 hideNotificationHUD: Animation complete, hiding window")
+                self.notificationWindow.alphaValue = 0
+                self.notificationWindow.orderOut(nil)
+                // Move off-screen as extra safety to ensure no mouse blocking
+                self.notificationWindow.setFrameOrigin(NSPoint(x: -10000, y: -10000))
+
+                // Restore media HUD right panel
+                self.mediaViewModel.overlayDidHide()
+            }
+        }
+    }
+
     // MARK: - Private helpers - Device HUD
 
     private func showDeviceHUD() {
         print("🎧 showDeviceHUD() called - currentlyVisible: \(deviceViewModel.isVisible)")
 
         // Tell media HUD to hide its right panel (to avoid overlap)
-        mediaViewModel.isOverlayActive = true
+        mediaViewModel.overlayDidShow()
 
         // Order window front with full opacity immediately
         deviceWindow.alphaValue = 1
@@ -622,7 +881,7 @@ class NotchHUDController: ObservableObject {
                 self.deviceWindow.orderOut(nil)
 
                 // Restore media HUD right panel
-                self.mediaViewModel.isOverlayActive = false
+                self.mediaViewModel.overlayDidHide()
             }
         }
     }
@@ -633,7 +892,7 @@ class NotchHUDController: ObservableObject {
         print("🎯 showFocusHUD() called - currentlyVisible: \(focusViewModel.isVisible)")
 
         // Tell media HUD to hide its right panel (to avoid overlap)
-        mediaViewModel.isOverlayActive = true
+        mediaViewModel.overlayDidShow()
 
         // Order window front with full opacity immediately
         focusWindow.alphaValue = 1
@@ -672,7 +931,7 @@ class NotchHUDController: ObservableObject {
                 self.focusWindow.orderOut(nil)
 
                 // Restore media HUD right panel
-                self.mediaViewModel.isOverlayActive = false
+                self.mediaViewModel.overlayDidHide()
             }
         }
     }
@@ -680,6 +939,13 @@ class NotchHUDController: ObservableObject {
     // MARK: - Private helpers - Media HUD
 
     private func showMediaHUD() {
+        // Safety: Reset overlay counter if no overlays are actually visible
+        // This prevents stuck state where isOverlayActive is true but no overlay HUDs are showing
+        if !overlayViewModel.isVisible && !deviceViewModel.isVisible &&
+           !focusViewModel.isVisible && !notificationViewModel.isVisible {
+            mediaViewModel.resetOverlayState()
+        }
+
         // If already visible, ensure window is shown
         guard !mediaViewModel.isVisible else {
             if mediaWindow.alphaValue < 1 || !mediaWindow.isVisible {
@@ -745,8 +1011,11 @@ class NotchHUDController: ObservableObject {
             return
         }
 
+        // Start the display link for smooth animation (stops when HUD hides)
+        overlayViewModel.progressAnimator.start()
+
         // Tell media HUD to hide its right panel (to avoid overlap)
-        mediaViewModel.isOverlayActive = true
+        mediaViewModel.overlayDidShow()
 
         // Order window front and make visible
         overlayWindow.alphaValue = 1
@@ -810,7 +1079,10 @@ class NotchHUDController: ObservableObject {
                 self.overlayWindow.orderOut(nil)
 
                 // Restore media HUD right panel
-                self.mediaViewModel.isOverlayActive = false
+                self.mediaViewModel.overlayDidHide()
+
+                // Stop the display link to save CPU when HUD is hidden
+                self.overlayViewModel.progressAnimator.stop()
             }
             self.isAnimatingOverlay = false
         }
@@ -823,6 +1095,7 @@ class NotchHUDController: ObservableObject {
         hideOverlayHUD()
         hideDeviceHUD()
         hideFocusHUD()
+        hideNotificationHUD()
     }
 
     // MARK: - Diagnostics

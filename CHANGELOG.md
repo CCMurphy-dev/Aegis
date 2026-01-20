@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-01-20
+
+### Added
+- Notification HUD click now uses Yabai to focus app window (respects window layout)
+  - Falls back to NSWorkspace.launchApplication if no window exists
+- `YabaiService.focusWindowByAppName()` method for app-based window focus
+- `showMediaHUD` config alias for backward compatibility with `showMusicHUD`
+
+### Changed
+- Consolidated HUD panel shapes into shared `HUDShapes.swift` file
+  - Removes ~160 lines of duplicate shape code across view files
+- Overlay HUD visibility now uses counter instead of boolean
+  - Prevents race conditions when multiple HUDs overlap with async hide timers
+  - `resetOverlayState()` safety valve resets counter if stuck
+
+### Fixed
+- Media HUD right panel now shows correctly (was stuck hidden due to `isOverlayActive` race condition)
+
+### Removed
+- Unused `import Combine` from MediaService.swift
+- Verbose debug print statements from NotchHUDViewModel
+- Duplicate panel shape definitions (now in HUDShapes.swift)
+
 ## [1.0.2] - 2025-01-18
 
 ### Added

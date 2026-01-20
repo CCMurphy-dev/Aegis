@@ -487,6 +487,21 @@ final class YabaiService {
         }
     }
 
+    /// Find and focus a window by app name (returns true if found and focused)
+    func focusWindowByAppName(_ appName: String) -> Bool {
+        // Find any window belonging to this app
+        let windowId = dataQueue.sync {
+            windows.values.first { $0.app == appName }?.id
+        }
+
+        guard let id = windowId else {
+            return false
+        }
+
+        focusWindow(id)
+        return true
+    }
+
     func moveWindow(_ id: Int, toSpace index: Int) {
         Task {
             try? await command.run(["-m", "window", "\(id)", "--space", "\(index)"])

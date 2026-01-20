@@ -7,7 +7,7 @@
 
 Aegis is a macOS menu bar application that integrates with Yabai window manager to provide:
 - Visual workspace/space indicators in the menu bar
-- Notch-area HUD for system status (volume, brightness, music, Bluetooth devices, Focus mode)
+- Notch-area HUD for system status (volume, brightness, music, Bluetooth devices, Focus mode, notifications)
 - System status display (battery, network, Focus mode, time)
 - Window management via drag-drop and gestures
 
@@ -95,6 +95,9 @@ Aegis/
   - `.volumeChanged`: System volume adjusted
   - `.brightnessChanged`: Display brightness adjusted
   - `.musicPlaybackChanged`: Music track changed
+  - `.deviceConnected` / `.deviceDisconnected`: Bluetooth device state
+  - `.focusChanged`: Focus mode enabled/disabled
+  - `.notificationReceived`: System notification intercepted
 
 - **API**:
   ```swift
@@ -163,6 +166,35 @@ Aegis/
   - Fetches album art in background to avoid blocking
 
 - **Events Published**: `.mediaPlaybackChanged`
+
+#### NotificationService.swift
+- **Purpose**: Intercept macOS system notifications via Accessibility API
+- **Capabilities**:
+  - Detect notification banners from any app
+  - Extract notification content (app name, title, body)
+  - Dismiss native banners to replace with custom HUD
+  - Identify source app via bundle identifier lookup
+
+- **Implementation**:
+  - Uses `AXObserver` to watch `com.apple.notificationcenterui` process
+  - Listens for `kAXWindowCreatedNotification` events (event-driven, zero idle CPU)
+  - Traverses AX hierarchy to find `AXNotificationCenterBanner` elements
+  - Parses banner description attribute for app name, title, body
+  - Dismisses native banner via AX "Close" action
+  - Runs on background thread with CFRunLoop
+
+- **Dismissal Optimization**:
+  - Dismisses banner BEFORE content extraction to minimize visible flash
+  - Some flash (~50-150ms) is unavoidable due to macOS architecture limitation
+  - AX events fire AFTER notification is already rendered
+
+- **Bundle ID Resolution**:
+  - Hardcoded lookup table for common apps (Messages, WhatsApp, Slack, etc.)
+  - Case-insensitive matching against running applications
+  - Partial match fallback for locale differences
+
+- **Events Published**: `.notificationReceived`
+- **Permissions Required**: Accessibility (already needed for Yabai)
 
 #### AppSwitcherService.swift (612 lines)
 - **Purpose**: Custom Cmd+Tab window switcher with space-aware organization
@@ -284,7 +316,7 @@ SpaceIndicatorView (UI)
 
 ### 5. Notch HUD Component (`Components/Notch/`)
 
-**Purpose**: Display system notifications (volume, brightness, music, Bluetooth devices, Focus mode) at notch location
+**Purpose**: Display system notifications (volume, brightness, music, Bluetooth devices, Focus mode, app notifications) at notch location
 
 #### Architecture Pattern
 ```
@@ -313,6 +345,12 @@ NotchHUDController
 FocusHUDViewModel (Focus mode state)
     ↓ renders
 FocusHUDView (UI)
+
+NotchHUDController
+    ↓ owns
+NotificationHUDViewModel (Notification state)
+    ↓ renders
+NotificationHUDView (UI)
 ```
 
 #### NotchHUDController.swift
@@ -395,6 +433,13 @@ FocusHUDView (UI)
 - **Properties**:
   - `@Published var isVisible: Bool`: Drives animation
   - `@Published var info: MediaInfo`: Current track info
+  - `@Published var isOverlayActive: Bool`: Whether overlay HUDs (volume/brightness/device/focus/notification) are showing
+  - `overlayCount: Int`: Counter for active overlays (prevents race conditions with async hide timers)
+- **Overlay Counter Pattern**:
+  - `overlayDidShow()`: Increments counter when any overlay HUD shows
+  - `overlayDidHide()`: Decrements counter when any overlay HUD hides
+  - `resetOverlayState()`: Safety valve to reset counter if it gets stuck
+  - Right panel hides when `isOverlayActive == true` to avoid overlap with overlays
 
 #### MediaHUDView.swift
 - **UI view** for media playback display (works with all media sources)
@@ -455,6 +500,30 @@ FocusHUDView (UI)
   - Shows actual Focus mode name (e.g., "Study", "Work", "Do Not Disturb")
   - Purple status color when enabled, gray when disabled
   - When disabling, shows which mode was turned off (e.g., "Study / Off")
+
+#### NotificationHUDView.swift
+- **UI view** for system notification display
+- **Layout**:
+  - Left: App icon (from bundle identifier or app name lookup)
+  - Right: Notification title and body text
+
+- **Components**:
+  - `NotificationHUDViewModel`: Holds app name, title, body, app icon, visibility
+  - Dynamic width calculation based on text content
+  - `openAppHandler` callback for Yabai integration
+
+- **Interaction**:
+  - Click anywhere on HUD focuses/opens the source application
+  - Uses Yabai `focusWindowByAppName()` first (respects window layout)
+  - Falls back to `NSWorkspace.launchApplication()` if no window found
+  - Auto-hide after configurable delay (default 8s)
+
+#### HUDShapes.swift
+- **Shared panel shapes** for all HUD views
+- **Shapes**:
+  - `HUDLeftPanelShape`: Curved outer edges, inner edge curves outward to connect with notch
+  - `HUDRightPanelShape`: Mirror of left panel shape
+- **Used by**: MediaHUDView, MinimalHUDWrapper, DeviceHUDView, FocusHUDView, NotificationHUDView
 
 #### NotchDimensions.swift
 - **Calculates notch geometry** from screen properties
@@ -653,6 +722,35 @@ FocusHUDView displays: icon + "Study" + "On" (purple)
     ↓
 Auto-hide after 1.5s
 ```
+
+### System Notification HUD Flow
+```
+App sends notification (e.g., Messages receives SMS)
+    ↓
+macOS creates notification banner window
+    ↓
+AXObserver receives kAXWindowCreatedNotification (background thread)
+    ↓
+NotificationService.handleNotificationWindow()
+    ↓
+IMMEDIATELY dismiss native banner via AX "Close" action  [OPTIMIZATION]
+    ↓
+Extract content from AXNotificationCenterBanner description
+    ↓
+Lookup bundle identifier (hardcoded table → running apps → partial match)
+    ↓
+EventRouter.publish(.notificationReceived, data)
+    ↓
+AppDelegate subscription fires (main thread)
+    ↓
+NotchHUDController.showNotification(...)
+    ↓
+NotificationHUDView displays: app icon + title + body
+    ↓
+Auto-hide after 8s (or tap to open source app)
+```
+
+**Key Limitation**: Native banner flashes briefly (~50-150ms) before dismissal. This is unavoidable - macOS renders the notification before firing the AX event. No public API exists to intercept notifications before display.
 
 ---
 
@@ -934,19 +1032,24 @@ func prepareWindows() {
 
 | File | Purpose | Lines |
 |------|---------|-------|
-| `AppDelegate.swift` | App initialization, service setup, event routing | 120 |
+| `AppDelegate.swift` | App initialization, service setup, event routing | 160 |
 | `AegisConfig.swift` | Centralized configuration singleton | 1,045 |
 | `EventRouter.swift` | Pub/sub event bus | 60 |
-| `YabaiService.swift` | Yabai WM integration | 500 |
+| `YabaiService.swift` | Yabai WM integration, window focus by app name | 530 |
 | `BluetoothDeviceService.swift` | Bluetooth device monitoring | 400 |
+| `NotificationService.swift` | System notification interception | 440 |
 | `AppSwitcherService.swift` | Custom Cmd+Tab window switcher | 612 |
 | `MenuBarCoordinator.swift` | Menu bar orchestration | 400+ |
 | `SpaceIndicatorView.swift` | Workspace UI display | 776 |
-| `NotchHUDController.swift` | Notch HUD window management | 310 |
-| `ProgressBarAnimator.swift` | Frame-locked interpolation | 94 |
-| `MinimalHUDWrapper.swift` | Volume/brightness UI | 160 |
+| `NotchHUDController.swift` | Notch HUD window management, Yabai app focus | 350 |
+| `NotchHUDViewModel.swift` | HUD state management, overlay counter | 150 |
+| `ProgressBarAnimator.swift` | Frame-locked interpolation | 455 |
+| `HUDShapes.swift` | Shared panel shapes for all HUDs | 100 |
+| `MinimalHUDWrapper.swift` | Volume/brightness UI | 255 |
+| `MediaHUDView.swift` | Now Playing UI | 800+ |
 | `DeviceHUDView.swift` | Bluetooth device connection UI | 165 |
 | `FocusHUDView.swift` | Focus mode change UI | 142 |
+| `NotificationHUDView.swift` | System notification UI | 142 |
 | `FocusStatusMonitor.swift` | Focus mode detection | 200 |
 
 ---

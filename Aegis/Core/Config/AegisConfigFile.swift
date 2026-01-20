@@ -159,9 +159,11 @@ struct AegisConfigData: Codable {
     var visualizerAnimationDuration: Double?
     var visualizerUseBlurEffect: Bool?
     var showMusicHUD: Bool?
+    var showMediaHUD: Bool?  // Alias for showMusicHUD
     var musicHUDRightPanelMode: String?  // "visualizer" or "trackInfo"
     var musicHUDAutoHide: Bool?
     var musicHUDAutoHideDelay: Double?
+    var mediaHUDEnableMarquee: Bool?  // Enable carousel scrolling for long track titles
 
     // Device Connection HUD Settings
     var showDeviceHUD: Bool?
@@ -403,12 +405,15 @@ extension AegisConfig {
         if let v = data.visualizerBarMaxHeight { visualizerBarMaxHeight = CGFloat(v) }
         if let v = data.visualizerAnimationDuration { visualizerAnimationDuration = v }
         if let v = data.visualizerUseBlurEffect { visualizerUseBlurEffect = v }
+        // Support both showMusicHUD and showMediaHUD (alias) - showMediaHUD takes precedence
         if let v = data.showMusicHUD { showMediaHUD = v }
+        if let v = data.showMediaHUD { showMediaHUD = v }
         if let v = data.musicHUDRightPanelMode, let mode = MediaHUDRightPanelMode(rawValue: v) {
             mediaHUDRightPanelMode = mode
         }
         if let v = data.musicHUDAutoHide { mediaHUDAutoHide = v }
         if let v = data.musicHUDAutoHideDelay { mediaHUDAutoHideDelay = v }
+        if let v = data.mediaHUDEnableMarquee { mediaHUDEnableMarquee = v }
 
         // Device Connection HUD Settings
         if let v = data.showDeviceHUD { showDeviceHUD = v }
@@ -619,6 +624,7 @@ extension AegisConfig {
             musicHUDRightPanelMode: mediaHUDRightPanelMode.rawValue,
             musicHUDAutoHide: mediaHUDAutoHide,
             musicHUDAutoHideDelay: mediaHUDAutoHideDelay,
+            mediaHUDEnableMarquee: mediaHUDEnableMarquee,
 
             // Device Connection HUD Settings
             showDeviceHUD: showDeviceHUD,
@@ -720,10 +726,11 @@ Only include settings you want to change - defaults are used for anything not sp
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `showMusicHUD` | bool | `true` | Show Now Playing HUD when music plays |
+| `showMusicHUD` | bool | `true` | Show Now Playing HUD when music plays (alias: `showMediaHUD`) |
 | `musicHUDRightPanelMode` | string | `"visualizer"` | Right panel content: `"visualizer"` or `"trackInfo"` |
 | `musicHUDAutoHide` | bool | `false` | Auto-hide after showing track info |
 | `musicHUDAutoHideDelay` | number | `5.0` | Seconds before auto-hide (if enabled) |
+| `mediaHUDEnableMarquee` | bool | `true` | Enable carousel scrolling for long track titles (disable to reduce CPU) |
 
 ---
 

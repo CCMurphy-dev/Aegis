@@ -453,6 +453,10 @@ class AegisConfig: ObservableObject {
     /// Delay before auto-hiding media HUD (seconds)
     @Published var mediaHUDAutoHideDelay: TimeInterval = 5.0
 
+    /// Enable marquee (carousel) scrolling for long track titles/artists
+    /// Disable to reduce background CPU usage when media is playing
+    @Published var mediaHUDEnableMarquee: Bool = true
+
     // MARK: - Device Connection HUD Settings
 
     /// Show HUD when Bluetooth devices connect/disconnect
@@ -471,6 +475,17 @@ class AegisConfig: ObservableObject {
     /// Delay before auto-hiding Focus mode HUD (seconds)
     @Published var focusHUDAutoHideDelay: TimeInterval = 2.0
 
+    // MARK: - Notification HUD Settings
+
+    /// Show system notifications in the notch HUD
+    @Published var showNotificationHUD: Bool = true
+
+    /// Auto-hide notification HUD after delay
+    @Published var notificationHUDAutoHide: Bool = true
+
+    /// Delay before auto-hiding notification HUD (seconds)
+    @Published var notificationHUDAutoHideDelay: TimeInterval = 8.0
+
     // MARK: - App Launcher Settings
 
     /// Bundle identifiers for apps in the launcher button (scroll to select)
@@ -485,7 +500,7 @@ class AegisConfig: ObservableObject {
     // MARK: - Notch HUD Icon & Text Settings
 
     /// Font size for notch HUD icons (volume, brightness)
-    @Published var notchHUDIconSize: CGFloat = 13
+    @Published var notchHUDIconSize: CGFloat = 22
 
     /// Font size for notch HUD value text
     @Published var notchHUDValueFontSize: CGFloat = 13
@@ -760,6 +775,7 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(mediaHUDRightPanelMode.rawValue, forKey: "musicHUDRightPanelMode")
         UserDefaults.standard.set(mediaHUDAutoHide, forKey: "musicHUDAutoHide")
         UserDefaults.standard.set(mediaHUDAutoHideDelay, forKey: "musicHUDAutoHideDelay")
+        UserDefaults.standard.set(mediaHUDEnableMarquee, forKey: "mediaHUDEnableMarquee")
         UserDefaults.standard.set(showDeviceHUD, forKey: "showDeviceHUD")
         UserDefaults.standard.set(deviceHUDAutoHideDelay, forKey: "deviceHUDAutoHideDelay")
         UserDefaults.standard.set(excludedBluetoothDevices, forKey: "excludedBluetoothDevices")
@@ -1133,6 +1149,9 @@ class AegisConfig: ObservableObject {
         if let val = UserDefaults.standard.object(forKey: "musicHUDAutoHideDelay") as? Double {
             mediaHUDAutoHideDelay = val
         }
+        if let val = UserDefaults.standard.object(forKey: "mediaHUDEnableMarquee") as? Bool {
+            mediaHUDEnableMarquee = val
+        }
         if let val = UserDefaults.standard.object(forKey: "showDeviceHUD") as? Bool {
             showDeviceHUD = val
         }
@@ -1327,6 +1346,7 @@ class AegisConfig: ObservableObject {
         mediaHUDRightPanelMode = .visualizer
         mediaHUDAutoHide = false
         mediaHUDAutoHideDelay = 5.0
+        mediaHUDEnableMarquee = true
         showDeviceHUD = true
         deviceHUDAutoHideDelay = 3.0
         excludedBluetoothDevices = ["watch"]

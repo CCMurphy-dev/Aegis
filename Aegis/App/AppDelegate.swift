@@ -12,6 +12,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var musicService: MediaService?
     var bluetoothService: BluetoothDeviceService?
     var focusMonitor: FocusStatusMonitor?
+    var notificationService: NotificationService?
     var appSwitcherService: AppSwitcherService?
     var eventRouter: EventRouter?
 
@@ -108,6 +109,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         musicService = MediaService(eventRouter: eventRouter!)
         bluetoothService = BluetoothDeviceService(eventRouter: eventRouter!)
         focusMonitor = FocusStatusMonitor(eventRouter: eventRouter!)
+        notificationService = NotificationService(eventRouter: eventRouter!)
+
+        // Start notification monitoring (event-driven, zero CPU when idle)
+        notificationService?.startMonitoring()
 
         // App Switcher (Cmd+Tab replacement)
         appSwitcherService = AppSwitcherService.shared
@@ -131,11 +136,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Setup Notch HUD
     private func setupNotchHUD() {
-        guard let systemInfoService, let musicService, let eventRouter else { return }
+        guard let systemInfoService, let musicService, let eventRouter, let yabaiService else { return }
         notchHUDController = NotchHUDController(
             systemInfoService: systemInfoService,
             musicService: musicService,
-            eventRouter: eventRouter
+            eventRouter: eventRouter,
+            yabaiService: yabaiService
         )
 
         // CRITICAL: Prepare windows at app startup (before any interactions)
@@ -209,6 +215,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let symbolName = data["symbolName"] as? String
             let status = FocusStatus(isEnabled: isEnabled, focusName: focusName, symbolName: symbolName)
             self?.notchHUDController?.showFocusChanged(status: status)
+        }
+
+        router.subscribe(to: .notificationReceived) { [weak self] data in
+            let appName = data["appName"] as? String ?? ""
+            let title = data["title"] as? String ?? ""
+            let body = data["body"] as? String ?? ""
+            let bundleIdentifier = data["bundleIdentifier"] as? String ?? ""
+            self?.notchHUDController?.showNotification(
+                appName: appName,
+                title: title,
+                body: body,
+                bundleIdentifier: bundleIdentifier
+            )
         }
     }
 }

@@ -65,8 +65,11 @@ final class ProgressBarAnimator: ObservableObject {
     /// Last target value (to detect mid-flight changes)
     private var previousTarget: Double = 0
 
+    /// Whether the display link is currently running
+    private var isRunning = false
+
     init() {
-        // Create display link for vsync updates
+        // Create display link for vsync updates (but don't start it yet)
         let result = CVDisplayLinkCreateWithActiveCGDisplays(&displayLink)
 
         guard result == kCVReturnSuccess, let displayLink = displayLink else {
@@ -86,11 +89,36 @@ final class ProgressBarAnimator: ObservableObject {
             return kCVReturnSuccess
         }, Unmanaged.passUnretained(self).toOpaque())
 
-        // Start the display link
+        // Don't start automatically - start() will be called when HUD is shown
+    }
+
+    /// Start the display link (called when HUD becomes visible)
+    func start() {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard !isRunning, let displayLink = displayLink else { return }
         CVDisplayLinkStart(displayLink)
+        isRunning = true
+    }
+
+    /// Stop the display link (called when HUD is hidden)
+    func stop() {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard isRunning, let displayLink = displayLink else { return }
+        CVDisplayLinkStop(displayLink)
+        isRunning = false
     }
 
     deinit {
+        // Thread-safe shutdown: mark as not running before stopping
+        // This prevents the callback from accessing stale state during deallocation
+        lock.lock()
+        isRunning = false
+        lock.unlock()
+
         if let displayLink = displayLink {
             CVDisplayLinkStop(displayLink)
             // Note: CVDisplayLink is automatically released when the Swift reference is dropped
@@ -101,6 +129,14 @@ final class ProgressBarAnimator: ObservableObject {
 
     /// Called every frame (vsync) - runs OFF main thread for maximum performance
     private func tickOffMainThread() {
+        // Early bail-out if we're shutting down (prevents accessing stale state during dealloc)
+        lock.lock()
+        guard isRunning else {
+            lock.unlock()
+            return
+        }
+        lock.unlock()
+
         let frameTime = CACurrentMediaTime()
 
         // Thread-safe read of target and internal displayed
