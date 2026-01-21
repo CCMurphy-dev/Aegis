@@ -9,6 +9,7 @@ struct SpaceIndicatorView: View {
     let isActive: Bool
     let windowIcons: [WindowIcon]
     let allWindowIcons: [WindowIcon]
+    let focusedIndex: Int?  // Pre-computed by ViewModel (avoids O(N) search per render)
     let onWindowClick: ((Int) -> Void)?
     let onSpaceClick: (() -> Void)?
     let onSpaceDestroy: ((Int) -> Void)?
@@ -16,7 +17,6 @@ struct SpaceIndicatorView: View {
     @Binding var draggedWindowId: Int?  // Shared: ID of window currently being dragged
     @Binding var expandedWindowId: Int?  // Shared: ID of currently expanded window icon (persists across updates)
 
-    @State private var hoveredIconId: Int?
     @State private var showOverflowMenu = false
     @State private var autoCollapseTask: Task<Void, Never>?
     @State private var isDraggingOver = false  // True when actively dragging over this space
@@ -76,12 +76,8 @@ struct SpaceIndicatorView: View {
                                 RightClickableIcon(
                                     windowId: windowIcon.id,
                                     icon: windowIcon.icon ?? NSImage(),
-                                    isHovered: hoveredIconId == windowIcon.id,
                                     isMinimized: windowIcon.isMinimized,
                                     isHidden: windowIcon.isHidden,
-                                    onHover: { hovering in
-                                        hoveredIconId = hovering ? windowIcon.id : nil
-                                    },
                                     onLeftClick: {
                                         // Left-click just focuses the window, doesn't affect expansion state
                                         onWindowClick?(windowIcon.id)
@@ -134,7 +130,7 @@ struct SpaceIndicatorView: View {
                                 value: expandedWindowId
                             )
                         }
-                        .id("\(windowIcon.id)-\(index)")  // Include position in identity to detect reordering
+                        .id(windowIcon.id)  // Stable ID prevents re-creation when windows reorder
                     }
 
             // Overflow button
@@ -183,7 +179,7 @@ struct SpaceIndicatorView: View {
             )
             .overlay(alignment: .bottomLeading) {
                 // Focus indicator dot at bottom edge - use bottomLeading alignment to avoid GeometryReader
-                let focusedIndex = windowIcons.firstIndex(where: { $0.hasFocus })
+                // focusedIndex is pre-computed by ViewModel to avoid O(N) search on every render
                 let xPosition = focusedIndex != nil ? calculateDotPosition(for: focusedIndex!) : 0
 
                 Circle()
@@ -234,7 +230,6 @@ struct SpaceIndicatorView: View {
             // Check if the window is from this space - if so, reject the drop
             let isFromThisSpace = self.windowIcons.contains(where: { $0.id == windowId })
             guard !isFromThisSpace else {
-                print("🚫 Rejecting reorder within same space")
                 return
             }
 
@@ -354,10 +349,8 @@ struct OverflowWindowMenu: View {
 struct RightClickableIcon: NSViewRepresentable {
     let windowId: Int
     let icon: NSImage
-    let isHovered: Bool
     let isMinimized: Bool
     let isHidden: Bool
-    let onHover: (Bool) -> Void
     let onLeftClick: () -> Void
     let onRightClick: () -> Void
     let onDragStarted: () -> Void
@@ -376,7 +369,6 @@ struct RightClickableIcon: NSViewRepresentable {
         view.icon = icon
         view.isMinimized = isMinimized
         view.isWindowHidden = isHidden
-        view.onHover = onHover
         view.onLeftClick = onLeftClick
         view.onRightClick = onRightClick
         view.onDragStarted = onDragStarted
@@ -392,18 +384,14 @@ struct RightClickableIcon: NSViewRepresentable {
         if nsView.icon !== icon {
             nsView.icon = icon
         }
-        if nsView.isHovered != isHovered {
-            nsView.isHovered = isHovered
-        }
         if nsView.isMinimized != isMinimized {
             nsView.isMinimized = isMinimized
         }
         if nsView.isWindowHidden != isHidden {
             nsView.isWindowHidden = isHidden
         }
-        // Closures always update (no way to compare)
-        nsView.onDragStarted = onDragStarted
-        nsView.onDragEnded = onDragEnded
+        // Note: Closures recreated but this is unavoidable
+        // Hover state is tracked internally by ClickableIconView (no SwiftUI round-trip)
     }
 }
 
@@ -455,7 +443,6 @@ final class ClickableIconView: NSView {
 
     var onLeftClick: (() -> Void)?
     var onRightClick: (() -> Void)?
-    var onHover: ((Bool) -> Void)?
     var onDragStarted: (() -> Void)?
     var onDragEnded: (() -> Void)?
 
@@ -494,11 +481,11 @@ final class ClickableIconView: NSView {
     }
 
     override func mouseEntered(with event: NSEvent) {
-        onHover?(true)
+        isHovered = true  // Handled directly in AppKit, no SwiftUI round-trip
     }
 
     override func mouseExited(with event: NSEvent) {
-        onHover?(false)
+        isHovered = false  // Handled directly in AppKit, no SwiftUI round-trip
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -539,7 +526,6 @@ final class ClickableIconView: NSView {
             let distance = hypot(currentLocation.x - startLocation.x, currentLocation.y - startLocation.y)
 
             if distance <= 3 {
-                print("🖱️ Window icon clicked")
                 onLeftClick?()
             }
         }

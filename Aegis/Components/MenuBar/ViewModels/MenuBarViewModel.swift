@@ -4,35 +4,53 @@ import Combine
 
 // MARK: - Menu Bar ViewModel
 // State-only view model for menu bar data
+// Uses split state architecture for optimized re-renders
 
 class MenuBarViewModel: ObservableObject {
-    @Published var spaces: [Space] = []
-    @Published var windowIconsBySpace: [Int: [WindowIcon]] = [:]  // Window icons keyed by space index
-    @Published var windowIconsVersion: Int = 0  // Increment to force UI refresh
-    @Published var isHUDVisible: Bool = false  // Tracks notch HUD visibility
-    @Published var hudLayoutCoordinator: HUDLayoutCoordinator?  // Manages HUD module layout
-    @Published var expandedWindowId: Int?  // Currently expanded window icon (persists across view updates)
+    // MARK: - Split State Architecture
+
+    /// Per-space ViewModels - each SpaceIndicatorView observes only its own SpaceViewModel
+    let spaceStore: SpaceViewModelStore
+
+    /// Shared state for cross-space coordination (drag, expansion, HUD)
+    let sharedState: SharedMenuBarState
+
+    // MARK: - Internal State (not directly observed by views)
+
+    /// Raw spaces data from YabaiService
+    private var spaces: [Space] = []
+
+    /// Window icons keyed by space index
+    private var windowIconsBySpace: [Int: [WindowIcon]] = [:]
+
+    /// All window icons (including overflow) keyed by space index
+    private var allWindowIconsBySpace: [Int: [WindowIcon]] = [:]
+
+    /// Pre-computed focused window index per space
+    private var focusedIndexBySpace: [Int: Int] = [:]
+
+    // MARK: - Services & Timers
 
     let yabaiService: YabaiService  // Made public for context menu
     private var updateTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
 
     // Coalesce rapid updates to prevent double flash
-    // When both space and window events fire in quick succession,
-    // this batches them into a single UI update
     private var pendingUpdateWorkItem: DispatchWorkItem?
     private let updateCoalesceDelay: TimeInterval = 0.05  // 50ms coalesce window
 
     init(yabaiService: YabaiService) {
         self.yabaiService = yabaiService
+        self.spaceStore = SpaceViewModelStore()
+        self.sharedState = SharedMenuBarState()
 
         // Initial load
-        updateSpaces()
+        performUpdate()
 
         // Initialize HUD layout coordinator with screen dimensions
         if let screen = NSScreen.main {
             let notchDimensions = NotchDimensions.calculate(for: screen)
-            self.hudLayoutCoordinator = HUDLayoutCoordinator(
+            self.sharedState.hudLayoutCoordinator = HUDLayoutCoordinator(
                 notchDimensions: notchDimensions,
                 screenWidth: screen.frame.width
             )
@@ -59,18 +77,54 @@ class MenuBarViewModel: ObservableObject {
 
     /// Internal method that performs the actual update
     private func performUpdate() {
+        // Fetch data from YabaiService
         spaces = yabaiService.getCurrentSpaces()
 
-        // Also update window icons when spaces change
+        // Build window icons and focused indices
         var newIconsBySpace: [Int: [WindowIcon]] = [:]
+        var newAllIconsBySpace: [Int: [WindowIcon]] = [:]
+        var newFocusedIndexBySpace: [Int: Int] = [:]
+        var activeSpaceIndices: Set<Int> = []
+        var allWindowIds: Set<Int> = []
+
         for space in spaces {
-            newIconsBySpace[space.index] = yabaiService.getWindowIconsForSpace(space.index)
+            let icons = yabaiService.getWindowIconsForSpace(space.index)
+            newIconsBySpace[space.index] = icons
+            newAllIconsBySpace[space.index] = icons  // Same for now, overflow handled in view
+
+            // Pre-compute focused index to avoid O(N) search in views
+            if let focusedIdx = icons.firstIndex(where: { $0.hasFocus }) {
+                newFocusedIndexBySpace[space.index] = focusedIdx
+            }
+
+            // Check if this space has any focused window (including excluded apps)
+            let spaceHasFocus = yabaiService.spaceHasFocusedWindow(space.index)
+            if spaceHasFocus || space.focused {
+                activeSpaceIndices.insert(space.index)
+            }
+
+            // Collect all window IDs for cleanup
+            for icon in icons {
+                allWindowIds.insert(icon.id)
+            }
         }
+
         windowIconsBySpace = newIconsBySpace
-        windowIconsVersion += 1
+        allWindowIconsBySpace = newAllIconsBySpace
+        focusedIndexBySpace = newFocusedIndexBySpace
+
+        // Update the space store - this is the key to the split state architecture
+        // Each SpaceViewModel only publishes if its data changed
+        spaceStore.update(
+            spaces: spaces,
+            windowIconsBySpace: windowIconsBySpace,
+            allWindowIconsBySpace: allWindowIconsBySpace,
+            focusedIndexBySpace: focusedIndexBySpace,
+            activeSpaceIndices: activeSpaceIndices
+        )
 
         // Clear expanded window if it no longer exists
-        cleanupExpandedWindowIfNeeded(newIconsBySpace)
+        sharedState.cleanupExpandedWindowIfNeeded(allWindowIds: allWindowIds)
     }
 
     /// Schedule a coalesced update - multiple calls within the coalesce window
@@ -88,20 +142,16 @@ class MenuBarViewModel: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + updateCoalesceDelay, execute: workItem)
     }
 
-    /// Clear expandedWindowId if the window no longer exists in any space
-    private func cleanupExpandedWindowIfNeeded(_ iconsBySpace: [Int: [WindowIcon]]) {
-        guard let expandedId = expandedWindowId else { return }
-
-        // Check if the expanded window still exists in any space
-        let allWindowIds = iconsBySpace.values.flatMap { $0.map { $0.id } }
-        if !allWindowIds.contains(expandedId) {
-            expandedWindowId = nil
-        }
-    }
-
     func refreshWindowIcons() {
         // Coalesce with any pending space updates to prevent double flash
         scheduleCoalescedUpdate()
+    }
+
+    // MARK: - Public accessors for MenuBarView compatibility
+
+    /// Get all spaces (for ForEach in legacy code path)
+    func getSpaces() -> [Space] {
+        return spaces
     }
 
     func getWindowIcons(for space: Space) -> [WindowIcon] {
@@ -109,7 +159,11 @@ class MenuBarViewModel: ObservableObject {
     }
 
     func getAllWindowIcons(for space: Space) -> [WindowIcon] {
-        return yabaiService.getWindowIconsForSpace(space.index)
+        return allWindowIconsBySpace[space.index] ?? []
+    }
+
+    func getFocusedIndex(for spaceIndex: Int) -> Int? {
+        return focusedIndexBySpace[spaceIndex]
     }
 
     func getAppIcons(for space: Space) -> [NSImage] {
@@ -135,6 +189,6 @@ class MenuBarViewModel: ObservableObject {
             mediaVisible || overlayVisible
         }
         .receive(on: DispatchQueue.main)
-        .assign(to: &$isHUDVisible)
+        .assign(to: &sharedState.$isHUDVisible)
     }
 }

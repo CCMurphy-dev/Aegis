@@ -50,6 +50,8 @@ class MenuBarController {
 
 struct MenuBarView: View {
     @ObservedObject var viewModel: MenuBarViewModel
+    @ObservedObject var spaceStore: SpaceViewModelStore
+    @ObservedObject var sharedState: SharedMenuBarState
     let onSpaceClick: (Int) -> Void
     let onWindowClick: (Int) -> Void
     let onSpaceDestroy: (Int) -> Void
@@ -65,7 +67,6 @@ struct MenuBarView: View {
     private let config = AegisConfig.shared
     @State private var scrollOffset: CGFloat = 0
     @State private var isScrolled: Bool = false
-    @State private var draggedWindowId: Int?
     @State private var buttonLabelShowing: Bool = false
     @State private var previousSpaceCount: Int = 0
 
@@ -84,6 +85,8 @@ struct MenuBarView: View {
         onToggleApp: @escaping (FloatingApp) -> Void
     ) {
         self.viewModel = viewModel
+        self.spaceStore = viewModel.spaceStore
+        self.sharedState = viewModel.sharedState
         self.onSpaceClick = onSpaceClick
         self.onWindowClick = onWindowClick
         self.onSpaceDestroy = onSpaceDestroy
@@ -119,39 +122,29 @@ struct MenuBarView: View {
                         ScrollViewReader { scrollProxy in
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(alignment: .center, spacing: config.spaceIndicatorSpacing) {
-                                    ForEach(viewModel.spaces) { space in
-                                        // Use the windowIconsBySpace dictionary directly (it's @Published)
-                                        let windowIcons = viewModel.windowIconsBySpace[space.index] ?? []
-                                        let allWindowIcons = viewModel.getAllWindowIcons(for: space)
-
-                                        // Derive isActive from window focus state (including excluded apps like launcher apps)
-                                        // This ensures the highlight shows even when focus is on an excluded app
-                                        // For empty spaces (no windows at all), fall back to space.focused
-                                        let spaceHasFocus = viewModel.spaceHasFocusedWindow(space.index)
-                                        let isActive = spaceHasFocus || space.focused
-
-                                        SpaceIndicatorView(
-                                            space: space,
-                                            isActive: isActive,
-                                            windowIcons: windowIcons,
-                                            allWindowIcons: allWindowIcons,
-                                            onWindowClick: onWindowClick,
-                                            onSpaceClick: {
-                                                onSpaceClick(space.index)
-                                            },
-                                            onSpaceDestroy: onSpaceDestroy,
-                                            onWindowDrop: onWindowDrop,
-                                            draggedWindowId: $draggedWindowId,
-                                            expandedWindowId: $viewModel.expandedWindowId
-                                        )
-                                        .id(space.id)  // Stable ID - only changes when space itself changes
-                                        .transition(.asymmetric(
-                                            insertion: .move(edge: .leading).combined(with: .opacity),
-                                            removal: .move(edge: .top).combined(with: .opacity)
-                                        ))
+                                    // Split State Architecture: ForEach over space IDs
+                                    // Each SpaceIndicatorViewContainer observes only its own SpaceViewModel
+                                    // This prevents re-renders of all spaces when only one changes
+                                    ForEach(spaceStore.spaceIds, id: \.self) { spaceId in
+                                        if let spaceVM = spaceStore.viewModel(for: spaceId) {
+                                            SpaceIndicatorViewContainer(
+                                                spaceViewModel: spaceVM,
+                                                sharedState: sharedState,
+                                                onWindowClick: onWindowClick,
+                                                onSpaceClick: {
+                                                    onSpaceClick(spaceVM.space.index)
+                                                },
+                                                onSpaceDestroy: onSpaceDestroy,
+                                                onWindowDrop: onWindowDrop
+                                            )
+                                            .transition(.asymmetric(
+                                                insertion: .move(edge: .leading).combined(with: .opacity),
+                                                removal: .move(edge: .top).combined(with: .opacity)
+                                            ))
+                                        }
                                     }
                                 }
-                                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewModel.spaces.count)
+                                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: spaceStore.spaceIds.count)
                                 .padding(.leading, config.menuBarEdgePadding + config.spaceIndicatorSpacing + 32)  // Start after button
                                 // Extra trailing padding allows scrolling content past the notch area
                                 // This creates scrollable space so user can scroll left to reveal spaces hidden behind notch/HUD
@@ -170,16 +163,19 @@ struct MenuBarView: View {
                             // Content is scrolled if minX is less than 0
                             isScrolled = value < -5
                         }
-                        .onChange(of: viewModel.spaces) { newSpaces in
+                        .onChange(of: spaceStore.spaceIds) { newSpaceIds in
                             // Only auto-scroll when spaces are ADDED (not removed or focus changed)
                             // This ensures newly created spaces behind the notch become visible
                             // For removal, SwiftUI handles scroll position automatically
-                            let newCount = newSpaces.count
+                            let newCount = newSpaceIds.count
                             if newCount > previousSpaceCount {
                                 previousSpaceCount = newCount
-                                if let focusedSpace = newSpaces.first(where: { $0.focused }) {
+                                // Find the focused space from the store
+                                if let focusedSpaceId = newSpaceIds.first(where: { spaceId in
+                                    spaceStore.viewModel(for: spaceId)?.space.focused ?? false
+                                }) {
                                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                        scrollProxy.scrollTo(focusedSpace.id, anchor: .leading)
+                                        scrollProxy.scrollTo(focusedSpaceId, anchor: .leading)
                                     }
                                 }
                             } else {
@@ -188,7 +184,7 @@ struct MenuBarView: View {
                         }
                         .onAppear {
                             // Initialize the previous space count
-                            previousSpaceCount = viewModel.spaces.count
+                            previousSpaceCount = spaceStore.spaceIds.count
                         }
                     }
                     .offset(x: -(config.menuBarEdgePadding + config.spaceIndicatorSpacing + 32))  // Extend under button

@@ -35,7 +35,6 @@ class MenuBarCoordinator {
                 self?.yabaiService.focusSpace(index)
             },
             onWindowClick: { [weak self] windowId in
-                print("📍 MenuBarCoordinator: Requesting focus for window \(windowId)")
                 self?.yabaiService.focusWindow(windowId)
             },
             onSpaceDestroy: { [weak self] index in
@@ -50,17 +49,10 @@ class MenuBarCoordinator {
                 // Get the current space of the window before moving
                 let sourceSpaceIndex = self.yabaiService.getWindowSpace(windowId)
 
-                if shouldStack {
-                    print("📦 Drop: Stacking window \(windowId) with \(insertBeforeWindowId?.description ?? "unknown") in space \(targetSpaceIndex)")
-                } else {
-                    print("📦 Drop: Moving window \(windowId) to space \(targetSpaceIndex), insertBefore: \(insertBeforeWindowId?.description ?? "end")")
-                }
-
                 self.yabaiService.moveWindowToSpace(windowId, spaceIndex: targetSpaceIndex, insertBeforeWindowId: insertBeforeWindowId, shouldStack: shouldStack)
 
                 // If moving to a different space, follow the window
                 if let sourceSpace = sourceSpaceIndex, sourceSpace != targetSpaceIndex {
-                    print("🎯 Following window to space \(targetSpaceIndex)")
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                         self.yabaiService.focusSpace(targetSpaceIndex)
                     }

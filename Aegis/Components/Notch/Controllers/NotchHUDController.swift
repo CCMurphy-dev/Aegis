@@ -1125,7 +1125,7 @@ class NotchHUDController: ObservableObject {
         let totalWidth = leftSideWidth + notchDimensions.width + rightSideWidth
 
         // Update coordinator
-        menuBarViewModel?.hudLayoutCoordinator?.setModule(
+        menuBarViewModel?.sharedState.hudLayoutCoordinator?.setModule(
             type: .music,
             isVisible: isVisible,
             width: totalWidth
@@ -1141,7 +1141,7 @@ class NotchHUDController: ObservableObject {
         let totalWidth = sideWidth + notchDimensions.width + sideWidth
 
         // Update coordinator
-        menuBarViewModel?.hudLayoutCoordinator?.setModule(
+        menuBarViewModel?.sharedState.hudLayoutCoordinator?.setModule(
             type: isVolume ? .volume : .brightness,
             isVisible: isVisible,
             width: totalWidth
