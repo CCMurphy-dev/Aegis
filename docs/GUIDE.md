@@ -443,7 +443,7 @@ yabai --restart-service
 ### Performance issues
 
 1. Check Activity Monitor for high CPU usage
-2. Verify CVDisplayLink is not duplicated (should see ~60 callbacks/sec)
+2. Progress bar animation should use ~1-2% CPU when active, zero when idle
 3. Reduce max displayed icons in Settings if needed
 
 ### Logs

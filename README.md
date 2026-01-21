@@ -12,12 +12,24 @@ A macOS menu bar replacement for [Yabai](https://github.com/koekeishiya/yabai) w
 
 ## Features
 
+### Menu Bar
 - **Workspace indicators** - Visual space display with window icons, click to focus, drag to move
-- **Layout controls** - Rotate, flip, balance, stack windows via scroll wheel or menu
-- **Notch HUD** - Volume, brightness, now-playing media, Bluetooth devices, Focus mode, and system notifications with smooth animations
+- **Layout controls** - Rotate, flip, balance, stack windows via scroll wheel or context menu
 - **System status** - Battery, WiFi, Focus mode, clock in the menu bar
-- **Customizable** - Simple settings panel with advanced options
+- **Split-state architecture** - Optimized for minimal CPU usage (~95% reduction during focus changes)
+
+### Notch HUD
+- **Volume/Brightness** - Smooth progress bar animations with energy-efficient rendering
+- **Media HUD** - Album art with visualizer or track info (marquee scrolling for long titles)
+  - Works with all media sources: Music, Spotify, Safari, Chrome, Firefox, YouTube, etc.
+- **Bluetooth HUD** - Device connection/disconnection with battery ring indicator
+- **Focus Mode HUD** - Shows Focus mode icon and name when enabled/disabled
+- **Notification HUD** - Intercepts system notifications, click to open source app
+
+### Other
+- **Customizable** - Comprehensive settings panel for all UI elements
 - **Auto-updates** - Built-in update checking via Sparkle
+- **Energy efficient** - Timer-based animations auto-stop when idle
 
 ## Quick Start
 
@@ -64,6 +76,7 @@ This configures the FIFO pipe integration for instant space/window updates.
 - **[User Guide](docs/GUIDE.md)** - Full documentation, configuration, and troubleshooting
 - **[Changelog](CHANGELOG.md)** - Version history
 - **[Architecture](docs/ARCHITECTURE.md)** - Technical overview for developers
+- **[Roadmap](docs/ROADMAP.md)** - Completed features and future ideas
 
 ## License
 

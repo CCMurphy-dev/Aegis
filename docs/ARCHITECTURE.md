@@ -1,7 +1,7 @@
 # Aegis Architecture Overview
 
 **Last Updated**: January 2026
-**Version**: v1.0.1 (January 18, 2026)
+**Version**: v1.0.4 (January 21, 2026)
 
 ## Executive Summary
 
@@ -14,10 +14,11 @@ Aegis is a macOS menu bar application that integrates with Yabai window manager 
 ## Architecture Principles
 
 1. **Event-driven**: EventRouter pub/sub decouples services from UI
-2. **Persistent ViewModels**: ViewModels survive view rebuilds for smooth animations
-3. **Frame-locked animation**: CVDisplayLink for vsync-driven progress bars
+2. **Split-state architecture**: Per-space ViewModels minimize SwiftUI re-renders
+3. **Lightweight animation**: Timer-based interpolation for smooth progress bars
 4. **Window lifecycle**: Windows created once at startup, reused throughout session
 5. **Configuration-driven**: Centralized AegisConfig singleton for all customization
+6. **CALayer rendering**: GPU-accelerated AppKit views bypass SwiftUI overhead
 
 ---
 
@@ -126,12 +127,12 @@ Aegis/
 - **Purpose**: Monitor hardware state (volume, brightness, battery)
 - **Components**:
   - **Volume**: CoreAudio API for system volume and mute state
-  - **Brightness**: Private API via Objective-C helper (`Brightness/`)
+  - **Brightness**: Private DisplayServices API via Objective-C helper (`Brightness/`)
   - **Battery**: IOKit for battery level, charging state, time remaining
 
-- **Polling**:
-  - Volume: Event-driven (audio device property listener)
-  - Brightness: Polled every 0.5s
+- **Event Sources**:
+  - Volume: Event-driven (CoreAudio property listener)
+  - Brightness: Event-driven (DisplayServices callback registration)
   - Battery: Polled every 10s
 
 - **Events Published**: `.volumeChanged`, `.brightnessChanged`
@@ -152,18 +153,20 @@ Aegis/
 
 - **Events Published**: `.deviceConnected`, `.deviceDisconnected`
 
-#### MusicService.swift (303 lines)
-- **Purpose**: Integrate with Music.app for now-playing display
+#### MediaService.swift (280 lines)
+- **Purpose**: Monitor system-wide now-playing information from ALL media sources
 - **Capabilities**:
-  - Query current track (title, artist, album)
-  - Fetch album artwork asynchronously
+  - Query current track (title, artist, album) from any app
+  - Fetch album artwork (base64-encoded from MediaRemote)
   - Detect playback state (playing/paused)
   - Control playback (play, pause, next, previous)
+  - Works with Music, Spotify, Safari, Chrome, Firefox, YouTube, video players, etc.
 
 - **Implementation**:
-  - Uses `osascript` to query Music.app via AppleScript
-  - Polls every 2s when media HUD visible
-  - Fetches album art in background to avoid blocking
+  - Uses `mediaremote-adapter` (Perl script + MediaRemote framework)
+  - Event-driven via continuous JSON stream (not polling)
+  - 50ms debounce on stream to reduce CPU during rapid updates
+  - Album art cached per-track with LRU eviction (max 10 entries)
 
 - **Events Published**: `.mediaPlaybackChanged`
 
@@ -265,13 +268,18 @@ SpaceIndicatorView (UI)
 - Public interface used by `AppDelegate`
 
 #### MenuBarViewModel.swift
-- **State management** for menu bar UI
-- **Properties**:
-  - `@Published var spaces: [Space]`: List of workspaces
-  - `@Published var windowIconsBySpace: [Int: [WindowIcon]]`: Window icons per space
-  - `windowIconsVersion`: Trigger view updates
+- **State management** for menu bar UI using split-state architecture
+- **Components**:
+  - `SpaceViewModelStore`: Manages collection of per-space ViewModels
+  - `SharedMenuBarState`: Cross-space coordination (drag, expansion, HUD)
+  - Private caches for raw spaces, window icons, focused indices
 
-- **Fallback Polling**: Updates every 10s if Yabai events not working
+- **Split-State Architecture**:
+  - Each `SpaceViewModel` is observed only by its own `SpaceIndicatorView`
+  - Changes to one space don't trigger re-renders of other spaces
+  - Reduces CPU usage by ~95% during focus changes
+
+- **Fallback Polling**: Updates every 60s as safety net (event-driven is primary)
 - **Icon Management**: Async loading of app icons with caching
 
 #### MenuBarWindowController.swift
@@ -302,15 +310,22 @@ SpaceIndicatorView (UI)
   - Stack indicators: Badge count
 
 #### Supporting Views
-- **SpaceHeaderView.swift**: Space number display
-- **SpaceWindowsRow.swift**: Window icon grid layout
-- **WindowIconView.swift**: Individual window icon with badge
+- **SpaceIndicatorViewContainer.swift**: Isolates per-space re-renders via @ObservedObject
+- **AppKitActionButton.swift**: CALayer-based buttons (context menu, app launcher)
+  - GPU-accelerated rendering bypasses SwiftUI overhead
+  - Scroll throttling at 20fps max to reduce CPU
 - **SpaceStyleView.swift**: Visual styling helpers
+
+#### Split-State Components
+- **SpaceViewModel.swift**: Per-space observable state (space data, window icons, focus)
+- **SpaceViewModelStore.swift**: Manages SpaceViewModel lifecycle, routes updates
+- **SharedMenuBarState.swift**: Shared state for drag/expansion/HUD coordination
 
 #### Interaction Handlers
 - **SpaceDropController.swift**: Drag-drop delegate for moving windows
 - **SwipeableSpaceContainer.swift**: Swipe gesture for space destruction
 - **MenuBarInteractionMonitor.swift**: Track native macOS menu bar state
+- **SwipeDetectorView.swift**: Scroll event handling with 50ms throttle
 
 ---
 
@@ -392,23 +407,23 @@ NotificationHUDView (UI)
 
 - **Why Persistent**: Survives view rebuilds, prevents animation restarts
 
-#### ProgressBarAnimator.swift (94 lines)
-- **Frame-locked interpolation** for smooth progress bar
+#### ProgressBarAnimator.swift (142 lines)
+- **Lightweight timer-based interpolation** for smooth progress bar
 - **Implementation**:
-  - Uses `CVDisplayLink` for vsync-driven callbacks (60Hz)
-  - Callback runs on separate thread, dispatches to main thread
-  - Coalescing via `updatePending` flag (max 1 pending update)
-  - Exponential smoothing: `displayed += (target - displayed) * 0.35`
+  - Uses `DispatchSourceTimer` on main queue at 60fps (~16ms interval)
+  - Timer starts on-demand when animation needed, stops when settled
+  - Exponential ease-out: `displayed += (target - displayed) * 0.35`
+  - Auto-stops when within 0.5% of target to save energy
 
 - **API**:
   - `setTarget(_ value: Double)`: Update target (called from controller)
+  - `start()` / `stop()`: Called when HUD shows/hides
   - `@Published displayed: Double`: Actual displayed value (observed by view)
 
-- **Thread Safety**: NSLock protects `updatePending` flag
-
 - **Performance**:
-  - Immune to main thread congestion (CVDisplayLink not tied to runloop)
-  - Avoids SwiftUI re-render storm by bypassing ViewModel updates
+  - ~1-2% CPU during animation (vs 10-15% with CVDisplayLink)
+  - Zero CPU when animation settled (timer stops)
+  - Snap-to-target on first show after hide (no stale state)
 
 #### MinimalHUDWrapper.swift (160+ lines)
 - **UI view** for volume/brightness HUD
@@ -622,18 +637,20 @@ NotchHUDController.showVolume(level: 0.75)
     ↓
 overlayViewModel.progressAnimator.setTarget(0.75)  [BYPASS ViewModel]
     ↓
-CVDisplayLink ticks at 60Hz (vsync)
+DispatchSourceTimer ticks at 60fps (~16ms)
     ↓
 ProgressBarAnimator.tick() interpolates: displayed += (0.75 - displayed) * 0.35
     ↓
-@Published displayed updates (coalesced, max 1 pending)
+@Published displayed updates
     ↓
 MinimalHUDWrapper observes animator.displayed
     ↓
 SwiftUI re-renders progress bar with new width
+    ↓
+Timer auto-stops when displayed is within 0.5% of target
 ```
 
-**Key Optimization**: Controller directly updates animator target, bypassing ViewModel to avoid SwiftUI re-render storm during rapid input.
+**Key Optimization**: Controller directly updates animator target, bypassing ViewModel to avoid SwiftUI re-render storm during rapid input. Timer-based animation uses ~1-2% CPU vs 10-15% with CVDisplayLink.
 
 ### Space Change Flow
 ```
@@ -756,16 +773,18 @@ Auto-hide after 8s (or tap to open source app)
 
 ## Performance Optimizations
 
-### 1. Frame-Locked Animation (ProgressBarAnimator)
+### 1. Lightweight Timer-Based Animation (ProgressBarAnimator)
 **Problem**: SwiftUI animations lag during rapid input (15+ events/sec)
-**Solution**: CVDisplayLink provides vsync-driven interpolation independent of main thread
+**Solution**: DispatchSourceTimer provides smooth interpolation with minimal CPU overhead
 
 **Key Techniques**:
-- CVDisplayLink callback on separate thread
-- Coalescing with `updatePending` flag (max 1 main thread dispatch pending)
-- Exponential smoothing: `displayed += (target - displayed) * 0.35`
+- DispatchSourceTimer on main queue at 60fps (~16ms interval)
+- Timer starts on-demand when animation needed, auto-stops when settled
+- Exponential ease-out: `displayed += (target - displayed) * 0.35`
+- Auto-stops when within 0.5% of target (zero CPU when idle)
 - Bypass ViewModel updates during rapid input (only update animator target)
 - Disable SwiftUI animation (`.animation(nil)`)
+- ~1-2% CPU during animation vs 10-15% with CVDisplayLink
 
 ### 2. Window Lifecycle Management
 **Problem**: Creating windows during interaction causes stutters
@@ -785,7 +804,7 @@ Auto-hide after 8s (or tap to open source app)
 - FIFO pipe monitoring in background thread
 - EventRouter decouples services from UI (no direct dependencies)
 - All handler calls dispatched to main thread for UI updates
-- Fallback polling every 10s if pipe not available
+- Fallback polling every 60s if pipe not available
 
 ### 4. Persistent ViewModels
 **Problem**: View rebuilds restart animations
@@ -895,8 +914,8 @@ Component/
 - **Communication**: MediaRemote framework via mediaremote-adapter
 - **Sources**: Music.app, Spotify, Safari, Chrome, Firefox, YouTube, video players, etc.
 - **Queries**: Current track (title, artist, album), playback state, bundle identifier
-- **Artwork**: Fetched asynchronously, cached per-track
-- **Polling**: Continuous stream via mediaremote-adapter
+- **Artwork**: Fetched asynchronously, cached per-track (LRU, max 10 entries)
+- **Event-driven**: Continuous JSON stream via mediaremote-adapter (50ms debounce)
 
 ### System APIs
 - **CoreAudio**: Volume level and mute state (event-driven)
@@ -970,29 +989,29 @@ func showBrightness(level: Float) {
 }
 ```
 
-### Frame-Locked Interpolation
+### Lightweight Timer Interpolation
 ```swift
-// CVDisplayLink callback (separate thread)
-CVDisplayLinkSetOutputCallback(displayLink, { (_, _, _, _, _, userInfo) -> CVReturn in
-    let animator = Unmanaged<ProgressBarAnimator>.fromOpaque(userInfo!).takeUnretainedValue()
-
-    // Coalesce updates (max 1 pending)
-    animator.lock.lock()
-    let shouldUpdate = !animator.updatePending
-    if shouldUpdate { animator.updatePending = true }
-    animator.lock.unlock()
-
-    if shouldUpdate {
-        DispatchQueue.main.async {
-            animator.tick()  // Interpolate: displayed += (target - displayed) * 0.35
-            animator.lock.lock()
-            animator.updatePending = false
-            animator.lock.unlock()
-        }
+// DispatchSourceTimer for smooth progress bar animation
+private func startTimer() {
+    let timer = DispatchSource.makeTimerSource(queue: .main)
+    timer.schedule(deadline: .now(), repeating: .milliseconds(16))  // ~60fps
+    timer.setEventHandler { [weak self] in
+        self?.tick()
     }
+    timer.resume()
+    self.timer = timer
+}
 
-    return kCVReturnSuccess
-}, Unmanaged.passUnretained(self).toOpaque())
+private func tick() {
+    let delta = target - displayed
+    if abs(delta) < snapThreshold {
+        displayed = target
+        stopTimer()  // Auto-stop when settled
+        return
+    }
+    // Exponential ease-out
+    displayed += delta * interpolationSpeed  // 0.35
+}
 ```
 
 ### Window Preparation (Prevent First-Show Jank)
@@ -1043,7 +1062,7 @@ func prepareWindows() {
 | `SpaceIndicatorView.swift` | Workspace UI display | 776 |
 | `NotchHUDController.swift` | Notch HUD window management, Yabai app focus | 350 |
 | `NotchHUDViewModel.swift` | HUD state management, overlay counter | 150 |
-| `ProgressBarAnimator.swift` | Frame-locked interpolation | 455 |
+| `ProgressBarAnimator.swift` | Lightweight timer interpolation | 142 |
 | `HUDShapes.swift` | Shared panel shapes for all HUDs | 100 |
 | `MinimalHUDWrapper.swift` | Volume/brightness UI | 255 |
 | `MediaHUDView.swift` | Now Playing UI | 800+ |
