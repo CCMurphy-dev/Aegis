@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-01-21
+
+### Changed
+- Progress bar animation rewritten for energy efficiency
+  - Replaced CVDisplayLink with lightweight DispatchSourceTimer
+  - ~1-2% CPU during animation (down from 10-15%)
+  - Auto-stops when animation settles (zero idle CPU)
+  - Exponential ease-out interpolation for smooth visuals
+- Documentation updated for current implementation
+  - ARCHITECTURE.md: Updated for timer-based animation, event-driven services
+  - GUIDE.md: Updated performance troubleshooting
+  - ROADMAP.md: Added completed features list
+  - README.md: Reorganized features section
+
 ## [1.0.3] - 2026-01-20
 
 ### Added
