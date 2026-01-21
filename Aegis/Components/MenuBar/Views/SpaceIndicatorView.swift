@@ -20,7 +20,6 @@ struct SpaceIndicatorView: View {
     @State private var showOverflowMenu = false
     @State private var autoCollapseTask: Task<Void, Never>?
     @State private var isDraggingOver = false  // True when actively dragging over this space
-    @State private var isHovered = false  // True when mouse is over this space indicator
 
     private let config = AegisConfig.shared
 
@@ -165,36 +164,54 @@ struct SpaceIndicatorView: View {
         }
     }
 
+    // Pre-compute dot position to avoid recalculation in view body
+    private var dotXPosition: CGFloat {
+        guard let idx = focusedIndex else { return 0 }
+        // Starting position: left padding + space number + spacing after space number
+        var xPosition: CGFloat = 8 + 16 + 6
+
+        // Add width of all icons before the focused one
+        for i in 0..<idx {
+            xPosition += 22  // Icon width
+            xPosition += 6   // Spacing in icon's HStack
+
+            // If this icon is expanded, add the title width
+            if i < windowIcons.count && expandedWindowId == windowIcons[i].id {
+                xPosition += windowIcons[i].expandedWidth
+            }
+
+            xPosition += 6  // Spacing after this icon
+        }
+
+        // Center on the focused icon: half icon width
+        xPosition += 11
+        return xPosition
+    }
+
     private var spaceContentWithModifiers: some View {
         spaceContent
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(backgroundColor)
+                    .fill(isActive ? Color.white.opacity(0.18) : Color.white.opacity(0.12))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(isActive ? Color.white.opacity(0.18) : .clear, lineWidth: 1)
             )
             .overlay(alignment: .bottomLeading) {
-                // Focus indicator dot at bottom edge - use bottomLeading alignment to avoid GeometryReader
-                // focusedIndex is pre-computed by ViewModel to avoid O(N) search on every render
-                let xPosition = focusedIndex != nil ? calculateDotPosition(for: focusedIndex!) : 0
-
+                // Focus indicator dot at bottom edge
                 Circle()
                     .fill(Color.white)
                     .frame(width: 3, height: 3)
-                    .offset(x: xPosition - 1.5, y: 1.5)  // Offset down slightly to sit on bottom edge
+                    .offset(x: dotXPosition - 1.5, y: 1.5)
                     .opacity(focusedIndex != nil ? 1 : 0)
-                    .animation(.smooth(duration: 0.3), value: xPosition)
                     .allowsHitTesting(false)
             }
-            .scaleEffect(isHovered ? 1.02 : 1.0)
             .shadow(color: isActive ? .white.opacity(0.12) : .clear, radius: 6)
-            .animation(.smooth(duration: 0.25), value: isActive)
-            .animation(.smooth(duration: 0.15), value: isHovered)
-            .onHover { isHovered = $0 }
+            // Single animation for isActive changes only - removed hover animation to reduce CPU
+            .animation(.easeOut(duration: 0.15), value: isActive)
         // Add invisible padding to expand drop zone
         // Use asymmetric padding: no top padding to maintain alignment, bottom padding for drop zone
         .padding(.horizontal, 4)
@@ -242,31 +259,6 @@ struct SpaceIndicatorView: View {
         return true
     }
 
-    // MARK: - Helper Functions
-
-    private func calculateDotPosition(for focusedIndex: Int) -> CGFloat {
-        // Starting position: left padding + space number + spacing after space number
-        var xPosition: CGFloat = 8 + 16 + 6
-
-        // Add width of all icons before the focused one
-        for i in 0..<focusedIndex {
-            xPosition += 22  // Icon width
-            xPosition += 6   // Spacing in icon's HStack (always present between icon and title area)
-
-            // If this icon is expanded, add the title width (use pre-computed)
-            if expandedWindowId == windowIcons[i].id {
-                xPosition += windowIcons[i].expandedWidth
-            }
-
-            xPosition += 6  // Spacing after this icon (from parent HStack)
-        }
-
-        // Center on the focused icon: half icon width
-        xPosition += 11
-
-        return xPosition
-    }
-
     // MARK: - Expansion Logic
 
     private func toggleExpansion(for icon: WindowIcon) {
@@ -294,17 +286,6 @@ struct SpaceIndicatorView: View {
 
         // No auto-collapse - expansion stays until user right-clicks again to toggle off
         // or right-clicks a different icon (which will collapse this one)
-    }
-
-
-    private var backgroundColor: Color {
-        if isActive {
-            return Color.white.opacity(0.18)
-        } else if isHovered {
-            return Color.white.opacity(0.15)
-        } else {
-            return Color.white.opacity(0.12)
-        }
     }
 }
 
@@ -410,16 +391,8 @@ final class ClickableIconView: NSView {
     var isHovered = false {
         didSet {
             guard isHovered != oldValue else { return }
-            cachedImage = nil
-            needsDisplay = true
-            // Animate scale on hover
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.2
-                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                self.layer?.transform = isHovered
-                    ? CATransform3DMakeScale(1.1, 1.1, 1.0)
-                    : CATransform3DIdentity
-            }
+            // Use layer opacity for hover - much cheaper than redrawing
+            layer?.opacity = isHovered ? 1.0 : 0.85
         }
     }
     var isMinimized = false {
@@ -453,14 +426,14 @@ final class ClickableIconView: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
-        layer?.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        layer?.opacity = 0.85  // Default non-hovered opacity
         registerForDraggedTypes([.string])
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         wantsLayer = true
-        layer?.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        layer?.opacity = 0.85
         registerForDraggedTypes([.string])
     }
 
@@ -481,11 +454,11 @@ final class ClickableIconView: NSView {
     }
 
     override func mouseEntered(with event: NSEvent) {
-        isHovered = true  // Handled directly in AppKit, no SwiftUI round-trip
+        isHovered = true
     }
 
     override func mouseExited(with event: NSEvent) {
-        isHovered = false  // Handled directly in AppKit, no SwiftUI round-trip
+        isHovered = false
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -495,20 +468,16 @@ final class ClickableIconView: NSView {
     override func mouseDragged(with event: NSEvent) {
         guard let startLocation = dragStartLocation else { return }
 
-        // Calculate drag distance
         let currentLocation = event.locationInWindow
         let dragDistance = hypot(currentLocation.x - startLocation.x, currentLocation.y - startLocation.y)
 
-        // Only start drag if moved more than 3 pixels (avoids accidental drags)
         guard dragDistance > 3, let icon = icon else { return }
 
-        // Notify that drag started
         if !isDragging {
             isDragging = true
             onDragStarted?()
         }
 
-        // Create dragging item with window ID
         let pasteboardItem = NSPasteboardItem()
         pasteboardItem.setString("\(windowId)", forType: .string)
 
@@ -520,7 +489,6 @@ final class ClickableIconView: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
-        // If we didn't drag, treat as click
         if let startLocation = dragStartLocation {
             let currentLocation = event.locationInWindow
             let distance = hypot(currentLocation.x - startLocation.x, currentLocation.y - startLocation.y)
@@ -529,9 +497,6 @@ final class ClickableIconView: NSView {
                 onLeftClick?()
             }
         }
-
-        // Don't call onDragEnded here - it will be called in draggingSession:endedAt:
-        // Only reset local state
         dragStartLocation = nil
     }
 
@@ -543,60 +508,32 @@ final class ClickableIconView: NSView {
         super.draw(dirtyRect)
         guard let icon = icon else { return }
 
-        // Use cached image if available and bounds haven't changed
+        // Use cached image if available
         if let cached = cachedImage, cachedBounds == bounds {
             cached.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1.0)
             return
         }
 
-        // Render to cached image
-        let rendered = NSImage(size: bounds.size)
-        rendered.lockFocus()
-
-        // Draw hover glow background
-        if isHovered {
-            // Draw outer glow
-            let glowRect = NSRect(x: -2, y: -2, width: bounds.width + 4, height: bounds.height + 4)
-            let glowPath = NSBezierPath(roundedRect: glowRect, xRadius: 7, yRadius: 7)
-            NSColor.white.withAlphaComponent(0.15).setFill()
-            glowPath.fill()
-
-            // Draw inner background
-            let bgPath = NSBezierPath(roundedRect: NSRect(origin: .zero, size: bounds.size), xRadius: 5, yRadius: 5)
-            NSColor.white.withAlphaComponent(0.2).setFill()
-            bgPath.fill()
-
-            // Set shadow for icon
-            let shadow = NSShadow()
-            shadow.shadowColor = NSColor.white.withAlphaComponent(0.5)
-            shadow.shadowBlurRadius = 6
-            shadow.shadowOffset = NSSize(width: 0, height: 0)
-            shadow.set()
-        }
-
-        // Calculate opacity based on window state
-        let baseOpacity: CGFloat = isHovered ? 1.0 : 0.85
+        // Calculate opacity based on window state (minimized/hidden)
         let stateOpacity: CGFloat = (isMinimized || isWindowHidden) ? 0.5 : 1.0
-        let finalOpacity = baseOpacity * stateOpacity
 
-        // Draw icon with reduced opacity for minimized/hidden windows
+        // Simple icon draw - no expensive glow/shadow effects
         icon.draw(
-            in: NSRect(origin: .zero, size: bounds.size),
+            in: bounds,
             from: .zero,
             operation: .sourceOver,
-            fraction: finalOpacity
+            fraction: stateOpacity
         )
 
+        // Cache for next draw
+        let rendered = NSImage(size: bounds.size)
+        rendered.lockFocus()
+        icon.draw(in: NSRect(origin: .zero, size: bounds.size), from: .zero, operation: .sourceOver, fraction: stateOpacity)
         rendered.unlockFocus()
 
-        // Cache the rendered image
         cachedImage = rendered
         cachedBounds = bounds
-
-        // Draw the cached image
-        rendered.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1.0)
     }
-
 }
 
 // MARK: - Dragging Source
