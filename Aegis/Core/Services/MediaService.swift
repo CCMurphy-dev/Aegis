@@ -67,7 +67,7 @@ class MediaService {
         // Set up process to run perl script
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
-        process.arguments = [scriptURL.path, frameworkPath, "stream", "--no-diff"]
+        process.arguments = [scriptURL.path, frameworkPath, "stream", "--no-diff", "--debounce=50"]
 
         let pipe = Pipe()
         process.standardOutput = pipe

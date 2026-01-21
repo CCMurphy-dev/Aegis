@@ -1,6 +1,6 @@
 import AppKit
 import SwiftUI
-import Combine
+import Combine  // Required for @Published property wrapper
 
 /// Custom NSPanel subclass that can become key to receive mouse clicks
 /// while still being a non-activating panel (won't steal app focus)
@@ -11,10 +11,49 @@ class ClickablePanel: NSPanel {
 
 /// Window controller for the app switcher overlay
 /// Displays windows organized by space in a centered panel
+/// Transparent overlay view that renders the selection highlight via CALayer
+class SelectionOverlayView: NSView {
+    let selectionLayer = CALayer()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.addSublayer(selectionLayer)
+
+        selectionLayer.backgroundColor = NSColor.white.withAlphaComponent(0.15).cgColor
+        selectionLayer.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
+        selectionLayer.borderWidth = 1
+        selectionLayer.cornerRadius = 6
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    // Pass through all mouse events to underlying views
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        return nil
+    }
+}
+
 final class AppSwitcherWindowController {
 
     private var window: NSWindow?
     private var viewModel = AppSwitcherViewModel()
+
+    // Selection overlay view with CALayer - positioned on top of SwiftUI content
+    private var selectionOverlay: SelectionOverlayView?
+    private var hostingView: NSHostingView<AppSwitcherView>?
+
+    // Layout constants for calculating selection position
+    private let rowHeight: CGFloat = 32
+    private let padding: CGFloat = 12
+    private let dividerHeight: CGFloat = 13
+    private let searchBarHeight: CGFloat = 28 + 8  // height + padding
+
+    // Rapid scroll detection - disable animation during fast input
+    private var lastUpdateTime: CFTimeInterval = 0
+    private let rapidScrollThreshold: CFTimeInterval = 0.15  // If updates < 150ms apart, skip animation
 
     /// Callback when selection changes via mouse hover
     var onSelectionChanged: ((Int) -> Void)?
@@ -58,10 +97,35 @@ final class AppSwitcherWindowController {
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
         window.becomesKeyOnlyIfNeeded = true
 
-        let hostingView = NSHostingView(rootView: AppSwitcherView(viewModel: viewModel))
-        hostingView.translatesAutoresizingMaskIntoConstraints = false
+        // Create container view to hold both SwiftUI content and selection overlay
+        let containerView = NSView()
+        containerView.wantsLayer = true
 
-        window.contentView = hostingView
+        let hosting = NSHostingView(rootView: AppSwitcherView(viewModel: viewModel))
+        hosting.translatesAutoresizingMaskIntoConstraints = false
+
+        let overlay = SelectionOverlayView()
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+
+        containerView.addSubview(hosting)
+        containerView.addSubview(overlay)  // Overlay on top
+
+        // Constrain both to fill container
+        NSLayoutConstraint.activate([
+            hosting.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            hosting.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            hosting.topAnchor.constraint(equalTo: containerView.topAnchor),
+            hosting.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
+
+            overlay.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            overlay.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            overlay.topAnchor.constraint(equalTo: containerView.topAnchor),
+            overlay.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
+        ])
+
+        window.contentView = containerView
+        self.hostingView = hosting
+        self.selectionOverlay = overlay
         self.window = window
     }
 
@@ -71,7 +135,8 @@ final class AppSwitcherWindowController {
         viewModel.searchQuery = searchQuery
         viewModel.spaceGroups = spaceGroups
         viewModel.allWindows = allWindows
-        viewModel.selectedIndex = selectedIndex
+        viewModel.updateWindowIndexMap()  // Pre-compute once when windows change
+        viewModel.setSelectedIndex(selectedIndex)
         viewModel.resetMouseTracking()
 
         // Calculate window size based on content
@@ -99,6 +164,11 @@ final class AppSwitcherWindowController {
 
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: false)  // Don't steal focus from current app
+
+        // Update selection position after view is laid out
+        DispatchQueue.main.async { [weak self] in
+            self?.updateSelectionPosition(selectedIndex, animated: false)
+        }
     }
 
     private func calculateHeight(for groups: [SpaceGroup], hasSearchQuery: Bool) -> CGFloat {
@@ -125,7 +195,65 @@ final class AppSwitcherWindowController {
     }
 
     func update(selectedIndex: Int) {
-        viewModel.selectedIndex = selectedIndex
+        viewModel.setSelectedIndex(selectedIndex)
+
+        // Detect rapid scrolling - skip animation if updates are too fast
+        let now = CACurrentMediaTime()
+        let isRapidScroll = (now - lastUpdateTime) < rapidScrollThreshold
+        lastUpdateTime = now
+
+        updateSelectionPosition(selectedIndex, animated: !isRapidScroll)
+    }
+
+    /// Update selection highlight position via CALayer (no SwiftUI involvement)
+    private func updateSelectionPosition(_ index: Int, animated: Bool) {
+        guard let overlay = selectionOverlay, let hostingView = hostingView else { return }
+        let layer = overlay.selectionLayer
+
+        // Calculate Y position for the selected row
+        let viewHeight = hostingView.bounds.height
+        var y = padding  // Start from top padding
+
+        // Account for search bar if visible
+        if !viewModel.searchQuery.isEmpty {
+            y += searchBarHeight
+        }
+
+        // Find the row position
+        var currentIndex = 0
+        for (groupIndex, group) in viewModel.spaceGroups.enumerated() {
+            for _ in group.windows {
+                if currentIndex == index {
+                    // Found our row - calculate frame
+                    // Note: CALayer uses bottom-left origin, SwiftUI uses top-left
+                    let rowY = viewHeight - y - rowHeight
+
+                    let rowFrame = CGRect(
+                        x: padding + 20 + 8,  // padding + space number width + spacing
+                        y: rowY,
+                        width: hostingView.bounds.width - padding * 2 - 20 - 8,
+                        height: rowHeight
+                    )
+
+                    CATransaction.begin()
+                    if animated {
+                        CATransaction.setAnimationDuration(0.1)
+                        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeInEaseOut))
+                    } else {
+                        CATransaction.setDisableActions(true)
+                    }
+                    layer.frame = rowFrame
+                    CATransaction.commit()
+                    return
+                }
+                y += rowHeight
+                currentIndex += 1
+            }
+            // Account for divider between groups
+            if groupIndex < viewModel.spaceGroups.count - 1 {
+                y += dividerHeight
+            }
+        }
     }
 
     func hide() {
@@ -144,13 +272,29 @@ final class AppSwitcherWindowController {
 class AppSwitcherViewModel: ObservableObject {
     @Published var spaceGroups: [SpaceGroup] = []
     @Published var allWindows: [SwitcherWindow] = []
-    @Published var selectedIndex: Int = 0
     @Published var isVisible: Bool = false
     @Published var searchQuery: String = ""
+
+    // Selection is NOT @Published - managed via direct CALayer updates
+    private(set) var selectedIndex: Int = 0
+
+    // Pre-computed window ID to index map - updated when allWindows changes
+    // Avoids O(N) dictionary creation on every render
+    private(set) var windowIndexMap: [Int: Int] = [:]
 
     private var mouseHasMovedInside: Bool = false
     private var initialHoverIndex: Int? = nil
     private var lastHoveredIndex: Int? = nil
+
+    /// Update selection index (called from controller, updates CALayer directly)
+    func setSelectedIndex(_ index: Int) {
+        selectedIndex = index
+    }
+
+    /// Update window index map when windows change
+    func updateWindowIndexMap() {
+        windowIndexMap = Dictionary(uniqueKeysWithValues: allWindows.enumerated().map { ($1.id, $0) })
+    }
 
     /// Callback when user hovers over a window row
     var onHover: ((Int) -> Void)?
@@ -195,11 +339,11 @@ class AppSwitcherViewModel: ObservableObject {
 struct AppSwitcherView: View {
     @ObservedObject var viewModel: AppSwitcherViewModel
 
-    // Row height for mouse position calculation
+    // Row height for mouse position calculation - must match controller constants
     private let rowHeight: CGFloat = 32
     private let padding: CGFloat = 12
     private let dividerHeight: CGFloat = 13
-    private let searchBarHeight: CGFloat = 28
+    private let searchBarHeight: CGFloat = 28 + 8  // height (28) + padding (8)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -209,12 +353,11 @@ struct AppSwitcherView: View {
                     .padding(.bottom, 8)
             }
 
-            // Window list
+            // Window list - selection highlight rendered via CALayer overlay
             ForEach(Array(viewModel.spaceGroups.enumerated()), id: \.element.id) { index, group in
                 SpaceGroupView(
                     group: group,
-                    allWindows: viewModel.allWindows,
-                    selectedIndex: viewModel.selectedIndex,
+                    windowIndexMap: viewModel.windowIndexMap,
                     isLast: index == viewModel.spaceGroups.count - 1
                 )
             }
@@ -271,7 +414,7 @@ struct AppSwitcherView: View {
 
         // Account for search bar if visible
         if !viewModel.searchQuery.isEmpty {
-            y -= searchBarHeight + 8  // height + padding
+            y -= searchBarHeight
         }
 
         var windowIndex = 0
@@ -333,11 +476,16 @@ class MouseTrackingNSView: NSView {
     // Timestamp when the view became active - used to ignore residual scroll momentum
     private var activationTime: Date = Date()
 
+    // Throttle scroll events to reduce CPU usage
+    private var lastScrollTime: CFTimeInterval = 0
+    private let scrollThrottleInterval: CFTimeInterval = 0.05  // ~20fps max
+
     /// Reset scroll state when the switcher appears
     /// Call this when showing the app switcher to prevent residual scroll from previous context
     func resetScrollState() {
         scrollAccumulator = 0
         activationTime = Date()
+        lastScrollTime = 0
     }
 
     override func updateTrackingAreas() {
@@ -392,6 +540,15 @@ class MouseTrackingNSView: NSView {
         // Use deltaY for trackpad (same as menu bar scroll behavior)
         let delta = event.deltaY
 
+        // Throttle scroll event processing to reduce CPU usage
+        let now = CACurrentMediaTime()
+        guard now - lastScrollTime >= scrollThrottleInterval else {
+            // Still accumulate delta even when throttled
+            scrollAccumulator += delta
+            return
+        }
+        lastScrollTime = now
+
         // Accumulate scroll delta
         scrollAccumulator += delta
 
@@ -423,8 +580,7 @@ class MouseTrackingNSView: NSView {
 
 struct SpaceGroupView: View {
     let group: SpaceGroup
-    let allWindows: [SwitcherWindow]
-    let selectedIndex: Int
+    let windowIndexMap: [Int: Int]  // Pre-computed: window.id -> global index
     let isLast: Bool
 
     var body: some View {
@@ -447,17 +603,11 @@ struct SpaceGroupView: View {
                         .offset(x: 12)
                 }
 
-                // Windows column
+                // Windows column - selection highlight is rendered via CALayer overlay
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(group.windows) { window in
-                        let globalIndex = allWindows.firstIndex(where: { $0.id == window.id }) ?? 0
-                        let isSelected = globalIndex == selectedIndex
-
-                        WindowRowView(
-                            window: window,
-                            isSelected: isSelected,
-                            index: globalIndex
-                        )
+                        let globalIndex = windowIndexMap[window.id] ?? 0
+                        WindowRowView(window: window, index: globalIndex)
                     }
                 }
             }
@@ -505,7 +655,6 @@ struct SearchBarView: View {
 
 struct WindowRowView: View {
     let window: SwitcherWindow
-    let isSelected: Bool
     let index: Int
 
     var body: some View {
@@ -557,15 +706,7 @@ struct WindowRowView: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(isSelected ? Color.white.opacity(0.15) : Color.clear)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .strokeBorder(isSelected ? Color.white.opacity(0.2) : Color.clear, lineWidth: 1)
-        )
+        // Selection highlight is rendered via CALayer overlay - no SwiftUI involvement
         .contentShape(Rectangle())
-        .animation(.easeInOut(duration: 0.1), value: isSelected)
     }
 }

@@ -529,15 +529,7 @@ final class ClickableIconView: NSView {
         // Calculate opacity based on window state (minimized/hidden)
         let stateOpacity: CGFloat = (isMinimized || isWindowHidden) ? 0.5 : 1.0
 
-        // Simple icon draw - no expensive glow/shadow effects
-        icon.draw(
-            in: bounds,
-            from: .zero,
-            operation: .sourceOver,
-            fraction: stateOpacity
-        )
-
-        // Cache for next draw
+        // Render once to cache, then draw from cache
         let rendered = NSImage(size: bounds.size)
         rendered.lockFocus()
         icon.draw(in: NSRect(origin: .zero, size: bounds.size), from: .zero, operation: .sourceOver, fraction: stateOpacity)
@@ -545,6 +537,9 @@ final class ClickableIconView: NSView {
 
         cachedImage = rendered
         cachedBounds = bounds
+
+        // Draw from the freshly cached image
+        rendered.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1.0)
     }
 }
 
@@ -629,6 +624,10 @@ class SwipeDetectorView: NSView {
     private var scrollAccumulator: CGFloat = 0
     private var eventMonitor: Any?
 
+    // Throttle scroll event processing to reduce CPU usage
+    private var lastScrollEventTime: CFTimeInterval = 0
+    private let scrollEventThrottle: CFTimeInterval = 0.05  // ~20fps max
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         setupEventMonitor()
@@ -642,7 +641,14 @@ class SwipeDetectorView: NSView {
     private func setupEventMonitor() {
         // Use local event monitor to capture scroll events even when hit testing is disabled
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
-            guard let self = self, let window = self.window else { return event }
+            guard let self = self, let _ = self.window else { return event }
+
+            // Throttle at monitor level to reduce CPU overhead
+            let now = CACurrentMediaTime()
+            guard now - self.lastScrollEventTime >= self.scrollEventThrottle else {
+                return event
+            }
+            self.lastScrollEventTime = now
 
             // Check if the event is within our bounds
             let locationInWindow = event.locationInWindow

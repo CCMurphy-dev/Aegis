@@ -254,6 +254,13 @@ struct MediaHUDView: View {
         .onReceive(NotificationCenter.default.publisher(for: .mediaHUDToggleDisplay)) { _ in
             toggleTrackInfoDisplay()
         }
+        .onDisappear {
+            // Clean up timers when view disappears to prevent leaks
+            trackInfoTimer?.invalidate()
+            trackInfoTimer = nil
+            collapseTimer?.invalidate()
+            collapseTimer = nil
+        }
     }
 
     /// Toggle between visualizer and track info display (user-initiated)

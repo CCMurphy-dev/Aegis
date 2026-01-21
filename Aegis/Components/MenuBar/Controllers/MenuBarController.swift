@@ -67,7 +67,6 @@ struct MenuBarView: View {
     private let config = AegisConfig.shared
     @State private var scrollOffset: CGFloat = 0
     @State private var isScrolled: Bool = false
-    @State private var buttonLabelShowing: Bool = false
     @State private var previousSpaceCount: Int = 0
 
     init(
@@ -110,11 +109,10 @@ struct MenuBarView: View {
             GeometryReader { geometry in
                 ZStack(alignment: .topLeading) {
                     HStack(alignment: .top, spacing: 0) {
-                        // Dynamic spacer that grows when button label is shown
+                        // Fixed spacer - AppKit button handles its own expansion via layers
                         // Width = edge padding + layout button (32) + spacing (6) + finder button (32) + spacing to spaces
                         Spacer()
-                            .frame(width: config.menuBarEdgePadding + 32 + 6 + 32 + config.spaceIndicatorSpacing + (buttonLabelShowing ? 95 : 0))
-                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: buttonLabelShowing)
+                            .frame(width: config.menuBarEdgePadding + 32 + 6 + 32 + config.spaceIndicatorSpacing)
 
                         // Spaces (with scrolling if needed)
                         ZStack(alignment: .topLeading) {
@@ -229,8 +227,9 @@ struct MenuBarView: View {
                     .frame(height: config.menuBarHeight, alignment: .center)
 
                     // Buttons on top layer to ensure they're interactive
+                    // Using pure AppKit buttons to bypass SwiftUI during scroll for minimal CPU
                     HStack(spacing: 6) {
-                        LayoutActionsButton(
+                        AppKitLayoutActionsButtonWrapper(
                             viewModel: viewModel,
                             onRotate: onRotateLayout,
                             onFlip: onFlipLayout,
@@ -238,11 +237,14 @@ struct MenuBarView: View {
                             onToggleLayout: onToggleLayout,
                             onStackAllWindows: onStackAllWindows,
                             onSpaceCreate: onSpaceCreate,
-                            onSpaceDestroy: onSpaceDestroy,
-                            labelShowing: $buttonLabelShowing
+                            onSpaceDestroy: onSpaceDestroy
                         )
+                        // Fixed 32px frame - label expansion happens via CALayer overlay
+                        // without affecting SwiftUI layout
+                        .frame(width: 32, height: 26)
 
-                        AppLauncherButton(onToggleApp: onToggleApp, apps: FloatingApp.appsFromConfig())
+                        AppKitAppLauncherButtonWrapper(apps: FloatingApp.appsFromConfig(), onToggleApp: onToggleApp)
+                            .frame(width: 32, height: 26)
 
                         Spacer()
                     }
@@ -476,7 +478,8 @@ struct AppLauncherScrollSelector: NSViewRepresentable {
         var pendingIndex: Int?
         var updateWorkItem: DispatchWorkItem?
 
-        let scrollThreshold: CGFloat = 5
+        // Higher threshold = less sensitive, fewer SwiftUI updates
+        let scrollThreshold: CGFloat = 8  // Increased from 5
 
         private let config = AegisConfig.shared
 
@@ -517,7 +520,8 @@ struct AppLauncherScrollSelector: NSViewRepresentable {
                         }
                     }
                     updateWorkItem = workItem
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.016, execute: workItem)
+                    // 33ms debounce (30fps max) batches rapid scroll events
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.033, execute: workItem)
                 }
 
                 scrollAccumulator = 0
@@ -567,9 +571,9 @@ class AppLauncherScrollView: NSView {
             return
         }
 
-        // Use deltaY (normalized) not scrollingDeltaY (pixel-based) to match LayoutActionsButton sensitivity
         let delta = event.deltaY
-        if abs(delta) > 0.1 {
+        // Higher threshold reduces callback frequency - filters tiny scroll movements
+        if abs(delta) > 0.5 {
             onScrollChange?(delta)
         }
     }
@@ -658,20 +662,18 @@ struct LayoutActionsButton: View {
                 .opacity((isHovered || showActionLabel) ? 1.0 : 0.0)
         )
         .scaleEffect(isHovered ? 1.02 : 1.0)
-        // Use simpler easeOut animation - less CPU than spring
+        // Consolidated animation - simpler easeOut for both hover and label expansion
         .animation(.easeOut(duration: 0.15), value: isHovered)
-        // Match spacer animation timing for synchronized expansion
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showActionLabel)
-        // No animation on selectedActionIndex - it changes rapidly during scroll
+        .animation(.easeOut(duration: 0.2), value: showActionLabel)
+        // GeometryReader only runs once on appear, not on every update
         .background(
-            // Use GeometryReader to capture frame for menu positioning
             GeometryReader { geo in
-                Color.clear.preference(key: ButtonFramePreferenceKey.self, value: geo.frame(in: .global))
+                Color.clear
+                    .onAppear {
+                        self.buttonFrame = geo.frame(in: .global)
+                    }
             }
         )
-        .onPreferenceChange(ButtonFramePreferenceKey.self) { frame in
-            self.buttonFrame = frame
-        }
         .overlay(
             // Scroll detector overlay on top to capture events
             ScrollableActionSelector(
@@ -1351,8 +1353,12 @@ struct ScrollableActionSelector: NSViewRepresentable {
         var pendingIndex: Int?
         var updateWorkItem: DispatchWorkItem?
 
+        // Debounce label show to avoid rapid SwiftUI updates
+        var labelShowWorkItem: DispatchWorkItem?
+        var labelShowPending: Bool = false
+
         // Higher threshold = less sensitive, fewer SwiftUI updates
-        let scrollThreshold: CGFloat = 8
+        let scrollThreshold: CGFloat = 10  // Increased from 8
 
         private let config = AegisConfig.shared
 
@@ -1365,14 +1371,25 @@ struct ScrollableActionSelector: NSViewRepresentable {
         }
 
         func handleScroll(delta: CGFloat) {
-            // Show label while scrolling (if enabled)
-            if config.expandContextButtonOnScroll {
-                hideWorkItem?.cancel()
-                if !isLabelShowing {
-                    isLabelShowing = true
-                    showLabel.wrappedValue = true
+            // Show label while scrolling (if enabled) - debounced to prevent rapid updates
+            if config.expandContextButtonOnScroll && !isLabelShowing && !labelShowPending {
+                labelShowPending = true
+                labelShowWorkItem?.cancel()
+                let workItem = DispatchWorkItem { [weak self] in
+                    guard let self = self else { return }
+                    if !self.isLabelShowing {
+                        self.isLabelShowing = true
+                        self.showLabel.wrappedValue = true
+                    }
+                    self.labelShowPending = false
                 }
+                labelShowWorkItem = workItem
+                // Show label after brief delay to avoid showing during quick single scroll
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: workItem)
             }
+
+            // Cancel pending hide while actively scrolling
+            hideWorkItem?.cancel()
 
             // Accumulate scroll delta
             scrollAccumulator += delta
@@ -1405,15 +1422,15 @@ struct ScrollableActionSelector: NSViewRepresentable {
                         }
                     }
                     updateWorkItem = workItem
-                    // 16ms debounce batches rapid scroll events into single UI update
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.016, execute: workItem)
+                    // 33ms debounce (30fps max) batches rapid scroll events
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.033, execute: workItem)
                 }
 
                 scrollAccumulator = 0
             }
 
             // Schedule label hide after delay
-            if config.expandContextButtonOnScroll {
+            if config.expandContextButtonOnScroll && isLabelShowing {
                 let workItem = DispatchWorkItem { [weak self] in
                     guard let self = self else { return }
                     self.isLabelShowing = false
@@ -1478,10 +1495,6 @@ class ScrollActionView: NSView {
     }
 
     override func scrollWheel(with event: NSEvent) {
-        // Use deltaY for vertical scrolling (two-finger up/down)
-        // This button captures scroll-up for menu selection
-        // Space indicators will still capture scroll-up for destruction
-
         // Ignore momentum phase for notched feeling - only respond to actual gestures
         guard event.phase == .began || event.phase == .changed || event.phase == [] else {
             return
@@ -1489,8 +1502,8 @@ class ScrollActionView: NSView {
 
         let delta = event.deltaY
 
-        // Only respond to vertical scroll
-        if abs(delta) > 0.1 {
+        // Higher threshold reduces callback frequency - filters tiny scroll movements
+        if abs(delta) > 0.5 {
             onScrollChange?(delta)
         }
     }
