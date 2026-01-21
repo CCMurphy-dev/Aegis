@@ -20,6 +20,7 @@ struct SpaceIndicatorView: View {
     @State private var showOverflowMenu = false
     @State private var autoCollapseTask: Task<Void, Never>?
     @State private var isDraggingOver = false  // True when actively dragging over this space
+    @State private var isHovered = false  // For space indicator hover scale
 
     private let config = AegisConfig.shared
 
@@ -210,8 +211,10 @@ struct SpaceIndicatorView: View {
                     .allowsHitTesting(false)
             }
             .shadow(color: isActive ? .white.opacity(0.12) : .clear, radius: 6)
-            // Single animation for isActive changes only - removed hover animation to reduce CPU
+            .scaleEffect(isHovered ? 1.02 : 1.0)
             .animation(.easeOut(duration: 0.15), value: isActive)
+            .animation(.easeOut(duration: 0.1), value: isHovered)
+            .onHover { isHovered = $0 }
         // Add invisible padding to expand drop zone
         // Use asymmetric padding: no top padding to maintain alignment, bottom padding for drop zone
         .padding(.horizontal, 4)
