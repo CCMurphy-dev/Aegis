@@ -424,8 +424,7 @@ struct AppLauncherButton: View {
                     .opacity(isHovered ? 1.0 : 0.0)
             )
             .scaleEffect(isHovered ? 1.02 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
-            .animation(.easeInOut(duration: 0.15), value: selectedAppIndex)
+            .animation(.easeOut(duration: 0.1), value: isHovered)
             .overlay(
                 AppLauncherScrollSelector(
                     selectedIndex: $selectedAppIndex,
@@ -472,13 +471,19 @@ struct AppLauncherScrollSelector: NSViewRepresentable {
         var selectedIndex: Binding<Int>
         var appCount: Int
         var scrollAccumulator: CGFloat = 0
-        let scrollThreshold: CGFloat = 3
+
+        // Debounce: batch rapid scroll events
+        var pendingIndex: Int?
+        var updateWorkItem: DispatchWorkItem?
+
+        let scrollThreshold: CGFloat = 5
 
         private let config = AegisConfig.shared
 
         init(selectedIndex: Binding<Int>, appCount: Int) {
             self.selectedIndex = selectedIndex
             self.appCount = appCount
+            self.pendingIndex = selectedIndex.wrappedValue
         }
 
         func handleScroll(delta: CGFloat) {
@@ -487,7 +492,8 @@ struct AppLauncherScrollSelector: NSViewRepresentable {
             let actionSteps = Int(scrollAccumulator / scrollThreshold)
 
             if actionSteps != 0 {
-                var newIndex = selectedIndex.wrappedValue + actionSteps
+                let currentIndex = pendingIndex ?? selectedIndex.wrappedValue
+                var newIndex = currentIndex + actionSteps
 
                 // Wrap around
                 if newIndex < 0 {
@@ -496,12 +502,22 @@ struct AppLauncherScrollSelector: NSViewRepresentable {
                     newIndex = newIndex % appCount
                 }
 
-                if newIndex != selectedIndex.wrappedValue {
-                    selectedIndex.wrappedValue = newIndex
+                if newIndex != pendingIndex {
+                    pendingIndex = newIndex
 
-                    if config.enableLayoutActionHaptics {
-                        NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+                    // Debounce: cancel previous, schedule batched update
+                    updateWorkItem?.cancel()
+                    let workItem = DispatchWorkItem { [weak self] in
+                        guard let self = self, let index = self.pendingIndex else { return }
+                        if index != self.selectedIndex.wrappedValue {
+                            self.selectedIndex.wrappedValue = index
+                            if self.config.enableLayoutActionHaptics {
+                                NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+                            }
+                        }
                     }
+                    updateWorkItem = workItem
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.016, execute: workItem)
                 }
 
                 scrollAccumulator = 0
@@ -1328,12 +1344,15 @@ struct ScrollableActionSelector: NSViewRepresentable {
         var actionCount: Int
         var showLabel: Binding<Bool>
         var scrollAccumulator: CGFloat = 0
-        var isLabelShowing: Bool = false  // Track locally to avoid redundant binding updates
-        var hideWorkItem: DispatchWorkItem?  // Reusable work item - more efficient than Timer
+        var isLabelShowing: Bool = false
+        var hideWorkItem: DispatchWorkItem?
 
-        // Adjust sensitivity: higher = less sensitive (need more scroll)
-        // Using 6 for less frequent updates - reduces CPU by requiring more scroll to change action
-        let scrollThreshold: CGFloat = 6
+        // Debounce: track pending index to batch rapid scroll updates
+        var pendingIndex: Int?
+        var updateWorkItem: DispatchWorkItem?
+
+        // Higher threshold = less sensitive, fewer SwiftUI updates
+        let scrollThreshold: CGFloat = 8
 
         private let config = AegisConfig.shared
 
@@ -1342,52 +1361,58 @@ struct ScrollableActionSelector: NSViewRepresentable {
             self.actionCount = actionCount
             self.showLabel = showLabel
             self.isLabelShowing = showLabel.wrappedValue
+            self.pendingIndex = selectedIndex.wrappedValue
         }
 
         func handleScroll(delta: CGFloat) {
-            // Only manage label expansion if enabled - skip all related work when disabled
+            // Show label while scrolling (if enabled)
             if config.expandContextButtonOnScroll {
-                // Cancel existing hide work item
                 hideWorkItem?.cancel()
-
-                // Show label while scrolling
                 if !isLabelShowing {
                     isLabelShowing = true
                     showLabel.wrappedValue = true
                 }
             }
 
-            // Accumulate scroll delta (negative = scroll up, positive = scroll down)
+            // Accumulate scroll delta
             scrollAccumulator += delta
 
-            // Calculate how many actions to move
             let actionSteps = Int(scrollAccumulator / scrollThreshold)
 
             if actionSteps != 0 {
-                // Calculate new index with wrapping (loop around)
-                var newIndex = selectedIndex.wrappedValue + actionSteps
+                let currentIndex = pendingIndex ?? selectedIndex.wrappedValue
+                var newIndex = currentIndex + actionSteps
 
-                // Wrap around using modulo
+                // Wrap around
                 if newIndex < 0 {
                     newIndex = actionCount + (newIndex % actionCount)
                 } else if newIndex >= actionCount {
                     newIndex = newIndex % actionCount
                 }
 
-                if newIndex != selectedIndex.wrappedValue {
-                    selectedIndex.wrappedValue = newIndex
+                if newIndex != pendingIndex {
+                    pendingIndex = newIndex
 
-                    // Trigger haptic feedback on action boundary (if enabled)
-                    if config.enableLayoutActionHaptics {
-                        NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+                    // Debounce: cancel previous, schedule batched update
+                    updateWorkItem?.cancel()
+                    let workItem = DispatchWorkItem { [weak self] in
+                        guard let self = self, let index = self.pendingIndex else { return }
+                        if index != self.selectedIndex.wrappedValue {
+                            self.selectedIndex.wrappedValue = index
+                            if self.config.enableLayoutActionHaptics {
+                                NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+                            }
+                        }
                     }
+                    updateWorkItem = workItem
+                    // 16ms debounce batches rapid scroll events into single UI update
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.016, execute: workItem)
                 }
 
-                // Reset accumulator
                 scrollAccumulator = 0
             }
 
-            // Schedule hide after delay - only if expansion is enabled
+            // Schedule label hide after delay
             if config.expandContextButtonOnScroll {
                 let workItem = DispatchWorkItem { [weak self] in
                     guard let self = self else { return }
