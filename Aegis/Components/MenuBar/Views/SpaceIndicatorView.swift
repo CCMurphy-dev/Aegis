@@ -391,8 +391,15 @@ final class ClickableIconView: NSView {
     var isHovered = false {
         didSet {
             guard isHovered != oldValue else { return }
-            // Use layer opacity for hover - much cheaper than redrawing
+            // Use CALayer for hover effects - GPU accelerated, no redraw needed
+            CATransaction.begin()
+            CATransaction.setAnimationDuration(0.15)
+            CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
             layer?.opacity = isHovered ? 1.0 : 0.85
+            layer?.transform = isHovered
+                ? CATransform3DMakeScale(1.1, 1.1, 1.0)
+                : CATransform3DIdentity
+            CATransaction.commit()
         }
     }
     var isMinimized = false {
@@ -426,6 +433,7 @@ final class ClickableIconView: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
+        layer?.anchorPoint = CGPoint(x: 0.5, y: 0.5)  // Scale from center
         layer?.opacity = 0.85  // Default non-hovered opacity
         registerForDraggedTypes([.string])
     }
@@ -433,6 +441,7 @@ final class ClickableIconView: NSView {
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         wantsLayer = true
+        layer?.anchorPoint = CGPoint(x: 0.5, y: 0.5)
         layer?.opacity = 0.85
         registerForDraggedTypes([.string])
     }
