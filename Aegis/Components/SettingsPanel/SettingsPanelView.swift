@@ -1,13 +1,11 @@
 import SwiftUI
 
 /// Main Settings Panel for configuring Aegis
-/// Simplified view with essential settings and expandable Advanced section
+/// Mirrors the options available in config.json
 struct SettingsPanelView: View {
     @ObservedObject var config = AegisConfig.shared
     @ObservedObject var updater = UpdaterService.shared
     @Environment(\.presentationMode) var presentationMode
-
-    @State private var showAdvanced = false
 
     var body: some View {
         ZStack {
@@ -24,14 +22,27 @@ struct SettingsPanelView: View {
 
                 // Content Area
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        // Essential Settings
-                        essentialSettings
+                    VStack(alignment: .leading, spacing: 16) {
+                        // App Switcher
+                        appSwitcherSection
 
-                        SettingsDivider()
+                        // Notch HUD
+                        notchHUDSection
 
-                        // Advanced Section (Collapsible)
-                        advancedSection
+                        // Menu Bar
+                        menuBarSection
+
+                        // System Status
+                        systemStatusSection
+
+                        // Behavior
+                        behaviorSection
+
+                        // Visual
+                        visualSection
+
+                        // Config File
+                        configFileSection
                     }
                     .padding()
                 }
@@ -45,6 +56,8 @@ struct SettingsPanelView: View {
         }
     }
 
+    // MARK: - Header
+
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
@@ -52,7 +65,7 @@ struct SettingsPanelView: View {
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(.white)
 
-                Text("Customize appearance and behavior")
+                Text("Changes are saved automatically")
                     .font(.system(size: 11))
                     .foregroundColor(.white.opacity(0.6))
             }
@@ -72,77 +85,20 @@ struct SettingsPanelView: View {
         .background(Color.black.opacity(0.3))
     }
 
-    private var essentialSettings: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // General
-            SettingsSectionHeader(title: "General", icon: "gear")
+    // MARK: - App Switcher Section
 
-            SettingsToggle(
-                label: "Launch at Login",
-                description: "Start Aegis automatically when macOS starts",
-                isOn: $config.launchAtLogin
-            )
-
-            SettingsToggle(
-                label: "Haptic Feedback",
-                description: "Provide haptic feedback on layout actions",
-                isOn: $config.enableLayoutActionHaptics
-            )
-
-            SettingsEnumPicker(
-                label: "Date Format",
-                selection: $config.dateFormat
-            )
-
-            SettingsToggle(
-                label: "Show Focus Name",
-                description: "Display Focus mode name alongside icon",
-                isOn: $config.showFocusName
-            )
-
-            // Update button
-            SettingsUpdateButton(updater: updater)
-
-            // Yabai Setup button
-            SettingsYabaiSetupButton()
-
-            SettingsDivider()
-
-            // Appearance
-            SettingsSectionHeader(title: "Appearance", icon: "paintbrush")
-
-            SettingsIntSlider(
-                label: "Max Icons Per Space",
-                value: $config.maxAppIconsPerSpace,
-                range: 1...10,
-                unit: ""
-            )
-
-            SettingsSlider(
-                label: "App Icon Size",
-                value: $config.appIconSize,
-                range: 20...36,
-                step: 2,
-                unit: "px"
-            )
-
-            SettingsSlider(
-                label: "Album Art Size",
-                value: $config.albumArtSize,
-                range: 30...60,
-                step: 5,
-                unit: "px"
-            )
-
-            SettingsDivider()
-
-            // App Switcher
-            SettingsSectionHeader(title: "App Switcher", icon: "rectangle.on.rectangle.angled")
-
+    private var appSwitcherSection: some View {
+        SettingsSection(title: "App Switcher", icon: "rectangle.on.rectangle.angled") {
             SettingsToggle(
                 label: "Enable App Switcher",
                 description: "Intercept Cmd+Tab to show custom switcher",
                 isOn: $config.appSwitcherEnabled
+            )
+
+            SettingsToggle(
+                label: "Cmd+Scroll to Open",
+                description: "Enable Cmd+scroll to open/cycle app switcher",
+                isOn: $config.appSwitcherCmdScrollEnabled
             )
 
             SettingsToggle(
@@ -156,16 +112,130 @@ struct SettingsPanelView: View {
                 description: "Include hidden app windows in the switcher",
                 isOn: $config.appSwitcherShowHidden
             )
+        }
+    }
 
-            SettingsDivider()
+    // MARK: - Notch HUD Section
 
-            // Behavior
-            SettingsSectionHeader(title: "Behavior", icon: "hand.tap")
+    private var notchHUDSection: some View {
+        SettingsSection(title: "Notch HUD", icon: "rectangle.topthird.inset.filled") {
+            // Media
+            SettingsSubsection(title: "Media (Now Playing)") {
+                SettingsToggle(
+                    label: "Show Media HUD",
+                    description: "Show Now Playing HUD when media is playing",
+                    isOn: $config.showMediaHUD
+                )
 
-            SettingsToggle(
-                label: "Swipe to Destroy Space",
-                description: "Enable swipe-up gesture to destroy spaces",
-                isOn: $config.useSwipeToDestroySpace
+                SettingsEnumPicker(
+                    label: "Right Panel Mode",
+                    selection: $config.mediaHUDRightPanelMode
+                )
+
+                SettingsToggle(
+                    label: "Enable Marquee",
+                    description: "Scroll long track/artist names",
+                    isOn: $config.mediaHUDEnableMarquee
+                )
+
+                SettingsToggle(
+                    label: "Auto-Hide Media HUD",
+                    description: "Hide after showing track info",
+                    isOn: $config.mediaHUDAutoHide
+                )
+
+                if config.mediaHUDAutoHide {
+                    SettingsDoubleSlider(
+                        label: "Auto-Hide Delay",
+                        value: $config.mediaHUDAutoHideDelay,
+                        range: 1.0...10.0,
+                        step: 0.5,
+                        unit: "s"
+                    )
+                }
+            }
+
+            // Bluetooth
+            SettingsSubsection(title: "Bluetooth Devices") {
+                SettingsToggle(
+                    label: "Show Device HUD",
+                    description: "Show HUD when Bluetooth devices connect/disconnect",
+                    isOn: $config.showDeviceHUD
+                )
+
+                SettingsDoubleSlider(
+                    label: "Auto-Hide Delay",
+                    value: $config.deviceHUDAutoHideDelay,
+                    range: 1.0...10.0,
+                    step: 0.5,
+                    unit: "s"
+                )
+            }
+
+            // Focus Mode
+            SettingsSubsection(title: "Focus Mode") {
+                SettingsToggle(
+                    label: "Show Focus HUD",
+                    description: "Show HUD when Focus mode changes",
+                    isOn: $config.showFocusHUD
+                )
+
+                SettingsDoubleSlider(
+                    label: "Auto-Hide Delay",
+                    value: $config.focusHUDAutoHideDelay,
+                    range: 1.0...10.0,
+                    step: 0.5,
+                    unit: "s"
+                )
+            }
+
+            // Notifications
+            SettingsSubsection(title: "Notifications") {
+                SettingsToggle(
+                    label: "Show Notification HUD",
+                    description: "Intercept system notifications in notch area",
+                    isOn: $config.showNotificationHUD
+                )
+
+                SettingsToggle(
+                    label: "Auto-Hide Notifications",
+                    description: "Automatically hide notification HUD",
+                    isOn: $config.notificationHUDAutoHide
+                )
+
+                if config.notificationHUDAutoHide {
+                    SettingsDoubleSlider(
+                        label: "Auto-Hide Delay",
+                        value: $config.notificationHUDAutoHideDelay,
+                        range: 2.0...15.0,
+                        step: 1.0,
+                        unit: "s"
+                    )
+                }
+            }
+
+            // Volume/Brightness
+            SettingsSubsection(title: "Volume/Brightness") {
+                SettingsDoubleSlider(
+                    label: "Auto-Hide Delay",
+                    value: $config.notchHUDAutoHideDelay,
+                    range: 0.5...5.0,
+                    step: 0.5,
+                    unit: "s"
+                )
+            }
+        }
+    }
+
+    // MARK: - Menu Bar Section
+
+    private var menuBarSection: some View {
+        SettingsSection(title: "Menu Bar", icon: "menubar.rectangle") {
+            SettingsIntSlider(
+                label: "Max Icons Per Space",
+                value: $config.maxAppIconsPerSpace,
+                range: 1...10,
+                unit: ""
             )
 
             SettingsToggle(
@@ -175,498 +245,202 @@ struct SettingsPanelView: View {
             )
 
             SettingsToggle(
-                label: "Show Media HUD",
-                description: "Show Now Playing HUD when media is playing",
-                isOn: $config.showMediaHUD
+                label: "Swipe to Destroy Space",
+                description: "Enable swipe-up gesture to destroy spaces",
+                isOn: $config.useSwipeToDestroySpace
             )
 
             SettingsToggle(
-                label: "Use Progress Bar",
-                description: "Show progress bar instead of numeric value for volume/brightness",
-                isOn: $config.notchHUDUseProgressBar
+                label: "Expand Context on Scroll",
+                description: "Expand context button when scrolling over it",
+                isOn: $config.expandContextButtonOnScroll
+            )
+        }
+    }
+
+    // MARK: - System Status Section
+
+    private var systemStatusSection: some View {
+        SettingsSection(title: "System Status", icon: "clock") {
+            SettingsEnumPicker(
+                label: "Date Format",
+                selection: $config.dateFormat
             )
 
-            SettingsDivider()
+            SettingsToggle(
+                label: "Show Focus Name",
+                description: "Display Focus mode name alongside icon",
+                isOn: $config.showFocusName
+            )
+        }
+    }
 
-            // Timing
-            SettingsSectionHeader(title: "Timing", icon: "clock")
+    // MARK: - Behavior Section
 
-            SettingsDoubleSlider(
-                label: "HUD Auto-Hide Delay",
-                value: $config.notchHUDAutoHideDelay,
-                range: 0.5...5.0,
-                step: 0.1,
-                unit: "s"
+    private var behaviorSection: some View {
+        SettingsSection(title: "Behavior", icon: "gearshape") {
+            SettingsToggle(
+                label: "Launch at Login",
+                description: "Start Aegis automatically when macOS starts",
+                isOn: $config.launchAtLogin
+            )
+
+            SettingsToggle(
+                label: "Haptic Feedback",
+                description: "Provide haptic feedback on layout actions",
+                isOn: $config.enableLayoutActionHaptics
             )
 
             SettingsDoubleSlider(
-                label: "Window Expansion Auto-Collapse",
+                label: "Window Expansion Collapse Delay",
                 value: $config.windowIconExpansionAutoCollapseDelay,
                 range: 0.5...5.0,
-                step: 0.1,
+                step: 0.5,
                 unit: "s"
             )
+
+            // Thresholds subsection
+            SettingsSubsection(title: "Interaction Thresholds") {
+                SettingsSlider(
+                    label: "Drag Distance",
+                    value: $config.dragDistanceThreshold,
+                    range: 1...10,
+                    step: 1,
+                    unit: "px"
+                )
+
+                SettingsSlider(
+                    label: "Swipe Destroy Distance",
+                    value: $config.swipeDestroyThreshold,
+                    range: -200...(-50),
+                    step: 10,
+                    unit: "px"
+                )
+
+                SettingsSlider(
+                    label: "Scroll Action Threshold",
+                    value: $config.scrollActionThreshold,
+                    range: 1...10,
+                    step: 1,
+                    unit: ""
+                )
+            }
         }
     }
 
-    private var advancedSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Advanced Header (Clickable)
-            Button(action: {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    showAdvanced.toggle()
-                }
-            }) {
-                HStack(spacing: 8) {
-                    Image(systemName: showAdvanced ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.7))
+    // MARK: - Visual Section
 
-                    Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.orange)
+    private var visualSection: some View {
+        SettingsSection(title: "Visual", icon: "paintbrush") {
+            SettingsSubsection(title: "Space Background Opacity") {
+                SettingsDoubleSlider(
+                    label: "Active Space",
+                    value: $config.activeSpaceBgOpacity,
+                    range: 0.0...0.5,
+                    step: 0.02,
+                    unit: ""
+                )
 
-                    Text("Advanced Settings")
-                        .font(.system(size: 14, weight: .semibold))
+                SettingsDoubleSlider(
+                    label: "Hovered Space",
+                    value: $config.hoveredSpaceBgOpacity,
+                    range: 0.0...0.5,
+                    step: 0.02,
+                    unit: ""
+                )
+
+                SettingsDoubleSlider(
+                    label: "Inactive Space",
+                    value: $config.inactiveSpaceBgOpacity,
+                    range: 0.0...0.5,
+                    step: 0.02,
+                    unit: ""
+                )
+            }
+
+            SettingsSubsection(title: "Animation Timings") {
+                SettingsDoubleSlider(
+                    label: "State Transition",
+                    value: $config.stateTransitionDuration,
+                    range: 0.1...0.5,
+                    step: 0.05,
+                    unit: "s"
+                )
+
+                SettingsDoubleSlider(
+                    label: "HUD Fade In",
+                    value: $config.notchHUDFadeInDuration,
+                    range: 0.1...0.5,
+                    step: 0.05,
+                    unit: "s"
+                )
+
+                SettingsDoubleSlider(
+                    label: "HUD Fade Out",
+                    value: $config.notchHUDFadeOutDuration,
+                    range: 0.1...0.5,
+                    step: 0.05,
+                    unit: "s"
+                )
+            }
+        }
+    }
+
+    // MARK: - Config File Section
+
+    private var configFileSection: some View {
+        SettingsSection(title: "Configuration", icon: "doc.text") {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Config File")
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.white)
 
-                    Spacer()
-
-                    Text("\(showAdvanced ? "Hide" : "Show")")
-                        .font(.system(size: 10))
+                    Text("~/.config/aegis/config.json")
+                        .font(.system(size: 11, design: .monospaced))
                         .foregroundColor(.white.opacity(0.5))
                 }
-                .padding(.vertical, 12)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(PlainButtonStyle())
 
-            if showAdvanced {
-                VStack(alignment: .leading, spacing: 8) {
-                    // Layout & Dimensions
-                    AdvancedSubsection(title: "Layout & Dimensions") {
-                        SettingsSlider(
-                            label: "Menu Bar Height",
-                            value: $config.menuBarHeight,
-                            range: 30...60,
-                            step: 1,
-                            unit: "px"
-                        )
+                Spacer()
 
-                        SettingsSlider(
-                            label: "Edge Padding",
-                            value: $config.menuBarEdgePadding,
-                            range: 50...150,
-                            step: 5,
-                            unit: "px"
-                        )
-
-                        SettingsSlider(
-                            label: "Space Indicator Spacing",
-                            value: $config.spaceIndicatorSpacing,
-                            range: 4...16,
-                            step: 1,
-                            unit: "px"
-                        )
-
-                        SettingsSlider(
-                            label: "Window Icon Frame Width",
-                            value: $config.windowIconFrameWidth,
-                            range: 16...32,
-                            step: 2,
-                            unit: "px"
-                        )
-                    }
-
-                    // Typography
-                    AdvancedSubsection(title: "Typography") {
-                        SettingsSlider(
-                            label: "Space Number Font Size",
-                            value: $config.spaceNumberFontSize,
-                            range: 10...16,
-                            step: 1,
-                            unit: "pt"
-                        )
-
-                        SettingsSlider(
-                            label: "Window Title Font Size",
-                            value: $config.windowTitleFontSize,
-                            range: 9...14,
-                            step: 1,
-                            unit: "pt"
-                        )
-
-                        SettingsSlider(
-                            label: "System Status Font Size",
-                            value: $config.systemStatusFontSize,
-                            range: 11...16,
-                            step: 1,
-                            unit: "pt"
-                        )
-                    }
-
-                    // Corner Radii
-                    AdvancedSubsection(title: "Corner Radii") {
-                        SettingsSlider(
-                            label: "Space Indicator Corners",
-                            value: $config.spaceIndicatorCornerRadius,
-                            range: 0...16,
-                            step: 1,
-                            unit: "px"
-                        )
-
-                        SettingsSlider(
-                            label: "System Status Corners",
-                            value: $config.systemStatusCornerRadius,
-                            range: 0...16,
-                            step: 1,
-                            unit: "px"
-                        )
-                    }
-
-                    // Notch HUD
-                    AdvancedSubsection(title: "Notch HUD") {
-                        SettingsSlider(
-                            label: "HUD Width",
-                            value: $config.notchHUDWidth,
-                            range: 40...100,
-                            step: 5,
-                            unit: "px"
-                        )
-
-                        SettingsSlider(
-                            label: "HUD Height",
-                            value: $config.notchHUDHeight,
-                            range: 40...100,
-                            step: 5,
-                            unit: "px"
-                        )
-
-                        SettingsSlider(
-                            label: "HUD Icon Size",
-                            value: $config.notchHUDIconSize,
-                            range: 10...20,
-                            step: 1,
-                            unit: "pt"
-                        )
-
-                        if config.notchHUDUseProgressBar {
-                            SettingsSlider(
-                                label: "Progress Bar Width",
-                                value: $config.notchHUDProgressBarWidth,
-                                range: 40...100,
-                                step: 5,
-                                unit: "px"
-                            )
-
-                            SettingsSlider(
-                                label: "Progress Bar Height",
-                                value: $config.notchHUDProgressBarHeight,
-                                range: 2...8,
-                                step: 1,
-                                unit: "px"
-                            )
-                        }
-
-                        SettingsToggle(
-                            label: "Show HUD Background",
-                            description: "Display background behind HUD icons",
-                            isOn: $config.notchHUDShowBackground
-                        )
-                    }
-
-                    // Music Visualizer
-                    AdvancedSubsection(title: "Music Visualizer") {
-                        SettingsIntSlider(
-                            label: "Bar Count",
-                            value: $config.visualizerBarCount,
-                            range: 3...10,
-                            unit: ""
-                        )
-
-                        SettingsSlider(
-                            label: "Bar Width",
-                            value: $config.visualizerBarWidth,
-                            range: 2...6,
-                            step: 1,
-                            unit: "px"
-                        )
-
-                        SettingsSlider(
-                            label: "Min Height",
-                            value: $config.visualizerBarMinHeight,
-                            range: 3...10,
-                            step: 1,
-                            unit: "px"
-                        )
-
-                        SettingsSlider(
-                            label: "Max Height",
-                            value: $config.visualizerBarMaxHeight,
-                            range: 15...40,
-                            step: 5,
-                            unit: "px"
-                        )
-                    }
-
-                    // System Status
-                    AdvancedSubsection(title: "System Status") {
-                        SettingsSlider(
-                            label: "Frame Height",
-                            value: $config.systemStatusFrameHeight,
-                            range: 16...28,
-                            step: 2,
-                            unit: "px"
-                        )
-
-                        SettingsSlider(
-                            label: "Icon Spacing",
-                            value: $config.systemIconSpacing,
-                            range: 8...20,
-                            step: 2,
-                            unit: "px"
-                        )
-
-                        SettingsSlider(
-                            label: "Icon Size",
-                            value: $config.systemIconSize,
-                            range: 12...18,
-                            step: 1,
-                            unit: "px"
-                        )
-                    }
-
-                    // Thresholds
-                    AdvancedSubsection(title: "Battery & WiFi Thresholds") {
-                        SettingsDoubleSlider(
-                            label: "WiFi Strong",
-                            value: $config.wifiStrongThreshold,
-                            range: 0.5...1.0,
-                            step: 0.01,
-                            unit: ""
-                        )
-
-                        SettingsDoubleSlider(
-                            label: "WiFi Medium",
-                            value: $config.wifiMediumThreshold,
-                            range: 0.2...0.5,
-                            step: 0.01,
-                            unit: ""
-                        )
-
-                        SettingsDoubleSlider(
-                            label: "Battery High",
-                            value: $config.batteryHighThreshold,
-                            range: 0.5...1.0,
-                            step: 0.01,
-                            unit: ""
-                        )
-
-                        SettingsDoubleSlider(
-                            label: "Battery Medium",
-                            value: $config.batteryMediumThreshold,
-                            range: 0.3...0.7,
-                            step: 0.01,
-                            unit: ""
-                        )
-
-                        SettingsDoubleSlider(
-                            label: "Battery Low",
-                            value: $config.batteryLowThreshold,
-                            range: 0.15...0.4,
-                            step: 0.01,
-                            unit: ""
-                        )
-
-                        SettingsDoubleSlider(
-                            label: "Battery Critical",
-                            value: $config.batteryCriticalThreshold,
-                            range: 0.05...0.2,
-                            step: 0.01,
-                            unit: ""
-                        )
-                    }
-
-                    // Interaction Thresholds
-                    AdvancedSubsection(title: "Interaction Thresholds") {
-                        SettingsSlider(
-                            label: "Drag Distance",
-                            value: $config.dragDistanceThreshold,
-                            range: 1...10,
-                            step: 1,
-                            unit: "px"
-                        )
-
-                        SettingsSlider(
-                            label: "Swipe Destroy",
-                            value: $config.swipeDestroyThreshold,
-                            range: -200...(-50),
-                            step: 10,
-                            unit: "px"
-                        )
-
-                        SettingsSlider(
-                            label: "Scroll Action",
-                            value: $config.scrollActionThreshold,
-                            range: 1...10,
-                            step: 1,
-                            unit: ""
-                        )
-                    }
-
-                    // Background Opacity
-                    AdvancedSubsection(title: "Background Opacity") {
-                        SettingsDoubleSlider(
-                            label: "Active Space",
-                            value: $config.activeSpaceBgOpacity,
-                            range: 0.0...0.5,
-                            step: 0.01,
-                            unit: ""
-                        )
-
-                        SettingsDoubleSlider(
-                            label: "Hovered Space",
-                            value: $config.hoveredSpaceBgOpacity,
-                            range: 0.0...0.5,
-                            step: 0.01,
-                            unit: ""
-                        )
-
-                        SettingsDoubleSlider(
-                            label: "Inactive Space",
-                            value: $config.inactiveSpaceBgOpacity,
-                            range: 0.0...0.5,
-                            step: 0.01,
-                            unit: ""
-                        )
-                    }
-
-                    // Text Opacity
-                    AdvancedSubsection(title: "Text Opacity") {
-                        SettingsDoubleSlider(
-                            label: "Primary Text",
-                            value: $config.primaryTextOpacity,
-                            range: 0.5...1.0,
-                            step: 0.01,
-                            unit: ""
-                        )
-
-                        SettingsDoubleSlider(
-                            label: "Secondary Text",
-                            value: $config.secondaryTextOpacity,
-                            range: 0.5...1.0,
-                            step: 0.01,
-                            unit: ""
-                        )
-
-                        SettingsDoubleSlider(
-                            label: "Tertiary Text",
-                            value: $config.tertiaryTextOpacity,
-                            range: 0.3...0.9,
-                            step: 0.01,
-                            unit: ""
-                        )
-                    }
-
-                    // Animations
-                    AdvancedSubsection(title: "Animation Timing") {
-                        SettingsDoubleSlider(
-                            label: "Hover Response",
-                            value: $config.hoverAnimationResponse,
-                            range: 0.1...1.0,
-                            step: 0.05,
-                            unit: "s"
-                        )
-
-                        SettingsDoubleSlider(
-                            label: "Hover Damping",
-                            value: $config.hoverAnimationDamping,
-                            range: 0.3...1.0,
-                            step: 0.05,
-                            unit: ""
-                        )
-
-                        SettingsDoubleSlider(
-                            label: "Expansion Response",
-                            value: $config.expansionAnimationResponse,
-                            range: 0.1...1.0,
-                            step: 0.05,
-                            unit: "s"
-                        )
-
-                        SettingsDoubleSlider(
-                            label: "Expansion Damping",
-                            value: $config.expansionAnimationDamping,
-                            range: 0.3...1.0,
-                            step: 0.05,
-                            unit: ""
-                        )
-
-                        SettingsDoubleSlider(
-                            label: "State Transition",
-                            value: $config.stateTransitionDuration,
-                            range: 0.1...0.5,
-                            step: 0.05,
-                            unit: "s"
-                        )
-
-                        SettingsDoubleSlider(
-                            label: "HUD Fade In",
-                            value: $config.notchHUDFadeInDuration,
-                            range: 0.1...0.5,
-                            step: 0.05,
-                            unit: "s"
-                        )
-
-                        SettingsDoubleSlider(
-                            label: "HUD Fade Out",
-                            value: $config.notchHUDFadeOutDuration,
-                            range: 0.1...0.5,
-                            step: 0.05,
-                            unit: "s"
-                        )
-                    }
-
-                    // Shadows & Effects
-                    AdvancedSubsection(title: "Shadows & Effects") {
-                        SettingsDoubleSlider(
-                            label: "Space Shadow Opacity",
-                            value: $config.spaceShadowOpacity,
-                            range: 0.0...0.3,
-                            step: 0.01,
-                            unit: ""
-                        )
-
-                        SettingsSlider(
-                            label: "Space Shadow Radius",
-                            value: $config.spaceShadowRadius,
-                            range: 0...10,
-                            step: 1,
-                            unit: "px"
-                        )
-
-                        SettingsSlider(
-                            label: "Hovered Button Scale",
-                            value: $config.hoveredButtonScale,
-                            range: 1.0...1.1,
-                            step: 0.01,
-                            unit: "x"
-                        )
-
-                        SettingsDoubleSlider(
-                            label: "Icon Hover Glow",
-                            value: $config.iconHoverGlowOpacity,
-                            range: 0.0...0.5,
-                            step: 0.01,
-                            unit: ""
-                        )
-                    }
+                Button("Open in Editor") {
+                    let url = AegisConfig.configFilePath
+                    NSWorkspace.shared.open(url)
                 }
-                .padding(.leading, 16)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .buttonStyle(SettingsButtonStyle())
             }
+
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Documentation")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white)
+
+                    Text("CONFIG_OPTIONS.md")
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+
+                Spacer()
+
+                Button("View Docs") {
+                    let docsURL = AegisConfig.configFilePath
+                        .deletingLastPathComponent()
+                        .appendingPathComponent("CONFIG_OPTIONS.md")
+                    NSWorkspace.shared.open(docsURL)
+                }
+                .buttonStyle(SettingsButtonStyle())
+            }
+
+            // Update button
+            SettingsUpdateButton(updater: updater)
+
+            // Yabai Setup button
+            SettingsYabaiSetupButton()
         }
     }
+
+    // MARK: - Footer
 
     private var footer: some View {
         HStack(spacing: 12) {
@@ -678,25 +452,62 @@ struct SettingsPanelView: View {
                 config.resetToDefaults()
             }
 
-            SettingsActionButton(
-                title: "Save Changes",
-                icon: "checkmark.circle.fill",
-                destructive: false
-            ) {
+            Spacer()
+
+            Button("Done") {
                 config.savePreferences()
                 presentationMode.wrappedValue.dismiss()
             }
+            .buttonStyle(SettingsPrimaryButtonStyle())
         }
         .padding()
         .background(Color.black.opacity(0.3))
     }
 }
 
-// MARK: - Advanced Subsection
+// MARK: - Settings Section
 
-struct AdvancedSubsection<Content: View>: View {
+struct SettingsSection<Content: View>: View {
     let title: String
-    @State private var isExpanded: Bool = false
+    let icon: String
+    let content: () -> Content
+
+    init(title: String, icon: String, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.icon = icon
+        self.content = content
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Section Header
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.blue)
+
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+            }
+            .padding(.bottom, 4)
+
+            // Section Content
+            VStack(alignment: .leading, spacing: 8) {
+                content()
+            }
+            .padding(.leading, 4)
+
+            Divider()
+                .background(Color.white.opacity(0.1))
+        }
+    }
+}
+
+// MARK: - Settings Subsection
+
+struct SettingsSubsection<Content: View>: View {
+    let title: String
     let content: () -> Content
 
     init(title: String, @ViewBuilder content: @escaping () -> Content) {
@@ -705,37 +516,43 @@ struct AdvancedSubsection<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Button(action: {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                    isExpanded.toggle()
-                }
-            }) {
-                HStack(spacing: 6) {
-                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(.white.opacity(0.5))
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.white.opacity(0.7))
+                .padding(.top, 4)
 
-                    Text(title)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.white.opacity(0.8))
-
-                    Spacer()
-                }
-                .padding(.vertical, 8)
-                .contentShape(Rectangle())
+            VStack(alignment: .leading, spacing: 6) {
+                content()
             }
-            .buttonStyle(PlainButtonStyle())
-
-            if isExpanded {
-                VStack(alignment: .leading, spacing: 4) {
-                    content()
-                }
-                .padding(.leading, 16)
-                .padding(.bottom, 8)
-                .transition(.opacity)
-            }
+            .padding(.leading, 8)
         }
+    }
+}
+
+// MARK: - Button Styles
+
+struct SettingsButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 12, weight: .medium))
+            .foregroundColor(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.white.opacity(configuration.isPressed ? 0.15 : 0.1))
+            .cornerRadius(6)
+    }
+}
+
+struct SettingsPrimaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
+            .background(Color.blue.opacity(configuration.isPressed ? 0.7 : 1.0))
+            .cornerRadius(8)
     }
 }
 

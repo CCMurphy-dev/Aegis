@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-01-22
+
+### Changed
+- Adaptive frame rate for progress bar animation
+  - 60fps during large movements, 30fps moderate, 15fps settling
+  - Further reduces CPU usage during HUD animations
+- Album art memory optimization
+  - Downscales images to 160x160 (2x retina for 80pt display)
+  - Reduced cache from 10 to 5 entries
+  - Uses autoreleasepool to immediately free full-size images
+  - Reduces memory footprint from ~100MB to ~50MB during music playback
+- Background thread album art decoding
+  - Base64 decode and scaling moved off main thread
+  - Prevents UI stutter when switching tracks rapidly
+
+### Fixed
+- Space indicator vertical alignment (was too high, now centered with notch)
+- Yabai setup script now uses correct default config path (`~/.config/yabai/yabairc`)
+  - Removed legacy `~/.yabairc` fallback
+  - Added `YABAIRC` environment variable for custom config locations
+- `YabaiSetupChecker.isPersisted()` now checks correct yabairc path
+
 ## [1.0.4] - 2026-01-21
 
 ### Changed

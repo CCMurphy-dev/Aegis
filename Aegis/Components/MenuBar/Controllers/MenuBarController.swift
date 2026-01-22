@@ -108,14 +108,14 @@ struct MenuBarView: View {
 
             GeometryReader { geometry in
                 ZStack(alignment: .topLeading) {
-                    HStack(alignment: .top, spacing: 0) {
+                    HStack(alignment: .center, spacing: 0) {
                         // Fixed spacer - AppKit button handles its own expansion via layers
                         // Width = edge padding + layout button (32) + spacing (6) + finder button (32) + spacing to spaces
                         Spacer()
                             .frame(width: config.menuBarEdgePadding + 32 + 6 + 32 + config.spaceIndicatorSpacing)
 
                         // Spaces (with scrolling if needed)
-                        ZStack(alignment: .topLeading) {
+                        ZStack(alignment: .leading) {
                         // Scrollable spaces area (full width)
                         ScrollViewReader { scrollProxy in
                             ScrollView(.horizontal, showsIndicators: false) {
@@ -215,8 +215,7 @@ struct MenuBarView: View {
 
                         Spacer()
                     }
-                    .frame(maxHeight: .infinity, alignment: .top)
-                    .padding(.top, 4)  // Small top padding to align with notch HUD elements
+                    .frame(height: config.menuBarHeight, alignment: .center)
 
                     // Right: System status - positioned on its own layer for proper vertical centering
                     HStack {
@@ -1035,6 +1034,10 @@ struct LayoutActionsButton: View {
         menu.addItem(NSMenuItem.separator())
 
         // MARK: - System Actions Section
+        menu.addItem(NSMenuItem(title: "Reload Config", action: #selector(LayoutActionsMenuTarget.reloadConfig), keyEquivalent: ""))
+        menu.items.last?.target = menuTarget
+        menu.items.last?.isEnabled = true
+
         menu.addItem(NSMenuItem(title: "Reload yabai", action: #selector(LayoutActionsMenuTarget.restartYabai), keyEquivalent: ""))
         menu.items.last?.target = menuTarget
         menu.items.last?.isEnabled = true
@@ -1144,6 +1147,10 @@ class LayoutActionsMenuTarget: NSObject {
         config.mediaHUDRightPanelMode = .trackInfo
         config.savePreferences()
         print("🎵 Media HUD Right Panel: Track Info")
+    }
+
+    @objc func reloadConfig() {
+        AegisConfig.shared.reloadConfig()
     }
 
     @objc func restartYabai() {

@@ -573,6 +573,7 @@ class AegisConfig: ObservableObject {
     var activeBorderColor: Color { Color.white.opacity(activeBorderOpacity) }
 
     private var configFileWatcher: DispatchSourceFileSystemObject?
+    private var configFileWatcherResolved: DispatchSourceFileSystemObject?
 
     private init() {
         loadPreferences()
@@ -595,11 +596,25 @@ class AegisConfig: ObservableObject {
         // Ensure the config directory exists
         try? FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
 
-        // Watch the directory for changes (file might not exist yet)
-        let fd = open(configDir.path, O_EVTONLY)
+        // Watch the symlink directory (for non-symlinked configs)
+        configFileWatcher = createDirectoryWatcher(for: configDir)
+
+        // If config is symlinked, also watch the resolved directory
+        let resolvedURL = fileURL.resolvingSymlinksInPath()
+        let resolvedDir = resolvedURL.deletingLastPathComponent()
+        if resolvedDir.path != configDir.path {
+            print("📁 AegisConfig: Config is symlinked, also watching: \(resolvedDir.path)")
+            configFileWatcherResolved = createDirectoryWatcher(for: resolvedDir)
+        }
+
+        print("📁 AegisConfig: Watching for config file changes at \(configDir.path)")
+    }
+
+    private func createDirectoryWatcher(for directory: URL) -> DispatchSourceFileSystemObject? {
+        let fd = open(directory.path, O_EVTONLY)
         guard fd >= 0 else {
-            print("⚠️ AegisConfig: Could not open config directory for watching")
-            return
+            print("⚠️ AegisConfig: Could not open directory for watching: \(directory.path)")
+            return nil
         }
 
         let source = DispatchSource.makeFileSystemObjectSource(
@@ -620,21 +635,28 @@ class AegisConfig: ObservableObject {
         }
 
         source.resume()
-        configFileWatcher = source
-        print("📁 AegisConfig: Watching for config file changes at \(configDir.path)")
+        return source
     }
 
     private func stopWatchingConfigFile() {
         configFileWatcher?.cancel()
         configFileWatcher = nil
+        configFileWatcherResolved?.cancel()
+        configFileWatcherResolved = nil
     }
 
     private func reloadConfigFile() {
+        reloadConfig()
+    }
+
+    /// Reload configuration from JSON file (can be called manually)
+    func reloadConfig() {
         guard FileManager.default.fileExists(atPath: Self.configFilePath.path) else {
+            print("⚠️ AegisConfig: No config file found at \(Self.configFilePath.path)")
             return
         }
 
-        print("🔄 AegisConfig: Detected config file change, reloading...")
+        print("🔄 AegisConfig: Reloading config...")
         if loadFromJSONFile() {
             // Notify observers that config changed
             objectWillChange.send()

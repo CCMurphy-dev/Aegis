@@ -8,6 +8,30 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.5</title>
+            <sparkle:version>1.0.5</sparkle:version>
+            <sparkle:shortVersionString>1.0.5</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Wed, 22 Jan 2026 00:16:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.5</h2>
+                <ul>
+                    <li><strong>Memory Optimization</strong> - Album art scaled to display size, reduced cache (~50MB vs ~100MB)</li>
+                    <li><strong>Adaptive Frame Rate</strong> - 60fps→30fps→15fps based on animation progress</li>
+                    <li><strong>Background Decoding</strong> - Album art decoded off main thread for smoother UI</li>
+                    <li><strong>Fixed Alignment</strong> - Space indicators now vertically centered with notch</li>
+                    <li><strong>Yabai Setup Fix</strong> - Correct default config path (~/.config/yabai/yabairc)</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.5/Aegis.app.zip"
+                length="2218929"
+                type="application/octet-stream"
+                sparkle:edSignature="ljJf+St0jswW7iy8/SH5GnJOYQvgIdH2hsn9J7KeK47E+rXOXjIN51Ao/nLJvB45FSuOx8UFVXfA/kIwrF5VDg==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 1.0.4</title>
             <sparkle:version>1.0.4</sparkle:version>
             <sparkle:shortVersionString>1.0.4</sparkle:shortVersionString>
@@ -28,8 +52,6 @@
                 type="application/octet-stream"
                 sparkle:edSignature="HsPaWngMw9NiOhAizRUOpgU/NxOvmOQBFBRT7wnuVg/+cXCRQ7lYp4GyBYws5u4kkFsug2Iig8eNrSYVO4J6CA==" />
         </item>
-
-        <!-- Previous Releases -->
         <item>
             <title>Version 1.0.3</title>
             <sparkle:version>1.0.3</sparkle:version>

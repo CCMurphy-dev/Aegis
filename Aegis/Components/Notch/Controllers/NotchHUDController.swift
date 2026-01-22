@@ -1011,6 +1011,10 @@ class NotchHUDController: ObservableObject {
             return
         }
 
+        // CRITICAL: Set visible synchronously FIRST to prevent duplicate calls
+        // from rapid events (volume key generates multiple events quickly)
+        overlayViewModel.isVisible = true
+
         // Start the display link for smooth animation (stops when HUD hides)
         overlayViewModel.progressAnimator.start()
 
@@ -1021,19 +1025,15 @@ class NotchHUDController: ObservableObject {
         overlayWindow.alphaValue = 1
         overlayWindow.orderFrontRegardless()
 
-        // Force a layout pass with isVisible = false (before animation)
+        // Force a layout pass before animation
         overlayWindow.layoutIfNeeded()
 
-        // CRITICAL: Trigger animation on next run loop to ensure view is ready
-        DispatchQueue.main.async {
-            // Set visible to trigger slide-in animation
-            self.overlayViewModel.isVisible = true
-            self.isAnimatingOverlay = true
+        // Mark as animating
+        isAnimatingOverlay = true
 
-            // Clear animation flag after animation completes
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                self.isAnimatingOverlay = false
-            }
+        // Clear animation flag after animation completes
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            self.isAnimatingOverlay = false
         }
 
         // Schedule auto-hide (cancels any previous schedule)

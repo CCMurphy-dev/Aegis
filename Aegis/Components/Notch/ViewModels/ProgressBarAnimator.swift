@@ -30,6 +30,9 @@ final class ProgressBarAnimator: ObservableObject {
     /// Flag to snap to target on next setTarget (after stop/start cycle)
     private var needsImmediateSnap: Bool = true
 
+    /// Current timer interval in milliseconds (adaptive frame rate)
+    private var currentInterval: Int = 16
+
     /// Interpolation speed (fraction of remaining distance per frame)
     /// 0.25 = smooth, 0.4 = snappy
     private let interpolationSpeed: Double = 0.35
@@ -94,9 +97,10 @@ final class ProgressBarAnimator: ObservableObject {
         guard timer == nil else { return }
 
         isAnimating = true
+        currentInterval = 16  // Start at 60fps
 
         let timer = DispatchSource.makeTimerSource(queue: .main)
-        timer.schedule(deadline: .now(), repeating: .milliseconds(16)) // ~60fps
+        timer.schedule(deadline: .now(), repeating: .milliseconds(currentInterval))
 
         timer.setEventHandler { [weak self] in
             self?.tick()
@@ -128,6 +132,23 @@ final class ProgressBarAnimator: ObservableObject {
             stopTimer()
             lock.unlock()
             return
+        }
+
+        // Adaptive frame rate based on delta magnitude
+        // Large delta = 60fps for smooth animation
+        // Small delta = lower fps to reduce CPU during settling
+        let newInterval: Int
+        switch abs(delta) {
+        case let d where d > 0.2:  newInterval = 16  // 60fps - large movement
+        case let d where d > 0.05: newInterval = 33  // 30fps - moderate
+        default:                   newInterval = 66  // 15fps - settling
+        }
+
+        // Reschedule timer if interval changed
+        if newInterval != currentInterval {
+            currentInterval = newInterval
+            timer?.schedule(deadline: .now() + .milliseconds(newInterval),
+                           repeating: .milliseconds(newInterval))
         }
 
         // Exponential ease-out interpolation

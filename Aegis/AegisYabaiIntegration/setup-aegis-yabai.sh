@@ -93,20 +93,21 @@ echo ""
 echo "✅ Runtime setup complete!"
 echo ""
 
-# 7. Check if .yabairc needs updating for persistence
-YABAIRC="$HOME/.yabairc"
+# 7. Check if yabairc needs updating for persistence
+# Default location, can be overridden with YABAIRC environment variable
+YABAIRC="${YABAIRC:-$HOME/.config/yabai/yabairc}"
 AEGIS_MARKER="# AEGIS_INTEGRATION_START"
 
 if [ -f "$YABAIRC" ]; then
     if grep -q "$AEGIS_MARKER" "$YABAIRC"; then
-        echo "✅ Aegis integration already in .yabairc (will persist across restarts)"
+        echo "✅ Aegis integration already in yabairc (will persist across restarts)"
     else
         echo ""
         echo "⚠️  IMPORTANT: Signals are registered but will be lost when yabai restarts."
         echo ""
-        echo "To make this permanent, add to your ~/.yabairc:"
+        echo "Found yabai config at: $YABAIRC"
         echo ""
-        echo "Would you like to automatically add Aegis integration to .yabairc? [y/N]"
+        echo "Would you like to automatically add Aegis integration to yabairc? [y/N]"
         read -r response
         if [[ "$response" =~ ^[Yy]$ ]]; then
             echo "" >> "$YABAIRC"
@@ -131,7 +132,7 @@ yabai -m signal --add event=window_moved action="YABAI_EVENT_TYPE=window_moved $
 yabai -m signal --add event=application_front_switched action="YABAI_EVENT_TYPE=application_front_switched $AEGIS_NOTIFY" label=aegis_application_front_switched
 # AEGIS_INTEGRATION_END
 YABAI_EOF
-            echo "✅ Added Aegis integration to ~/.yabairc"
+            echo "✅ Added Aegis integration to $YABAIRC"
         else
             echo ""
             echo "Skipped. To add manually later, copy the snippet from:"
@@ -140,7 +141,7 @@ YABAI_EOF
             # Save snippet for manual use
             cat > "$CONFIG_DIR/yabairc-snippet.sh" << 'SNIPPET_EOF'
 # AEGIS_INTEGRATION_START
-# Aegis window manager integration - add this to your ~/.yabairc
+# Aegis window manager integration - add this to your yabairc
 AEGIS_NOTIFY="$HOME/.config/aegis/aegis-yabai-notify"
 yabai -m signal --remove aegis_space_changed 2>/dev/null || true
 yabai -m signal --remove aegis_space_destroyed 2>/dev/null || true
@@ -162,8 +163,11 @@ SNIPPET_EOF
         fi
     fi
 else
-    echo "⚠️  No ~/.yabairc found. Signals will work now but won't persist."
-    echo "   Create a .yabairc and run this script again to make setup permanent."
+    echo "⚠️  No yabairc found at $YABAIRC"
+    echo "   Signals will work now but won't persist across yabai restarts."
+    echo ""
+    echo "   To specify a custom location, run:"
+    echo "   YABAIRC=/path/to/your/yabairc ./setup-aegis-yabai.sh"
 fi
 
 echo ""

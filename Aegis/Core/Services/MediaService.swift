@@ -10,10 +10,10 @@ class MediaService {
     private var currentInfo: MediaInfo?
 
     // Cache album art per track to handle payloads without artwork
-    // Limited to 10 entries to prevent unbounded memory growth
+    // Limited to 5 entries with downscaled images to prevent memory bloat
     private var cachedAlbumArt: [String: NSImage] = [:]
     private var albumArtCacheOrder: [String] = []  // Track insertion order for LRU eviction
-    private let maxCachedAlbumArt = 10
+    private let maxCachedAlbumArt = 5
 
     // Process running the mediaremote-adapter stream
     private var streamProcess: Process?
@@ -133,24 +133,60 @@ class MediaService {
         // Create track identifier for caching
         let trackId = "\(title)-\(artist)"
 
-        // Parse album art from base64
-        var albumArt: NSImage?
+        // Check if we have new artwork to decode
         if let artworkDataString = payload["artworkData"] as? String,
            !artworkDataString.isEmpty {
             let trimmed = artworkDataString.trimmingCharacters(in: .whitespacesAndNewlines)
-            if let data = Data(base64Encoded: trimmed),
-               let image = NSImage(data: data) {
-                albumArt = image
-                cacheAlbumArt(image, forTrack: trackId)
-            } else {
-                print("⚠️ MediaService: Failed to decode/create album art")
+
+            // Decode on background queue to avoid main thread stutter
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let scaledImage = self?.decodeAndScaleAlbumArt(from: trimmed)
+
+                DispatchQueue.main.async {
+                    guard let self = self else { return }
+
+                    // Cache the scaled image
+                    if let image = scaledImage {
+                        self.cacheAlbumArt(image, forTrack: trackId)
+                    }
+
+                    // Publish with decoded artwork (or nil if decode failed)
+                    self.publishMediaInfo(
+                        title: title,
+                        artist: artist,
+                        album: album,
+                        isPlaying: isPlaying,
+                        albumArt: scaledImage ?? self.cachedAlbumArt[trackId],
+                        bundleIdentifier: bundleIdentifier,
+                        trackId: trackId
+                    )
+                }
             }
         } else {
-            // No album art in payload - try to use cached version for THIS track only
-            albumArt = cachedAlbumArt[trackId]
+            // No new artwork - use cached version immediately
+            let albumArt = cachedAlbumArt[trackId]
+            publishMediaInfo(
+                title: title,
+                artist: artist,
+                album: album,
+                isPlaying: isPlaying,
+                albumArt: albumArt,
+                bundleIdentifier: bundleIdentifier,
+                trackId: trackId
+            )
         }
+    }
 
-        // Create new MediaInfo
+    /// Publish media info if changed (extracted for reuse)
+    private func publishMediaInfo(
+        title: String,
+        artist: String,
+        album: String,
+        isPlaying: Bool,
+        albumArt: NSImage?,
+        bundleIdentifier: String?,
+        trackId: String
+    ) {
         let newInfo = MediaInfo(
             title: title,
             artist: artist,
@@ -166,7 +202,6 @@ class MediaService {
         let playbackStateChanged = currentInfo?.isPlaying != newInfo.isPlaying
 
         if newInfo != currentInfo || albumArtUpdated {
-            let wasPlaying = currentInfo?.isPlaying ?? false
             currentInfo = newInfo
 
             // Log for debugging
@@ -177,7 +212,6 @@ class MediaService {
                     print("🎵 MediaService: Playback resumed - \(title) by \(artist)")
                 } else {
                     print("🎵 MediaService: Playback stopped/paused - \(title) by \(artist)")
-                    print("🎵 MediaService: Publishing event with isPlaying=false to trigger HUD hide")
                 }
             } else if albumArtUpdated {
                 print("🎵 MediaService: Album art received for current track - updating")
@@ -189,6 +223,39 @@ class MediaService {
     }
 
     // MARK: - Album Art Cache
+
+    /// Decode and downscale album art for memory efficiency
+    /// Album art displays at ~80pt, so 160px (2x retina) is sufficient
+    /// Uses autoreleasepool to ensure full-size image is freed immediately
+    private func decodeAndScaleAlbumArt(from base64String: String) -> NSImage? {
+        autoreleasepool {
+            guard let data = Data(base64Encoded: base64String),
+                  let image = NSImage(data: data) else {
+                return nil
+            }
+
+            // Scale to max 160x160 (2x retina for 80pt display)
+            let maxSize: CGFloat = 160
+            let size = image.size
+
+            if size.width <= maxSize && size.height <= maxSize {
+                return image  // Already small enough
+            }
+
+            let scale = min(maxSize / size.width, maxSize / size.height)
+            let newSize = NSSize(width: size.width * scale, height: size.height * scale)
+
+            let scaledImage = NSImage(size: newSize)
+            scaledImage.lockFocus()
+            image.draw(in: NSRect(origin: .zero, size: newSize),
+                       from: NSRect(origin: .zero, size: size),
+                       operation: .copy,
+                       fraction: 1.0)
+            scaledImage.unlockFocus()
+
+            return scaledImage
+        }
+    }
 
     /// Cache album art with LRU eviction to prevent unbounded memory growth
     private func cacheAlbumArt(_ image: NSImage, forTrack trackId: String) {

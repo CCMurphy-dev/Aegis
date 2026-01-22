@@ -54,10 +54,10 @@ struct YabaiSetupChecker {
         return check() == .ready
     }
 
-    /// Check if Aegis integration is persisted in .yabairc (survives yabai restart)
+    /// Check if Aegis integration is persisted in yabairc (survives yabai restart)
     static func isPersisted() -> Bool {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
-        let yabairc = "\(home)/.yabairc"
+        let yabairc = "\(home)/.config/yabai/yabairc"
 
         guard let contents = try? String(contentsOfFile: yabairc, encoding: .utf8) else {
             return false
@@ -195,7 +195,7 @@ struct YabaiSetupChecker {
     static func getYabaiRcSnippet() -> String {
         return """
         # AEGIS_INTEGRATION_START
-        # Aegis window manager integration - add this to your ~/.yabairc
+        # Aegis window manager integration - add this to your ~/.config/yabai/yabairc
         AEGIS_NOTIFY="$HOME/.config/aegis/aegis-yabai-notify"
         yabai -m signal --remove aegis_space_changed 2>/dev/null || true
         yabai -m signal --remove aegis_space_destroyed 2>/dev/null || true
