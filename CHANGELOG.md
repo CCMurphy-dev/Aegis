@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-01-22
+
+### Fixed
+- HUD overlay counter race condition that blocked other HUD elements
+  - Connecting AirPods (or showing any overlay HUD) no longer prevents media HUD from appearing
+  - `overlayDidHide()` now called immediately when hide starts, not inside delayed conditional block
+  - Fixes stuck `isOverlayActive` state that permanently hid media HUD right panel
+
 ## [1.0.5] - 2026-01-22
 
 ### Changed

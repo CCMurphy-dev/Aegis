@@ -821,7 +821,12 @@ class NotchHUDController: ObservableObject {
         print("🔔 hideNotificationHUD: Setting notificationViewModel.isVisible = false")
         notificationViewModel.isVisible = false
 
-        // After animation completes, hide the window and restore music panel
+        // Restore media HUD right panel immediately when hide starts
+        // This must happen outside the delayed block to prevent counter mismatch
+        // if another show/hide cycle occurs during the animation delay
+        mediaViewModel.overlayDidHide()
+
+        // After animation completes, hide the window
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             if !self.notificationViewModel.isVisible {
                 print("🔔 hideNotificationHUD: Animation complete, hiding window")
@@ -829,9 +834,6 @@ class NotchHUDController: ObservableObject {
                 self.notificationWindow.orderOut(nil)
                 // Move off-screen as extra safety to ensure no mouse blocking
                 self.notificationWindow.setFrameOrigin(NSPoint(x: -10000, y: -10000))
-
-                // Restore media HUD right panel
-                self.mediaViewModel.overlayDidHide()
             }
         }
     }
@@ -873,15 +875,17 @@ class NotchHUDController: ObservableObject {
         print("🎧 hideDeviceHUD: Setting deviceViewModel.isVisible = false (triggering slide-out animation)")
         deviceViewModel.isVisible = false
 
-        // After animation completes, hide the window and restore music panel
+        // Restore media HUD right panel immediately when hide starts
+        // This must happen outside the delayed block to prevent counter mismatch
+        // if another show/hide cycle occurs during the animation delay
+        mediaViewModel.overlayDidHide()
+
+        // After animation completes, hide the window
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             if !self.deviceViewModel.isVisible {
                 print("🎧 hideDeviceHUD: Animation complete, hiding window")
                 self.deviceWindow.alphaValue = 0
                 self.deviceWindow.orderOut(nil)
-
-                // Restore media HUD right panel
-                self.mediaViewModel.overlayDidHide()
             }
         }
     }
@@ -923,15 +927,17 @@ class NotchHUDController: ObservableObject {
         print("🎯 hideFocusHUD: Setting focusViewModel.isVisible = false (triggering slide-out animation)")
         focusViewModel.isVisible = false
 
-        // After animation completes, hide the window and restore music panel
+        // Restore media HUD right panel immediately when hide starts
+        // This must happen outside the delayed block to prevent counter mismatch
+        // if another show/hide cycle occurs during the animation delay
+        mediaViewModel.overlayDidHide()
+
+        // After animation completes, hide the window
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             if !self.focusViewModel.isVisible {
                 print("🎯 hideFocusHUD: Animation complete, hiding window")
                 self.focusWindow.alphaValue = 0
                 self.focusWindow.orderOut(nil)
-
-                // Restore media HUD right panel
-                self.mediaViewModel.overlayDidHide()
             }
         }
     }
@@ -1071,15 +1077,17 @@ class NotchHUDController: ObservableObject {
         let isVolume = overlayViewModel.iconName.contains("speaker")
         updateOverlayHUDLayout(isVisible: false, isVolume: isVolume)
 
-        // After animation completes, fade window and restore music panel
+        // Restore media HUD right panel immediately when hide starts
+        // This must happen outside the delayed block to prevent counter mismatch
+        // if another show/hide cycle occurs during the animation delay
+        mediaViewModel.overlayDidHide()
+
+        // After animation completes, fade window
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             // Only hide if still supposed to be hidden
             if !self.overlayViewModel.isVisible {
                 self.overlayWindow.alphaValue = 0
                 self.overlayWindow.orderOut(nil)
-
-                // Restore media HUD right panel
-                self.mediaViewModel.overlayDidHide()
 
                 // Stop the display link to save CPU when HUD is hidden
                 self.overlayViewModel.progressAnimator.stop()

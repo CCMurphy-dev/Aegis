@@ -8,6 +8,26 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.6</title>
+            <sparkle:version>1.0.6</sparkle:version>
+            <sparkle:shortVersionString>1.0.6</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Wed, 22 Jan 2026 23:10:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.6</h2>
+                <ul>
+                    <li><strong>HUD Overlay Fix</strong> - Fixed race condition where connecting AirPods could block other HUD elements from appearing</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.6/Aegis.app.zip"
+                length="2218925"
+                type="application/octet-stream"
+                sparkle:edSignature="BmUjBIHIspHMKt8H6B2b0kpUabi9hHHMN/SnaLYjqJf7WiNjBWJNCjPqt+EJ31dNZjYAspBAu362i3gzMnZQCA==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 1.0.5</title>
             <sparkle:version>1.0.5</sparkle:version>
             <sparkle:shortVersionString>1.0.5</sparkle:shortVersionString>
@@ -29,8 +49,6 @@
                 type="application/octet-stream"
                 sparkle:edSignature="ljJf+St0jswW7iy8/SH5GnJOYQvgIdH2hsn9J7KeK47E+rXOXjIN51Ao/nLJvB45FSuOx8UFVXfA/kIwrF5VDg==" />
         </item>
-
-        <!-- Previous Releases -->
         <item>
             <title>Version 1.0.4</title>
             <sparkle:version>1.0.4</sparkle:version>
