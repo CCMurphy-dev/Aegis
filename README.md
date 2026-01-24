@@ -8,7 +8,7 @@ A macOS menu bar replacement for [Yabai](https://github.com/koekeishiya/yabai) w
 [![GitHub release](https://img.shields.io/github/v/release/CCMurphy-Dev/Aegis)](https://github.com/CCMurphy-Dev/Aegis/releases)
 [![Downloads](https://img.shields.io/github/downloads/CCMurphy-Dev/Aegis/total)](https://github.com/CCMurphy-Dev/Aegis/releases)
 
-<img width="1800" height="48" alt="image" src="https://github.com/user-attachments/assets/295f138a-5bb4-4230-bfb5-50c135b53cfe" />
+<img width="1800" height="40" alt="image" src="https://github.com/user-attachments/assets/3e694fd5-1e14-4e96-a39e-e35979bd3603" />
 
 ## Features
 
