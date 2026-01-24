@@ -13,23 +13,28 @@ A macOS menu bar replacement for [Yabai](https://github.com/koekeishiya/yabai) w
 ## Features
 
 ### Menu Bar
-- **Workspace indicators** - Visual space display with window icons, click to focus, drag to move
-- **Layout controls** - Rotate, flip, balance, stack windows via scroll wheel or context menu
-- **System status** - Battery, WiFi, Focus mode, clock in the menu bar
-- **Split-state architecture** - Optimized for minimal CPU usage (~95% reduction during focus changes)
+- **Space indicators** - Visual workspace display with app icons, click to switch, scroll to navigate
+- **Context button** - Shows focused window icon and title, expands on hover
+- **App launcher** - Quick-access floating apps button with configurable app list
+- **System status** - Battery, WiFi, Focus mode, clock
 
 ### Notch HUD
-- **Volume/Brightness** - Smooth progress bar animations with energy-efficient rendering
-- **Media HUD** - Album art with visualizer or track info (marquee scrolling for long titles)
-  - Works with all media sources: Music, Spotify, Safari, Chrome, Firefox, YouTube, etc.
-- **Bluetooth HUD** - Device connection/disconnection with battery ring indicator
-- **Focus Mode HUD** - Shows Focus mode icon and name when enabled/disabled
-- **Notification HUD** - Intercepts system notifications, click to open source app
+- **Volume/Brightness** - Smooth progress bar with adaptive frame rate
+- **Media** - Album art with visualizer or track info (marquee scrolling for long titles)
+  - Works with Music, Spotify, Safari, Chrome, Firefox, YouTube, and more
+- **Bluetooth** - Device connection notifications with battery indicator
+- **Focus Mode** - Shows Focus mode icon and name when enabled/disabled
+- **Notifications** - Intercepts system notifications, click to open source app
+
+### App Switcher
+- **Cmd+Tab replacement** - Window previews with app icons
+- **Scroll navigation** - Two-finger scroll to cycle through windows
+- **Cmd+scroll activation** - Optional gesture to open switcher (configurable)
 
 ### Other
-- **Customizable** - Comprehensive settings panel for all UI elements
+- **Customizable** - JSON config file with hot-reload, plus Settings panel
 - **Auto-updates** - Built-in update checking via Sparkle
-- **Energy efficient** - Timer-based animations auto-stop when idle
+- **Energy efficient** - Animations auto-stop when idle, minimal CPU usage
 
 ## Quick Start
 
