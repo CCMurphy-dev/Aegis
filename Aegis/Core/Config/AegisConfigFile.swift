@@ -177,6 +177,9 @@ struct AegisConfigData: Codable {
     // App Launcher Settings
     var launcherApps: [String]?
 
+    // Notification HUD Exclusions
+    var notificationExcludedApps: [String]?
+
     // Notch HUD Icon & Text Settings
     var notchHUDIconSize: Double?
     var notchHUDValueFontSize: Double?
@@ -427,6 +430,9 @@ extension AegisConfig {
         // App Launcher Settings
         if let v = data.launcherApps { launcherApps = v }
 
+        // Notification HUD Exclusions
+        if let v = data.notificationExcludedApps { notificationExcludedApps = v }
+
         // Notch HUD Icon & Text Settings
         if let v = data.notchHUDIconSize { notchHUDIconSize = CGFloat(v) }
         if let v = data.notchHUDValueFontSize { notchHUDValueFontSize = CGFloat(v) }
@@ -638,6 +644,9 @@ extension AegisConfig {
             // App Launcher Settings
             launcherApps: launcherApps,
 
+            // Notification HUD Exclusions
+            notificationExcludedApps: notificationExcludedApps,
+
             // Notch HUD Icon & Text Settings
             notchHUDIconSize: Double(notchHUDIconSize),
             notchHUDValueFontSize: Double(notchHUDValueFontSize),
@@ -758,6 +767,23 @@ To find an app's bundle identifier, run in Terminal:
 ```bash
 osascript -e 'id of app "AppName"'
 ```
+
+---
+
+## Notification HUD Exclusions
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `notificationExcludedApps` | [string] | See below | Bundle IDs or app names to exclude from notification HUD |
+
+**Default notificationExcludedApps:**
+```json
+["com.apple.controlcenter", "com.apple.donotdisturbd", "com.apple.FocusSettings"]
+```
+
+Notifications from these apps will be silently ignored. This prevents duplicate HUDs (e.g., Focus mode notifications are already shown by the Focus HUD).
+
+You can add bundle identifiers (e.g., `"com.apple.mail"`) or partial app name matches (e.g., `"Slack"`).
 
 ---
 

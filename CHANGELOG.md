@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-01-24
+
+### Added
+- `notificationExcludedApps` config option to filter notifications from specific apps
+  - Accepts bundle identifiers (e.g., `"com.apple.mail"`) or partial app name matches (e.g., `"Slack"`)
+  - Default excludes Focus mode apps to prevent duplicate HUDs with Focus HUD
+
 ## [1.0.6] - 2026-01-22
 
 ### Fixed

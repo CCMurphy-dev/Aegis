@@ -486,6 +486,15 @@ class AegisConfig: ObservableObject {
     /// Delay before auto-hiding notification HUD (seconds)
     @Published var notificationHUDAutoHideDelay: TimeInterval = 8.0
 
+    /// Bundle identifiers or app names to exclude from notification HUD
+    /// Notifications from these apps will be silently ignored
+    /// Default includes Focus mode related apps to avoid duplicate HUDs
+    @Published var notificationExcludedApps: [String] = [
+        "com.apple.controlcenter",
+        "com.apple.donotdisturbd",
+        "com.apple.FocusSettings"
+    ]
+
     // MARK: - App Launcher Settings
 
     /// Bundle identifiers for apps in the launcher button (scroll to select)
@@ -804,6 +813,7 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(showFocusHUD, forKey: "showFocusHUD")
         UserDefaults.standard.set(focusHUDAutoHideDelay, forKey: "focusHUDAutoHideDelay")
         UserDefaults.standard.set(launcherApps, forKey: "launcherApps")
+        UserDefaults.standard.set(notificationExcludedApps, forKey: "notificationExcludedApps")
         UserDefaults.standard.set(notchHUDIconSize, forKey: "notchHUDIconSize")
         UserDefaults.standard.set(notchHUDValueFontSize, forKey: "notchHUDValueFontSize")
         UserDefaults.standard.set(notchHUDInnerPadding, forKey: "notchHUDInnerPadding")
@@ -1191,6 +1201,9 @@ class AegisConfig: ObservableObject {
         }
         if let val = UserDefaults.standard.object(forKey: "launcherApps") as? [String] {
             launcherApps = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "notificationExcludedApps") as? [String] {
+            notificationExcludedApps = val
         }
         if let val = UserDefaults.standard.object(forKey: "notchHUDIconSize") as? Double {
             notchHUDIconSize = CGFloat(val)

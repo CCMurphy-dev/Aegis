@@ -222,6 +222,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let title = data["title"] as? String ?? ""
             let body = data["body"] as? String ?? ""
             let bundleIdentifier = data["bundleIdentifier"] as? String ?? ""
+
+            // Check if notification should be excluded based on config
+            let excludedApps = AegisConfig.shared.notificationExcludedApps
+            for excluded in excludedApps {
+                // Check bundle identifier match
+                if bundleIdentifier == excluded {
+                    return
+                }
+                // Check app name match (case-insensitive, partial) for non-bundle-id entries
+                if !excluded.contains(".") && appName.localizedCaseInsensitiveContains(excluded) {
+                    return
+                }
+            }
+
             self?.notchHUDController?.showNotification(
                 appName: appName,
                 title: title,

@@ -8,6 +8,26 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.7</title>
+            <sparkle:version>1.0.7</sparkle:version>
+            <sparkle:shortVersionString>1.0.7</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Fri, 24 Jan 2026 11:24:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.7</h2>
+                <ul>
+                    <li><strong>Notification Exclusions</strong> - New <code>notificationExcludedApps</code> config option to filter notifications from specific apps</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.7/Aegis.app.zip"
+                length="2220755"
+                type="application/octet-stream"
+                sparkle:edSignature="Csslpp6TaCJSvolow1NK0wCENFMMF2y7BaCnJidD3zHK6H+Y5NjPJJ3gjrO0lIf6Du4BJbqhhSUIR4ZpO6JNAg==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 1.0.6</title>
             <sparkle:version>1.0.6</sparkle:version>
             <sparkle:shortVersionString>1.0.6</sparkle:shortVersionString>
@@ -25,8 +45,6 @@
                 type="application/octet-stream"
                 sparkle:edSignature="BmUjBIHIspHMKt8H6B2b0kpUabi9hHHMN/SnaLYjqJf7WiNjBWJNCjPqt+EJ31dNZjYAspBAu362i3gzMnZQCA==" />
         </item>
-
-        <!-- Previous Releases -->
         <item>
             <title>Version 1.0.5</title>
             <sparkle:version>1.0.5</sparkle:version>
