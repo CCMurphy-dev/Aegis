@@ -1,5 +1,17 @@
 # Aegis Roadmap
 
+## Ideas
+
+### UI Improvements
+- Window preview thumbnails on hover
+- Animate Media HUD panel expansion on track change
+
+### Features
+- Multi-monitor support improvements
+- Custom themes/color schemes
+- Keyboard shortcut customization UI
+- Aerospace integration
+
 ## Completed
 
 ### Auto-Updates (Sparkle) - v0.5.0
@@ -49,14 +61,3 @@
 - ~1-2% CPU during animation (down from 10-15%)
 - Auto-stops when animation settles (zero idle CPU)
 - Exponential ease-out interpolation for smooth visuals
-
-## Ideas
-
-### UI Improvements
-- Window preview thumbnails on hover
-- Animate Media HUD panel expansion on track change
-
-### Features
-- Multi-monitor support improvements
-- Custom themes/color schemes
-- Keyboard shortcut customization UI
