@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.8] - 2026-01-30
+
+### Fixed
+- Dragging a focused window to another space now works correctly
+  - Removed async timing check that incorrectly rejected drops
+- Context button expansion now animates space indicators and app launcher
+  - All menu bar elements shift together when context button expands on scroll
+
 ## [1.0.7] - 2026-01-24
 
 ### Added

@@ -68,6 +68,14 @@ struct MenuBarView: View {
     @State private var scrollOffset: CGFloat = 0
     @State private var isScrolled: Bool = false
     @State private var previousSpaceCount: Int = 0
+    @State private var isContextButtonExpanded: Bool = false
+
+    // Dynamic context button width based on expansion state
+    private var contextButtonWidth: CGFloat {
+        isContextButtonExpanded
+            ? AppKitLayoutActionsButton.expandedWidth
+            : AppKitLayoutActionsButton.collapsedWidth
+    }
 
     init(
         viewModel: MenuBarViewModel,
@@ -109,10 +117,10 @@ struct MenuBarView: View {
             GeometryReader { geometry in
                 ZStack(alignment: .topLeading) {
                     HStack(alignment: .center, spacing: 0) {
-                        // Fixed spacer - AppKit button handles its own expansion via layers
-                        // Width = edge padding + layout button (32) + spacing (6) + finder button (32) + spacing to spaces
+                        // Dynamic spacer - accounts for context button expansion
+                        // Width = edge padding + context button + spacing (6) + launcher button (32) + spacing to spaces
                         Spacer()
-                            .frame(width: config.menuBarEdgePadding + 32 + 6 + 32 + config.spaceIndicatorSpacing)
+                            .frame(width: config.menuBarEdgePadding + contextButtonWidth + 6 + 32 + config.spaceIndicatorSpacing)
 
                         // Spaces (with scrolling if needed)
                         ZStack(alignment: .leading) {
@@ -143,7 +151,7 @@ struct MenuBarView: View {
                                     }
                                 }
                                 .animation(.spring(response: 0.4, dampingFraction: 0.8), value: spaceStore.spaceIds.count)
-                                .padding(.leading, config.menuBarEdgePadding + config.spaceIndicatorSpacing + 32)  // Start after button
+                                .padding(.leading, config.menuBarEdgePadding + config.spaceIndicatorSpacing + contextButtonWidth)  // Start after button
                                 // Extra trailing padding allows scrolling content past the notch area
                                 // This creates scrollable space so user can scroll left to reveal spaces hidden behind notch/HUD
                                 .padding(.trailing, geometry.size.width / 2 + 50)
@@ -185,7 +193,7 @@ struct MenuBarView: View {
                             previousSpaceCount = spaceStore.spaceIds.count
                         }
                     }
-                    .offset(x: -(config.menuBarEdgePadding + config.spaceIndicatorSpacing + 32))  // Extend under button
+                    .offset(x: -(config.menuBarEdgePadding + config.spaceIndicatorSpacing + contextButtonWidth))  // Extend under button
                     .mask(
                         // Simplified mask using HStack of gradients - avoids expensive blend modes
                         HStack(spacing: 0) {
@@ -195,7 +203,7 @@ struct MenuBarView: View {
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
-                            .frame(width: isScrolled ? (config.menuBarEdgePadding + config.spaceIndicatorSpacing + 32 + 20) : 0)
+                            .frame(width: isScrolled ? (config.menuBarEdgePadding + config.spaceIndicatorSpacing + contextButtonWidth + 20) : 0)
 
                             // Middle - full visibility
                             Rectangle()
@@ -216,6 +224,7 @@ struct MenuBarView: View {
                         Spacer()
                     }
                     .frame(height: config.menuBarHeight, alignment: .center)
+                    .animation(.easeOut(duration: 0.2), value: isContextButtonExpanded)
 
                     // Right: System status - positioned on its own layer for proper vertical centering
                     HStack {
@@ -230,6 +239,7 @@ struct MenuBarView: View {
                     HStack(spacing: 6) {
                         AppKitLayoutActionsButtonWrapper(
                             viewModel: viewModel,
+                            isExpanded: $isContextButtonExpanded,
                             onRotate: onRotateLayout,
                             onFlip: onFlipLayout,
                             onBalance: onBalanceLayout,
@@ -238,9 +248,13 @@ struct MenuBarView: View {
                             onSpaceCreate: onSpaceCreate,
                             onSpaceDestroy: onSpaceDestroy
                         )
-                        // Fixed 32px frame - label expansion happens via CALayer overlay
-                        // without affecting SwiftUI layout
-                        .frame(width: 32, height: 26)
+                        // Animate frame width when context button expands/collapses
+                        .frame(
+                            width: isContextButtonExpanded
+                                ? AppKitLayoutActionsButton.expandedWidth
+                                : AppKitLayoutActionsButton.collapsedWidth,
+                            height: 26
+                        )
 
                         AppKitAppLauncherButtonWrapper(apps: FloatingApp.appsFromConfig(), onToggleApp: onToggleApp)
                             .frame(width: 32, height: 26)
@@ -249,6 +263,7 @@ struct MenuBarView: View {
                     }
                     .padding(.leading, config.menuBarEdgePadding)
                     .frame(height: config.menuBarHeight, alignment: .center)
+                    .animation(.easeOut(duration: 0.2), value: isContextButtonExpanded)
                 }
             }
             .frame(height: config.menuBarHeight)

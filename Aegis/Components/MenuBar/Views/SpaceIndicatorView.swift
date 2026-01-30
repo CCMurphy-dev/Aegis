@@ -247,13 +247,8 @@ struct SpaceIndicatorView: View {
                 return
             }
 
-            // Check if the window is from this space - if so, reject the drop
-            let isFromThisSpace = self.windowIcons.contains(where: { $0.id == windowId })
-            guard !isFromThisSpace else {
-                return
-            }
-
             // Always append to end (nil = insert at end)
+            // Note: yabai's window --space command is idempotent, so same-space drops are harmless
             DispatchQueue.main.async {
                 self.onWindowDrop?(windowId, self.space.index, nil, false)
             }

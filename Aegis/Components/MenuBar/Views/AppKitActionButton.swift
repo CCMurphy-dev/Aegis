@@ -32,6 +32,7 @@ final class AppKitLayoutActionsButton: NSView {
 
     // Callbacks
     var onRightClick: (() -> Void)?
+    var onExpandedChange: ((Bool) -> Void)?
 
     // Scroll handling
     private var scrollAccumulator: CGFloat = 0
@@ -55,6 +56,10 @@ final class AppKitLayoutActionsButton: NSView {
     private let labelSpacing: CGFloat = 6
 
     private let config = AegisConfig.shared
+
+    // Computed widths for SwiftUI layout coordination
+    static let collapsedWidth: CGFloat = 8 * 2 + 16  // horizontalPadding * 2 + iconSize = 32
+    static let expandedWidth: CGFloat = 8 * 2 + 16 + 6 + 95  // + labelSpacing + labelWidth = 133
 
     // MARK: - Initialization
 
@@ -236,7 +241,9 @@ final class AppKitLayoutActionsButton: NSView {
         borderLayer.opacity = (isHovered || visible) ? 1.0 : 0.0
 
         CATransaction.commit()
-        // No SwiftUI callback - expansion is handled purely in AppKit layers
+
+        // Notify SwiftUI of expansion change so it can animate the layout
+        onExpandedChange?(visible)
     }
 
     // MARK: - Mouse Events
@@ -341,6 +348,7 @@ final class AppKitLayoutActionsButton: NSView {
 
 struct AppKitLayoutActionsButtonWrapper: NSViewRepresentable {
     let viewModel: MenuBarViewModel
+    @Binding var isExpanded: Bool
     let onRotate: (Int) -> Void
     let onFlip: (String) -> Void
     let onBalance: () -> Void
@@ -368,6 +376,13 @@ struct AppKitLayoutActionsButtonWrapper: NSViewRepresentable {
 
         button.onRightClick = {
             context.coordinator.showContextMenu(button: button)
+        }
+
+        // Notify SwiftUI when expansion state changes
+        button.onExpandedChange = { expanded in
+            DispatchQueue.main.async {
+                context.coordinator.parent.isExpanded = expanded
+            }
         }
 
         return button
