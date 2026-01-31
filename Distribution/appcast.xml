@@ -8,6 +8,28 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.9</title>
+            <sparkle:version>1.0.9</sparkle:version>
+            <sparkle:shortVersionString>1.0.9</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Fri, 31 Jan 2026 10:51:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.9</h2>
+                <ul>
+                    <li><strong>App Launcher Context Menu</strong> - Right-click the app launcher for a dropdown with all configured apps</li>
+                    <li><strong>Add/Remove Apps</strong> - Use "Add App..." to add applications via file picker, "Remove App" submenu to remove</li>
+                    <li><strong>Floating Apps</strong> - Apps launched from the app launcher now float and center on screen (50% size)</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.9/Aegis.app.zip"
+                length="2234735"
+                type="application/octet-stream"
+                sparkle:edSignature="lAh6C+3cDSn6ibdRqGzDhXyhmbXetw4gaPKpbKmPQEwdjcDM01JYMocWOx64IKnK8vW8mwCzzjmaw/BJAzWPDw==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 1.0.8</title>
             <sparkle:version>1.0.8</sparkle:version>
             <sparkle:shortVersionString>1.0.8</sparkle:shortVersionString>
@@ -26,8 +48,6 @@
                 type="application/octet-stream"
                 sparkle:edSignature="7u8goePvEFlLmSUdpU2cWJSXIT28/ItWeJlxQjlHMdAUI2BddwP4w2hmCytl6JGVoYMjUtAdq82zUK/fxLM+Bg==" />
         </item>
-
-        <!-- Previous Releases -->
         <item>
             <title>Version 1.0.7</title>
             <sparkle:version>1.0.7</sparkle:version>
