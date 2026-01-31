@@ -2,7 +2,7 @@
 //  HUDLayoutCoordinator.swift
 //  Aegis
 //
-//  Created by Claude on 14/01/2026.
+//
 //
 
 import SwiftUI

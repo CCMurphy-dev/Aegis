@@ -2,7 +2,7 @@
 //  MinimalHUDWrapper.swift
 //  Aegis
 //
-//  Created by Claude on 13/01/2026.
+//
 //
 
 import SwiftUI
