@@ -536,6 +536,24 @@ final class YabaiService {
         }
     }
 
+    /// Float window and center it using grid positioning (4:4:1:1:2:2 = center 50% of screen)
+    func floatAndCenterWindow(_ id: Int) {
+        Task {
+            // First ensure it's floating
+            if let output = try? await command.run(["-m", "query", "--windows", "--window", "\(id)"]),
+               let data = output.data(using: .utf8),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let isFloating = json["is-floating"] as? Bool,
+               !isFloating {
+                try? await command.run(["-m", "window", "\(id)", "--toggle", "float"])
+            }
+            // Center using grid: 4 rows, 4 cols, start at row 1 col 1, span 2x2
+            try? await command.run(["-m", "window", "\(id)", "--grid", "4:4:1:1:2:2"])
+            // Focus
+            try? await command.run(["-m", "window", "--focus", "\(id)"])
+        }
+    }
+
     /// Get all windows from cache
     func getAllWindows() -> [WindowInfo] {
         dataQueue.sync {

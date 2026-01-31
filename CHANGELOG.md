@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.9] - 2026-01-31
+
+### Added
+- App launcher right-click context menu
+  - Shows all configured apps with icons
+  - "Add App..." option opens file picker to add applications
+  - "Remove App" submenu to remove apps from the launcher
+  - App changes persist via UserDefaults
+- Newly launched apps from app launcher now float and center
+  - Uses yabai grid positioning (4:4:1:1:2:2) for centered 50% screen size
+  - Waits for window to appear before applying float and center
+
 ## [1.0.8] - 2026-01-30
 
 ### Fixed

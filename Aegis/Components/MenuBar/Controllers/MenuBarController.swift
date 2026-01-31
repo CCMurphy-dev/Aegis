@@ -64,7 +64,7 @@ struct MenuBarView: View {
     let onStackAllWindows: () -> Void
     let onToggleApp: (FloatingApp) -> Void
 
-    private let config = AegisConfig.shared
+    @ObservedObject private var config = AegisConfig.shared
     @State private var scrollOffset: CGFloat = 0
     @State private var isScrolled: Bool = false
     @State private var previousSpaceCount: Int = 0

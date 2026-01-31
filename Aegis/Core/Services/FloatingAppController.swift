@@ -102,7 +102,7 @@ class FloatingAppController {
         yabaiService.moveWindowToSpaceFloatAndFocus(windowId, spaceIndex: currentSpace.index)
     }
 
-    /// Open/activate the app
+    /// Open/activate the app, then float and center its window
     private func openApp(_ app: FloatingApp) {
         guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: app.bundleIdentifier) else {
             return
@@ -115,9 +115,36 @@ class FloatingAppController {
         // For Finder, open home directory to ensure a window opens
         if app.bundleIdentifier == "com.apple.finder" {
             let homeURL = FileManager.default.homeDirectoryForCurrentUser
-            NSWorkspace.shared.open([homeURL], withApplicationAt: appURL, configuration: config)
+            NSWorkspace.shared.open([homeURL], withApplicationAt: appURL, configuration: config) { [weak self] _, _ in
+                self?.waitAndFloatCenterWindow(for: app)
+            }
         } else {
-            NSWorkspace.shared.openApplication(at: appURL, configuration: config)
+            NSWorkspace.shared.openApplication(at: appURL, configuration: config) { [weak self] _, _ in
+                self?.waitAndFloatCenterWindow(for: app)
+            }
+        }
+    }
+
+    /// Wait for the app's window to appear, then float and center it
+    private func waitAndFloatCenterWindow(for app: FloatingApp) {
+        // Poll for the window to appear (up to 2 seconds)
+        var attempts = 0
+        let maxAttempts = 20
+
+        func checkForWindow() {
+            attempts += 1
+            if let windowId = findExistingWindow(for: app) {
+                yabaiService.floatAndCenterWindow(windowId)
+            } else if attempts < maxAttempts {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    checkForWindow()
+                }
+            }
+        }
+
+        // Start checking after a short delay to let the app launch
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            checkForWindow()
         }
     }
 }

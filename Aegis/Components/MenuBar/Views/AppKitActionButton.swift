@@ -8,6 +8,7 @@
 
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - AppKit Layout Actions Button
 
@@ -747,8 +748,9 @@ final class AppKitAppLauncherButton: NSView {
     private var selectedIndex: Int = 0
     private var isHovered: Bool = false
 
-    // Callback
+    // Callbacks
     var onToggleApp: ((FloatingApp) -> Void)?
+    var onRightClick: (() -> Void)?
 
     // Scroll handling
     private var scrollAccumulator: CGFloat = 0
@@ -887,6 +889,10 @@ final class AppKitAppLauncherButton: NSView {
         onToggleApp?(apps[selectedIndex])
     }
 
+    override func rightMouseDown(with event: NSEvent) {
+        onRightClick?()
+    }
+
     // MARK: - Scroll Handling
 
     override func scrollWheel(with event: NSEvent) {
@@ -962,10 +968,162 @@ struct AppKitAppLauncherButtonWrapper: NSViewRepresentable {
         let button = AppKitAppLauncherButton()
         button.configure(apps: apps)
         button.onToggleApp = onToggleApp
+        button.onRightClick = {
+            context.coordinator.showContextMenu(button: button)
+        }
         return button
     }
 
     func updateNSView(_ nsView: AppKitAppLauncherButton, context: Context) {
-        // Apps list doesn't change at runtime
+        // Reconfigure if apps list changes
+        nsView.configure(apps: apps)
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    class Coordinator {
+        let parent: AppKitAppLauncherButtonWrapper
+
+        init(parent: AppKitAppLauncherButtonWrapper) {
+            self.parent = parent
+        }
+
+        func showContextMenu(button: AppKitAppLauncherButton) {
+            // Get fresh apps list from config (not cached parent.apps)
+            let apps = FloatingApp.appsFromConfig()
+
+            let menu = NSMenu()
+            menu.autoenablesItems = false
+
+            let menuTarget = LauncherMenuTarget(
+                apps: apps,
+                onToggleApp: parent.onToggleApp
+            )
+
+            // Store reference to prevent deallocation
+            objc_setAssociatedObject(menu, "menuTarget", menuTarget, .OBJC_ASSOCIATION_RETAIN)
+
+            // Add each configured app with its icon
+            for (index, app) in apps.enumerated() {
+                let menuItem = NSMenuItem(
+                    title: app.name,
+                    action: #selector(LauncherMenuTarget.launchApp(_:)),
+                    keyEquivalent: ""
+                )
+                menuItem.target = menuTarget
+                menuItem.tag = index
+                menuItem.image = app.icon
+                menuItem.image?.size = NSSize(width: 16, height: 16)
+                menu.addItem(menuItem)
+            }
+
+            menu.addItem(NSMenuItem.separator())
+
+            // Add App option
+            let addItem = NSMenuItem(
+                title: "Add App...",
+                action: #selector(LauncherMenuTarget.addApp),
+                keyEquivalent: ""
+            )
+            addItem.target = menuTarget
+            menu.addItem(addItem)
+
+            // Remove App submenu (only if there are apps to remove)
+            if !apps.isEmpty {
+                let removeItem = NSMenuItem(title: "Remove App", action: nil, keyEquivalent: "")
+                let removeSubmenu = NSMenu()
+                for (index, app) in apps.enumerated() {
+                    let item = NSMenuItem(
+                        title: app.name,
+                        action: #selector(LauncherMenuTarget.removeApp(_:)),
+                        keyEquivalent: ""
+                    )
+                    item.target = menuTarget
+                    item.tag = index
+                    item.image = app.icon
+                    item.image?.size = NSSize(width: 16, height: 16)
+                    removeSubmenu.addItem(item)
+                }
+                removeItem.submenu = removeSubmenu
+                menu.addItem(removeItem)
+            }
+
+            // Show the menu
+            let location = NSPoint(x: 0, y: button.bounds.height + 4)
+            menu.popUp(positioning: nil, at: location, in: button)
+        }
+    }
+}
+
+// MARK: - Launcher Menu Target
+
+/// Target for app launcher context menu actions
+private class LauncherMenuTarget: NSObject {
+    let apps: [FloatingApp]
+    let onToggleApp: (FloatingApp) -> Void
+
+    init(apps: [FloatingApp], onToggleApp: @escaping (FloatingApp) -> Void) {
+        self.apps = apps
+        self.onToggleApp = onToggleApp
+        super.init()
+    }
+
+    @objc func launchApp(_ sender: NSMenuItem) {
+        guard sender.tag < apps.count else { return }
+        onToggleApp(apps[sender.tag])
+    }
+
+    @objc func addApp() {
+        // Open file picker to select an app
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.application]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.message = "Select an application to add to the launcher"
+        panel.prompt = "Add"
+
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+
+            // Get bundle identifier from the app
+            guard let bundle = Bundle(url: url),
+                  let bundleId = bundle.bundleIdentifier else {
+                // Show error alert
+                let alert = NSAlert()
+                alert.messageText = "Invalid Application"
+                alert.informativeText = "Could not read bundle identifier from the selected application."
+                alert.alertStyle = .warning
+                alert.runModal()
+                return
+            }
+
+            // Check if already in list
+            let config = AegisConfig.shared
+            if config.launcherApps.contains(bundleId) {
+                let alert = NSAlert()
+                alert.messageText = "Already Added"
+                alert.informativeText = "\(url.deletingPathExtension().lastPathComponent) is already in the launcher."
+                alert.alertStyle = .informational
+                alert.runModal()
+                return
+            }
+
+            // Add to config
+            config.launcherApps.append(bundleId)
+            config.savePreferences()
+        }
+    }
+
+    @objc func removeApp(_ sender: NSMenuItem) {
+        guard sender.tag < apps.count else { return }
+        let app = apps[sender.tag]
+
+        let config = AegisConfig.shared
+        config.launcherApps.removeAll { $0 == app.bundleIdentifier }
+        config.savePreferences()
     }
 }
