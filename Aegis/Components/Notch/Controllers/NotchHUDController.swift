@@ -750,8 +750,12 @@ class NotchHUDController: ObservableObject {
             return
         }
 
-        // Tell media HUD to hide its right panel (to avoid overlap)
-        mediaViewModel.overlayDidShow()
+        // Only increment overlay counter when transitioning from hidden to visible
+        // This prevents counter mismatch if show is called multiple times
+        let wasHidden = !notificationViewModel.isVisible
+        if wasHidden {
+            mediaViewModel.overlayDidShow()
+        }
 
         // Calculate HUD dimensions to resize window to only cover the HUD area
         // This is critical - by limiting the window size, clicks outside the HUD
@@ -843,8 +847,12 @@ class NotchHUDController: ObservableObject {
     private func showDeviceHUD() {
         print("🎧 showDeviceHUD() called - currentlyVisible: \(deviceViewModel.isVisible)")
 
-        // Tell media HUD to hide its right panel (to avoid overlap)
-        mediaViewModel.overlayDidShow()
+        // Only increment overlay counter when transitioning from hidden to visible
+        // This prevents counter mismatch if show is called multiple times
+        let wasHidden = !deviceViewModel.isVisible
+        if wasHidden {
+            mediaViewModel.overlayDidShow()
+        }
 
         // Order window front with full opacity immediately
         deviceWindow.alphaValue = 1
@@ -895,8 +903,12 @@ class NotchHUDController: ObservableObject {
     private func showFocusHUD() {
         print("🎯 showFocusHUD() called - currentlyVisible: \(focusViewModel.isVisible)")
 
-        // Tell media HUD to hide its right panel (to avoid overlap)
-        mediaViewModel.overlayDidShow()
+        // Only increment overlay counter when transitioning from hidden to visible
+        // This prevents counter mismatch if show is called multiple times
+        let wasHidden = !focusViewModel.isVisible
+        if wasHidden {
+            mediaViewModel.overlayDidShow()
+        }
 
         // Order window front with full opacity immediately
         focusWindow.alphaValue = 1
