@@ -8,6 +8,27 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.10</title>
+            <sparkle:version>1.0.10</sparkle:version>
+            <sparkle:shortVersionString>1.0.10</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Sat, 01 Feb 2026 19:54:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.10</h2>
+                <ul>
+                    <li><strong>Screen Wake Fix</strong> - Media HUD now reappears after screen wake/unlock when music is playing</li>
+                    <li><strong>FaceTime Compatibility</strong> - Notch HUD now appears above FaceTime and other overlay windows</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.10/Aegis.app.zip"
+                length="2237333"
+                type="application/octet-stream"
+                sparkle:edSignature="PelX9/LBEZjgrpSyR3f7ouzYaSrVK8Bil4zRPGgwTDS0RxU0FKLUMYhLIIITqv5sfvRdxk8ut/KbR3dnwOXJAw==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 1.0.9</title>
             <sparkle:version>1.0.9</sparkle:version>
             <sparkle:shortVersionString>1.0.9</sparkle:shortVersionString>
@@ -27,8 +48,6 @@
                 type="application/octet-stream"
                 sparkle:edSignature="lAh6C+3cDSn6ibdRqGzDhXyhmbXetw4gaPKpbKmPQEwdjcDM01JYMocWOx64IKnK8vW8mwCzzjmaw/BJAzWPDw==" />
         </item>
-
-        <!-- Previous Releases -->
         <item>
             <title>Version 1.0.8</title>
             <sparkle:version>1.0.8</sparkle:version>

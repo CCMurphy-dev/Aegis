@@ -206,8 +206,8 @@ class NotchHUDController: ObservableObject {
         )
         overlayWindow.isOpaque = false
         overlayWindow.backgroundColor = .clear
-        // Use mainMenu level + 1 to appear above the menu bar blur layer
-        overlayWindow.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)) + 1)
+        // Use popUpMenu level to appear above FaceTime and other overlay windows
+        overlayWindow.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.popUpMenuWindow)))
         overlayWindow.ignoresMouseEvents = true
         overlayWindow.hasShadow = false
         overlayWindow.collectionBehavior = [.canJoinAllSpaces, .stationary]
@@ -273,7 +273,7 @@ class NotchHUDController: ObservableObject {
         )
         mediaWindow.isOpaque = false
         mediaWindow.backgroundColor = .clear
-        mediaWindow.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)) + 1)
+        mediaWindow.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.popUpMenuWindow)))
         mediaWindow.ignoresMouseEvents = true  // Display only - no interference
         mediaWindow.hasShadow = false
         mediaWindow.collectionBehavior = [.canJoinAllSpaces, .stationary]
@@ -327,7 +327,7 @@ class NotchHUDController: ObservableObject {
         )
         deviceWindow.isOpaque = false
         deviceWindow.backgroundColor = .clear
-        deviceWindow.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)) + 1)
+        deviceWindow.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.popUpMenuWindow)))
         deviceWindow.ignoresMouseEvents = true
         deviceWindow.hasShadow = false
         deviceWindow.collectionBehavior = [.canJoinAllSpaces, .stationary]
@@ -379,7 +379,7 @@ class NotchHUDController: ObservableObject {
         )
         focusWindow.isOpaque = false
         focusWindow.backgroundColor = .clear
-        focusWindow.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)) + 1)
+        focusWindow.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.popUpMenuWindow)))
         focusWindow.ignoresMouseEvents = true
         focusWindow.hasShadow = false
         focusWindow.collectionBehavior = [.canJoinAllSpaces, .stationary]
@@ -447,7 +447,7 @@ class NotchHUDController: ObservableObject {
         )
         notificationWindow.isOpaque = false
         notificationWindow.backgroundColor = .clear
-        notificationWindow.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)) + 1)
+        notificationWindow.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.popUpMenuWindow)))
         // Start with ignoresMouseEvents = true, only enable when visible
         notificationWindow.ignoresMouseEvents = true
         notificationWindow.hasShadow = false
@@ -1116,6 +1116,18 @@ class NotchHUDController: ObservableObject {
         hideDeviceHUD()
         hideFocusHUD()
         hideNotificationHUD()
+    }
+
+    // MARK: - Screen Wake Handler
+
+    /// Called when screen wakes from sleep - restores media HUD if music is playing
+    func handleScreenWake() {
+        // Reset dismissed state so HUD can reappear
+        mediaViewModel.isDismissed = false
+
+        // Force republish current media info if music is playing
+        // This triggers showMedia() through the event router
+        musicService.forceRepublish()
     }
 
     // MARK: - Diagnostics

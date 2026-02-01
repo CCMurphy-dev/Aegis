@@ -282,6 +282,14 @@ class MediaService {
         return currentInfo
     }
 
+    /// Force republish current media info (used after screen wake to restore HUD)
+    /// Bypasses change detection to ensure the HUD is shown even if state hasn't changed
+    func forceRepublish() {
+        guard let info = currentInfo, info.isPlaying else { return }
+        print("🎵 MediaService: Force republishing current info after wake")
+        eventRouter.publish(.mediaPlaybackChanged, data: ["info": info])
+    }
+
     // MARK: - Media Controls
 
     /// Toggle play/pause

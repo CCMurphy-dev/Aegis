@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.10] - 2026-02-01
+
+### Fixed
+- Media HUD now reappears after screen wake/unlock when music is playing
+  - Subscribes to `NSWorkspace.didWakeNotification` to detect screen wake
+  - Resets dismissed state and force republishes current media info
+- Notch HUD now appears above FaceTime and other overlay windows
+  - Raised window level from `mainMenuWindow` to `popUpMenuWindow`
+  - Volume/brightness HUD now visible during FaceTime calls
+
 ## [1.0.9] - 2026-01-31
 
 ### Added

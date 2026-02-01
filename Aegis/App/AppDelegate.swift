@@ -26,6 +26,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupServices()
         setupMenuBar()
         setupNotchHUD()
+        setupWakeNotification()
 
         // IMPORTANT: Subscribe to events BEFORE services start publishing
         startEventListening()
@@ -152,6 +153,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             menuBarController.connectHUDVisibility(from: notchHUDController)
         }
 
+    }
+
+    // MARK: - Setup Wake Notification
+    private func setupWakeNotification() {
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(handleScreenWake),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
+    }
+
+    @objc private func handleScreenWake(_ notification: Notification) {
+        logInfo("Screen woke from sleep - checking media HUD state")
+        // Small delay to let system fully wake before restoring HUD
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.notchHUDController?.handleScreenWake()
+        }
     }
 
     // MARK: - Event Subscriptions
