@@ -7,10 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.11] - 2026-02-07
+
+### Added
+- `showSystemStatus` config toggle to hide/show system status panel (WiFi, time, date, battery, focus)
+- Screen unlock handler to reinitialize HUD windows after login
+- Display configuration change handler to recalculate notch dimensions when monitors connected/disconnected
+- App launcher icon now updates when launching app from right-click context menu
+
 ### Fixed
+- Memory leak: AppSwitcherService icon cache now replaces instead of merging (prevents unbounded growth)
+- Memory leak: SystemInfoService key event monitor now properly stored and removed in deinit
+- Memory leak: MenuBarInteractionMonitor prevents double-start by calling stopMonitoring() first
+- Space indicator jiggle after space destroy (removed redundant parent-level spring animation)
 - Expanded window title now updates when browser tab changes
   - Uses macOS Accessibility API to observe `kAXTitleChangedNotification`
   - Title observer starts when window expands, stops when collapsed
+
+### Changed
+- Space indicator hover now uses AppKit HoverableBackground for GPU-accelerated animation
+  - Handles hover at CALayer level, avoiding SwiftUI state churn and re-renders
+- Icon hover effect simplified to opacity-only change (removed scale transform overhead)
 
 ## [1.0.10] - 2026-02-01
 

@@ -8,6 +8,30 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.11</title>
+            <sparkle:version>1.0.11</sparkle:version>
+            <sparkle:shortVersionString>1.0.11</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Fri, 07 Feb 2026 12:16:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.11</h2>
+                <ul>
+                    <li><strong>Memory Leak Fixes</strong> - Fixed icon cache, event monitor, and interaction monitor leaks that caused memory growth over time</li>
+                    <li><strong>System Status Toggle</strong> - New <code>showSystemStatus</code> config option to hide the system status panel</li>
+                    <li><strong>Performance</strong> - Space indicator hover now uses GPU-accelerated AppKit animation (reduced CPU usage)</li>
+                    <li><strong>Screen Unlock</strong> - HUD windows now properly reinitialize after login</li>
+                    <li><strong>Dynamic Title Updates</strong> - Expanded window titles now update when browser tabs change</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.11/Aegis.app.zip"
+                length="2245403"
+                type="application/octet-stream"
+                sparkle:edSignature="3V/JicQiCZ2t7XwxwZlN1heYB5qqOPOU/AtrnCX1W+4XcVmc0XOgviSSUBH9UCTDI4lmuZBk82Ffay3u3YyqAw==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 1.0.10</title>
             <sparkle:version>1.0.10</sparkle:version>
             <sparkle:shortVersionString>1.0.10</sparkle:shortVersionString>
@@ -26,8 +50,6 @@
                 type="application/octet-stream"
                 sparkle:edSignature="PelX9/LBEZjgrpSyR3f7ouzYaSrVK8Bil4zRPGgwTDS0RxU0FKLUMYhLIIITqv5sfvRdxk8ut/KbR3dnwOXJAw==" />
         </item>
-
-        <!-- Previous Releases -->
         <item>
             <title>Version 1.0.9</title>
             <sparkle:version>1.0.9</sparkle:version>
