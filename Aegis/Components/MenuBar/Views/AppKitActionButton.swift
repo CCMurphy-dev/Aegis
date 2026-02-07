@@ -851,6 +851,13 @@ final class AppKitAppLauncherButton: NSView {
         CATransaction.commit()
     }
 
+    /// Select app by index and update icon (used by context menu)
+    func selectApp(at index: Int) {
+        guard index >= 0 && index < apps.count else { return }
+        selectedIndex = index
+        updateIcon()
+    }
+
     private func updateHoverState() {
         CATransaction.begin()
         CATransaction.setAnimationDuration(0.1)
@@ -999,7 +1006,8 @@ struct AppKitAppLauncherButtonWrapper: NSViewRepresentable {
 
             let menuTarget = LauncherMenuTarget(
                 apps: apps,
-                onToggleApp: parent.onToggleApp
+                onToggleApp: parent.onToggleApp,
+                button: button
             )
 
             // Store reference to prevent deallocation
@@ -1063,15 +1071,19 @@ struct AppKitAppLauncherButtonWrapper: NSViewRepresentable {
 private class LauncherMenuTarget: NSObject {
     let apps: [FloatingApp]
     let onToggleApp: (FloatingApp) -> Void
+    weak var button: AppKitAppLauncherButton?
 
-    init(apps: [FloatingApp], onToggleApp: @escaping (FloatingApp) -> Void) {
+    init(apps: [FloatingApp], onToggleApp: @escaping (FloatingApp) -> Void, button: AppKitAppLauncherButton) {
         self.apps = apps
         self.onToggleApp = onToggleApp
+        self.button = button
         super.init()
     }
 
     @objc func launchApp(_ sender: NSMenuItem) {
         guard sender.tag < apps.count else { return }
+        // Update the button's displayed icon to match the launched app
+        button?.selectApp(at: sender.tag)
         onToggleApp(apps[sender.tag])
     }
 

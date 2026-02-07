@@ -143,14 +143,16 @@ struct MenuBarView: View {
                                                 onSpaceDestroy: onSpaceDestroy,
                                                 onWindowDrop: onWindowDrop
                                             )
+                                            // Insertion: slide in from left
+                                            // Removal: handled by SwipeableSpaceContainer's own animation (fade + move up)
+                                            // Using .identity for removal to avoid double-animation and vertical jiggle
                                             .transition(.asymmetric(
                                                 insertion: .move(edge: .leading).combined(with: .opacity),
-                                                removal: .move(edge: .top).combined(with: .opacity)
+                                                removal: .identity
                                             ))
                                         }
                                     }
                                 }
-                                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: spaceStore.spaceIds.count)
                                 .padding(.leading, config.menuBarEdgePadding + config.spaceIndicatorSpacing + contextButtonWidth)  // Start after button
                                 // Extra trailing padding allows scrolling content past the notch area
                                 // This creates scrollable space so user can scroll left to reveal spaces hidden behind notch/HUD
@@ -227,12 +229,14 @@ struct MenuBarView: View {
                     .animation(.easeOut(duration: 0.2), value: isContextButtonExpanded)
 
                     // Right: System status - positioned on its own layer for proper vertical centering
-                    HStack {
-                        Spacer()
-                        SystemStatusView()
-                            .padding(.trailing, config.menuBarEdgePadding)
+                    if config.showSystemStatus {
+                        HStack {
+                            Spacer()
+                            SystemStatusView()
+                                .padding(.trailing, config.menuBarEdgePadding)
+                        }
+                        .frame(height: config.menuBarHeight, alignment: .center)
                     }
-                    .frame(height: config.menuBarHeight, alignment: .center)
 
                     // Buttons on top layer to ensure they're interactive
                     // Using pure AppKit buttons to bypass SwiftUI during scroll for minimal CPU

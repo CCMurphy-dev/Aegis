@@ -37,4 +37,27 @@ final class SpaceViewModel: ObservableObject, Identifiable {
         if self.focusedIndex != focusedIndex { self.focusedIndex = focusedIndex }
         if self.isActive != isActive { self.isActive = isActive }
     }
+
+    /// Update the title of a specific window (from AX title change notification)
+    /// Returns true if the window was found and updated
+    func updateWindowTitle(windowId: Int, newTitle: String) -> Bool {
+        // Check if this space has the window
+        guard let index = windowIcons.firstIndex(where: { $0.id == windowId }) else {
+            return false
+        }
+
+        // Update the windowIcons array with the new title
+        var updatedIcons = windowIcons
+        updatedIcons[index] = updatedIcons[index].withUpdatedTitle(newTitle)
+        windowIcons = updatedIcons
+
+        // Also update allWindowIcons if the window is there
+        if let allIndex = allWindowIcons.firstIndex(where: { $0.id == windowId }) {
+            var updatedAllIcons = allWindowIcons
+            updatedAllIcons[allIndex] = updatedAllIcons[allIndex].withUpdatedTitle(newTitle)
+            allWindowIcons = updatedAllIcons
+        }
+
+        return true
+    }
 }

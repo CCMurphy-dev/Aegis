@@ -558,6 +558,9 @@ class AegisConfig: ObservableObject {
     /// Show Focus mode name alongside the symbol
     @Published var showFocusName: Bool = false
 
+    /// Show the system status panel (WiFi, time, date, battery, focus)
+    @Published var showSystemStatus: Bool = true
+
     // MARK: - SystemStatus / Date Settings
 
     enum DateFormat: String, CaseIterable {
@@ -832,6 +835,7 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(batteryLowThreshold, forKey: "batteryLowThreshold")
         UserDefaults.standard.set(batteryCriticalThreshold, forKey: "batteryCriticalThreshold")
         UserDefaults.standard.set(showFocusName, forKey: "showFocusName")
+        UserDefaults.standard.set(showSystemStatus, forKey: "showSystemStatus")
         UserDefaults.standard.set(dateFormat.rawValue, forKey: "dateFormat")
     }
 
@@ -1254,6 +1258,9 @@ class AegisConfig: ObservableObject {
         }
         if let val = UserDefaults.standard.object(forKey: "showFocusName") as? Bool {
             showFocusName = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "showSystemStatus") as? Bool {
+            showSystemStatus = val
         }
         if let val = UserDefaults.standard.string(forKey: "dateFormat"),
            let format = DateFormat(rawValue: val) {

@@ -329,6 +329,7 @@ final class YabaiService {
                 guard let window = windowLookup[id] else { return nil }
                 return WindowIcon(
                     id: window.id,
+                    pid: window.pid,
                     title: window.title,
                     app: window.app,
                     appName: window.app,

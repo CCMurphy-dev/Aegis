@@ -1118,7 +1118,7 @@ class NotchHUDController: ObservableObject {
         hideNotificationHUD()
     }
 
-    // MARK: - Screen Wake Handler
+    // MARK: - Screen Wake/Unlock Handlers
 
     /// Called when screen wakes from sleep - restores media HUD if music is playing
     func handleScreenWake() {
@@ -1128,6 +1128,90 @@ class NotchHUDController: ObservableObject {
         // Force republish current media info if music is playing
         // This triggers showMedia() through the event router
         musicService.forceRepublish()
+    }
+
+    /// Called when screen is unlocked after login - reinitializes HUD windows
+    func handleScreenUnlock() {
+        logInfo("🔓 Screen unlock detected - reinitializing HUD state")
+
+        // Recalculate notch dimensions in case display changed
+        if let screen = NSScreen.main {
+            notchDimensions = NotchDimensions.calculate(for: screen)
+            logInfo("📐 Recalculated notch dimensions: \(notchDimensions?.width ?? 0)x\(notchDimensions?.height ?? 0)")
+        }
+
+        // Ensure all windows are properly ordered and positioned
+        reinitializeWindowState()
+
+        // Reset media HUD state and republish
+        mediaViewModel.isDismissed = false
+        musicService.forceRepublish()
+    }
+
+    /// Called when display configuration changes (external monitor connected/disconnected, lid open/close)
+    func handleDisplayConfigChange() {
+        logInfo("🖥️ Display config changed - recalculating layout")
+
+        // Recalculate notch dimensions for new screen configuration
+        if let screen = NSScreen.main {
+            let newDimensions = NotchDimensions.calculate(for: screen)
+
+            // Only reinitialize if dimensions actually changed
+            if newDimensions != notchDimensions {
+                notchDimensions = newDimensions
+                logInfo("📐 New notch dimensions: \(newDimensions.width)x\(newDimensions.height)")
+
+                // Reposition all HUD windows for new screen geometry
+                repositionAllWindows()
+            }
+        }
+    }
+
+    /// Reinitialize window state after screen unlock
+    private func reinitializeWindowState() {
+        // Re-order windows to ensure they're visible and properly layered
+        overlayWindow.orderFront(nil)
+        mediaWindow.orderFront(nil)
+        deviceWindow.orderFront(nil)
+        focusWindow.orderFront(nil)
+        notificationWindow.orderFront(nil)
+
+        // Reset ignore mouse events to default states
+        overlayWindow.ignoresMouseEvents = true
+        mediaWindow.ignoresMouseEvents = true
+        deviceWindow.ignoresMouseEvents = true
+        focusWindow.ignoresMouseEvents = true
+        notificationWindow.ignoresMouseEvents = true
+
+        // Ensure windows are on all spaces
+        let behavior: NSWindow.CollectionBehavior = [.canJoinAllSpaces, .stationary]
+        overlayWindow.collectionBehavior = behavior
+        mediaWindow.collectionBehavior = behavior
+        deviceWindow.collectionBehavior = behavior
+        focusWindow.collectionBehavior = behavior
+        notificationWindow.collectionBehavior = behavior
+    }
+
+    /// Reposition all HUD windows for new screen geometry
+    private func repositionAllWindows() {
+        guard let screen = NSScreen.main, let notchDimensions = notchDimensions else { return }
+
+        let screenFrame = screen.frame
+
+        // Calculate centered position for overlay HUD
+        let overlayWidth = notchDimensions.width + 40  // Approximate expanded width
+        let overlayX = screenFrame.midX - (overlayWidth / 2)
+        let overlayY = screenFrame.maxY - notchDimensions.height - 10
+
+        overlayWindow.setFrame(NSRect(x: overlayX, y: overlayY, width: overlayWidth, height: notchDimensions.height + 20), display: true)
+
+        // Media window positioned similarly
+        mediaWindow.setFrame(NSRect(x: overlayX, y: overlayY, width: overlayWidth, height: notchDimensions.height + 20), display: true)
+
+        // Device/Focus/Notification windows - positioned relative to notch
+        deviceWindow.setFrame(NSRect(x: overlayX, y: overlayY, width: overlayWidth, height: notchDimensions.height + 20), display: true)
+        focusWindow.setFrame(NSRect(x: overlayX, y: overlayY, width: overlayWidth, height: notchDimensions.height + 20), display: true)
+        notificationWindow.setFrame(NSRect(x: overlayX, y: overlayY, width: overlayWidth, height: notchDimensions.height + 20), display: true)
     }
 
     // MARK: - Diagnostics

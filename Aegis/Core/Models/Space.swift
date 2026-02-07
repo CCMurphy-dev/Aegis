@@ -30,6 +30,7 @@ struct Space: Identifiable, Codable, Equatable {
 
 struct WindowInfo: Identifiable, Codable {
     var id: Int
+    var pid: pid_t
     var title: String
     var app: String
     var space: Int
@@ -45,6 +46,7 @@ struct WindowInfo: Identifiable, Codable {
 
     enum CodingKeys: String, CodingKey {
         case id
+        case pid
         case title
         case app
         case space
@@ -64,6 +66,7 @@ struct WindowInfo: Identifiable, Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
         id = try container.decode(Int.self, forKey: .id)
+        pid = try container.decode(pid_t.self, forKey: .pid)
         title = try container.decode(String.self, forKey: .title)
         app = try container.decode(String.self, forKey: .app)
         space = try container.decode(Int.self, forKey: .space)
@@ -93,6 +96,7 @@ struct WindowInfo: Identifiable, Codable {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
         try container.encode(id, forKey: .id)
+        try container.encode(pid, forKey: .pid)
         try container.encode(title, forKey: .title)
         try container.encode(app, forKey: .app)
         try container.encode(space, forKey: .space)
@@ -119,6 +123,7 @@ struct WindowInfo: Identifiable, Codable {
 
 struct WindowIcon: Identifiable, Equatable {
     let id: Int
+    let pid: pid_t
     let title: String
     let app: String
     let appName: String  // Display name for app
@@ -132,8 +137,9 @@ struct WindowIcon: Identifiable, Equatable {
     // Pre-computed expanded width to avoid repeated font measurements
     let expandedWidth: CGFloat
 
-    init(id: Int, title: String, app: String, appName: String, icon: NSImage?, frame: CGRect?, hasFocus: Bool, stackIndex: Int, isMinimized: Bool, isHidden: Bool) {
+    init(id: Int, pid: pid_t, title: String, app: String, appName: String, icon: NSImage?, frame: CGRect?, hasFocus: Bool, stackIndex: Int, isMinimized: Bool, isHidden: Bool) {
         self.id = id
+        self.pid = pid
         self.title = title
         self.app = app
         self.appName = appName
@@ -152,11 +158,30 @@ struct WindowIcon: Identifiable, Equatable {
         self.expandedWidth = min(max(titleWidth, appWidth) + 8, 100)  // 100 = maxExpandedWidth
     }
 
+    /// Create a copy with updated title (used when title changes from AX observer)
+    func withUpdatedTitle(_ newTitle: String) -> WindowIcon {
+        return WindowIcon(
+            id: id,
+            pid: pid,
+            title: newTitle,
+            app: app,
+            appName: appName,
+            icon: icon,
+            frame: frame,
+            hasFocus: hasFocus,
+            stackIndex: stackIndex,
+            isMinimized: isMinimized,
+            isHidden: isHidden
+        )
+    }
+
     static func == (lhs: WindowIcon, rhs: WindowIcon) -> Bool {
+        // Note: hasFocus is intentionally excluded from equality
+        // Focus changes are tracked via focusedIndex in SpaceViewModel
+        // Including hasFocus here causes unnecessary array republishes and view flicker
         lhs.id == rhs.id &&
         lhs.title == rhs.title &&
         lhs.app == rhs.app &&
-        lhs.hasFocus == rhs.hasFocus &&
         lhs.stackIndex == rhs.stackIndex &&
         lhs.isMinimized == rhs.isMinimized &&
         lhs.isHidden == rhs.isHidden

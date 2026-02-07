@@ -94,7 +94,8 @@ final class AppSwitcherService {
                 }
             }
             DispatchQueue.main.async {
-                self?.appIconCache.merge(newCache) { _, new in new }
+                // Replace entire cache instead of merging to prevent unbounded growth
+                self?.appIconCache = newCache
                 self?.isRefreshingIconCache = false
             }
         }

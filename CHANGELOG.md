@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Expanded window title now updates when browser tab changes
+  - Uses macOS Accessibility API to observe `kAXTitleChangedNotification`
+  - Title observer starts when window expands, stops when collapsed
+
 ## [1.0.10] - 2026-02-01
 
 ### Fixed

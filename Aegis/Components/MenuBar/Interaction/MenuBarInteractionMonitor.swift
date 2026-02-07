@@ -13,6 +13,9 @@ class MenuBarInteractionMonitor {
     // MARK: - Monitoring
 
     func startMonitoring(onNativeMenuChange: @escaping (Bool) -> Void) {
+        // Prevent double-start - clean up any existing monitors first
+        stopMonitoring()
+
         self.nativeMenuHandler = onNativeMenuChange
 
         // Use NSEvent monitors for menu tracking instead of polling

@@ -60,4 +60,14 @@ final class SpaceViewModelStore: ObservableObject {
             spaceIds = newSpaceIds
         }
     }
+
+    /// Update the title of a specific window (called when AX title change is observed)
+    func updateWindowTitle(windowId: Int, newTitle: String) {
+        // Find which space has this window and update it
+        for (_, viewModel) in viewModels {
+            if viewModel.updateWindowTitle(windowId: windowId, newTitle: newTitle) {
+                return  // Found and updated
+            }
+        }
+    }
 }

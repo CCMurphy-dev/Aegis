@@ -32,6 +32,9 @@ class SystemInfoService {
     // Suppress volume events briefly after device switch to avoid spurious HUD displays
     private var suppressVolumeEventsUntil: Date = .distantPast
 
+    // Key event monitor for media keys (volume/brightness at edge cases)
+    private var keyEventMonitor: Any?
+
     init(eventRouter: EventRouter) {
         self.eventRouter = eventRouter
 
@@ -360,9 +363,15 @@ class SystemInfoService {
     private func setupKeyEventMonitoring() {
         // Use local monitor to catch media key events
         // This WILL receive events even when volume doesn't change (at max/min)
-        NSEvent.addLocalMonitorForEvents(matching: .systemDefined) { [weak self] event in
+        keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .systemDefined) { [weak self] event in
             self?.handleMediaKeyEvent(event)
             return event
+        }
+    }
+
+    deinit {
+        if let monitor = keyEventMonitor {
+            NSEvent.removeMonitor(monitor)
         }
     }
 

@@ -155,12 +155,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     }
 
-    // MARK: - Setup Wake Notification
+    // MARK: - Setup Wake/Unlock Notifications
     private func setupWakeNotification() {
+        // Wake from sleep (lid open without login required)
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
             selector: #selector(handleScreenWake),
             name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
+
+        // Screen unlock after login - fires when user authenticates after lid open
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleScreenUnlock),
+            name: NSNotification.Name("com.apple.screenIsUnlocked"),
+            object: nil
+        )
+
+        // Display configuration changed - fires when displays are added/removed/reconfigured
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleDisplayConfigChange),
+            name: NSApplication.didChangeScreenParametersNotification,
             object: nil
         )
     }
@@ -170,6 +187,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Small delay to let system fully wake before restoring HUD
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.notchHUDController?.handleScreenWake()
+        }
+    }
+
+    @objc private func handleScreenUnlock(_ notification: Notification) {
+        logInfo("Screen unlocked - reinitializing HUD windows")
+        // Longer delay for unlock as system is still initializing after login
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.notchHUDController?.handleScreenUnlock()
+        }
+    }
+
+    @objc private func handleDisplayConfigChange(_ notification: Notification) {
+        logInfo("Display configuration changed - recalculating notch dimensions")
+        // Brief delay to let display settle
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.notchHUDController?.handleDisplayConfigChange()
         }
     }
 

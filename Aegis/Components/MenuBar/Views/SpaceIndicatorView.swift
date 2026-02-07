@@ -20,7 +20,6 @@ struct SpaceIndicatorView: View {
     @State private var showOverflowMenu = false
     @State private var autoCollapseTask: Task<Void, Never>?
     @State private var isDraggingOver = false  // True when actively dragging over this space
-    @State private var isHovered = false  // For space indicator hover scale
 
     private let config = AegisConfig.shared
 
@@ -194,8 +193,8 @@ struct SpaceIndicatorView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isActive ? Color.white.opacity(0.18) : Color.white.opacity(0.12))
+                // Use AppKit-based hover background to avoid SwiftUI state churn
+                HoverableBackground(isActive: isActive, cornerRadius: 8)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
@@ -211,10 +210,7 @@ struct SpaceIndicatorView: View {
                     .allowsHitTesting(false)
             }
             .shadow(color: isActive ? .white.opacity(0.12) : .clear, radius: 6)
-            .scaleEffect(isHovered ? 1.02 : 1.0)
-            .animation(.easeOut(duration: 0.15), value: isActive)
-            .animation(.easeOut(duration: 0.1), value: isHovered)
-            .onHover { isHovered = $0 }
+            .animation(.easeOut(duration: 0.12), value: isActive)
         // Add invisible padding to expand drop zone
         // Use asymmetric padding: no top padding to maintain alignment, bottom padding for drop zone
         .padding(.horizontal, 4)
@@ -389,15 +385,8 @@ final class ClickableIconView: NSView {
     var isHovered = false {
         didSet {
             guard isHovered != oldValue else { return }
-            // Use CALayer for hover effects - GPU accelerated, no redraw needed
-            CATransaction.begin()
-            CATransaction.setAnimationDuration(0.15)
-            CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
+            // Simple opacity change - implicit CALayer animation, no CATransaction overhead
             layer?.opacity = isHovered ? 1.0 : 0.85
-            layer?.transform = isHovered
-                ? CATransform3DMakeScale(1.1, 1.1, 1.0)
-                : CATransform3DIdentity
-            CATransaction.commit()
         }
     }
     var isMinimized = false {
@@ -551,6 +540,132 @@ extension ClickableIconView: NSDraggingSource {
             isDragging = false
             onDragEnded?()
         }
+    }
+}
+
+// MARK: - Hoverable Background (AppKit-based for CPU efficiency)
+
+/// AppKit-based background that handles hover at the CALayer level
+/// This avoids SwiftUI state changes and re-renders on every hover event
+struct HoverableBackground: NSViewRepresentable {
+    let isActive: Bool
+    let cornerRadius: CGFloat
+
+    func makeNSView(context: Context) -> HoverableBackgroundView {
+        let view = HoverableBackgroundView()
+        view.cornerRadius = cornerRadius
+        view.isActiveSpace = isActive
+        return view
+    }
+
+    func updateNSView(_ nsView: HoverableBackgroundView, context: Context) {
+        nsView.isActiveSpace = isActive
+    }
+}
+
+final class HoverableBackgroundView: NSView {
+    var cornerRadius: CGFloat = 8 {
+        didSet {
+            backgroundLayer.cornerRadius = cornerRadius
+        }
+    }
+
+    var isActiveSpace: Bool = false {
+        didSet {
+            guard isActiveSpace != oldValue else { return }
+            updateBackgroundColor(animated: true)
+        }
+    }
+
+    private var isHovered: Bool = false {
+        didSet {
+            guard isHovered != oldValue else { return }
+            updateBackgroundColor(animated: true)
+        }
+    }
+
+    private let backgroundLayer = CALayer()
+    private var trackingArea: NSTrackingArea?
+
+    // Pre-computed CGColor values to avoid repeated allocations
+    private static let activeColor = CGColor(gray: 1.0, alpha: 0.18)
+    private static let hoveredColor = CGColor(gray: 1.0, alpha: 0.16)
+    private static let normalColor = CGColor(gray: 1.0, alpha: 0.12)
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setupLayer()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupLayer()
+    }
+
+    private func setupLayer() {
+        wantsLayer = true
+        layer?.addSublayer(backgroundLayer)
+        backgroundLayer.cornerRadius = cornerRadius
+        backgroundLayer.backgroundColor = Self.normalColor
+    }
+
+    override func layout() {
+        super.layout()
+        // Disable implicit animations during layout
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        backgroundLayer.frame = bounds
+        CATransaction.commit()
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = trackingArea {
+            removeTrackingArea(existing)
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways],
+            owner: self,
+            userInfo: nil
+        )
+        trackingArea = area
+        addTrackingArea(area)
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        isHovered = true
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isHovered = false
+    }
+
+    private func updateBackgroundColor(animated: Bool) {
+        let targetColor: CGColor
+        if isActiveSpace {
+            targetColor = Self.activeColor
+        } else if isHovered {
+            targetColor = Self.hoveredColor
+        } else {
+            targetColor = Self.normalColor
+        }
+
+        if animated {
+            // Use Core Animation for smooth, GPU-accelerated transition
+            let animation = CABasicAnimation(keyPath: "backgroundColor")
+            animation.fromValue = backgroundLayer.backgroundColor
+            animation.toValue = targetColor
+            animation.duration = 0.08
+            animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            backgroundLayer.add(animation, forKey: "backgroundColorAnimation")
+        }
+
+        // Disable implicit animation when setting the final value
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        backgroundLayer.backgroundColor = targetColor
+        CATransaction.commit()
     }
 }
 

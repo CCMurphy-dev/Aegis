@@ -9,7 +9,7 @@ import Foundation
 import AppKit
 
 /// Calculates the actual notch dimensions from screen properties
-struct NotchDimensions {
+struct NotchDimensions: Equatable {
     let width: CGFloat
     let height: CGFloat
     let padding: CGFloat = 16  // Extra padding on sides to push content away from notch edges
