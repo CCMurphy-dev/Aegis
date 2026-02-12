@@ -14,13 +14,13 @@ A macOS menu bar replacement for [Yabai](https://github.com/koekeishiya/yabai) w
 
 ### Menu Bar
 - **Space indicators** - Visual workspace display with app icons, click to switch, scroll to navigate
-- **Context button** - Shows focused window icon and title, expands on hover
-- **App launcher** - Quick-access floating apps button with configurable app list
+- **Context button** - a scroll-able button to cycle through yabai commands. Right click menu for expanded commands (stack windows, move to/destroy space, access settings etc)
+- **App launcher** - Quick-access floating apps button with configurable app list (e.g. finder, iTerm, passwords etc)
 - **System status** - Battery, WiFi, Focus mode, clock
 
 ### Notch HUD
 - **Volume/Brightness** - Smooth progress bar with adaptive frame rate
-- **Media** - Album art with visualizer or track info (marquee scrolling for long titles)
+- **Media** - Album art with visualizer or track info (static or marquee scrolling for long titles)
   - Works with Music, Spotify, Safari, Chrome, Firefox, YouTube, and more
 - **Bluetooth** - Device connection notifications with battery indicator
 - **Focus Mode** - Shows Focus mode icon and name when enabled/disabled
