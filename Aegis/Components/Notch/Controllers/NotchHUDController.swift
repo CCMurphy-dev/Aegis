@@ -20,6 +20,7 @@ class NotchHUDController: ObservableObject {
 
     // Auto-hide timer for media HUD
     private var mediaAutoHideTimer: Timer?
+    private var mediaHideWorkItem: DispatchWorkItem?  // Cancellable delayed hide for media HUD
     private var lastTrackIdentifier: String?  // Track changes to detect new songs
 
     // Auto-hide timer for device HUD
@@ -55,6 +56,9 @@ class NotchHUDController: ObservableObject {
 
     // Notch dimensions for width calculations
     private var notchDimensions: NotchDimensions?
+
+    // Standard collection behavior for all HUD windows - ensures visibility on all spaces including over fullscreen video
+    private let hudWindowBehavior: NSWindow.CollectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
 
     // Fullscreen state from menu bar (used to suppress media HUD in fullscreen)
     private var isInFullscreenSpace = false
@@ -210,7 +214,7 @@ class NotchHUDController: ObservableObject {
         overlayWindow.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.popUpMenuWindow)))
         overlayWindow.ignoresMouseEvents = true
         overlayWindow.hasShadow = false
-        overlayWindow.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        overlayWindow.collectionBehavior = hudWindowBehavior
         overlayWindow.isReleasedWhenClosed = false
         overlayWindow.contentView = hostingView
 
@@ -276,11 +280,13 @@ class NotchHUDController: ObservableObject {
         mediaWindow.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.popUpMenuWindow)))
         mediaWindow.ignoresMouseEvents = true  // Display only - no interference
         mediaWindow.hasShadow = false
-        mediaWindow.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        mediaWindow.collectionBehavior = hudWindowBehavior
         mediaWindow.isReleasedWhenClosed = false
         mediaWindow.contentView = hostingView
         mediaWindow.alphaValue = 0
-        mediaWindow.orderOut(nil)
+        // Use orderFront instead of orderOut to preserve .canJoinAllSpaces behavior
+        // Window is invisible (alpha=0) but stays in window server's list for all spaces
+        mediaWindow.orderFront(nil)
 
         // NOTE: Interaction window removed - was causing mouse event blocking issues
         // The tap-to-toggle feature is disabled for now
@@ -330,7 +336,7 @@ class NotchHUDController: ObservableObject {
         deviceWindow.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.popUpMenuWindow)))
         deviceWindow.ignoresMouseEvents = true
         deviceWindow.hasShadow = false
-        deviceWindow.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        deviceWindow.collectionBehavior = hudWindowBehavior
         deviceWindow.isReleasedWhenClosed = false
         deviceWindow.contentView = hostingView
         deviceWindow.alphaValue = 0
@@ -382,7 +388,7 @@ class NotchHUDController: ObservableObject {
         focusWindow.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.popUpMenuWindow)))
         focusWindow.ignoresMouseEvents = true
         focusWindow.hasShadow = false
-        focusWindow.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        focusWindow.collectionBehavior = hudWindowBehavior
         focusWindow.isReleasedWhenClosed = false
         focusWindow.contentView = hostingView
         focusWindow.alphaValue = 0
@@ -451,7 +457,7 @@ class NotchHUDController: ObservableObject {
         // Start with ignoresMouseEvents = true, only enable when visible
         notificationWindow.ignoresMouseEvents = true
         notificationWindow.hasShadow = false
-        notificationWindow.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        notificationWindow.collectionBehavior = hudWindowBehavior
         notificationWindow.isReleasedWhenClosed = false
         notificationWindow.contentView = hostingView
 
@@ -473,6 +479,10 @@ class NotchHUDController: ObservableObject {
     // MARK: - Show HUDs
 
     func showVolume(level: Float, isMuted: Bool = false) {
+        // Check master toggle and overlay toggle
+        let config = AegisConfig.shared
+        guard config.showNotchHUD, config.showOverlayHUD else { return }
+
         // CRITICAL: Only update animator target, not ViewModel level
         // This prevents SwiftUI re-renders on every event
         overlayViewModel.progressAnimator.setTarget(isMuted ? 0.0 : Double(level))
@@ -499,6 +509,10 @@ class NotchHUDController: ObservableObject {
     }
 
     func showBrightness(level: Float) {
+        // Check master toggle and overlay toggle
+        let config = AegisConfig.shared
+        guard config.showNotchHUD, config.showOverlayHUD else { return }
+
         // CRITICAL: Only update animator target, not ViewModel level
         // This prevents SwiftUI re-renders on every event
         overlayViewModel.progressAnimator.setTarget(Double(level))
@@ -525,8 +539,8 @@ class NotchHUDController: ObservableObject {
     func showMedia(info: MediaInfo) {
         let config = AegisConfig.shared
 
-        // Check if media HUD is disabled in config
-        if !config.showMediaHUD {
+        // Check master toggle and media HUD toggle
+        if !config.showNotchHUD || !config.showMediaHUD {
             if mediaViewModel.isVisible {
                 hideMediaHUD()
             }
@@ -588,8 +602,8 @@ class NotchHUDController: ObservableObject {
     func showDeviceConnected(device: BluetoothDeviceInfo) {
         let config = AegisConfig.shared
 
-        // Check if device HUD is disabled in config
-        guard config.showDeviceHUD else {
+        // Check master toggle and device HUD toggle
+        guard config.showNotchHUD, config.showDeviceHUD else {
             print("🎧 NotchHUDController: Device HUD disabled in config")
             return
         }
@@ -609,8 +623,8 @@ class NotchHUDController: ObservableObject {
     func showDeviceDisconnected(device: BluetoothDeviceInfo) {
         let config = AegisConfig.shared
 
-        // Check if device HUD is disabled in config
-        guard config.showDeviceHUD else {
+        // Check master toggle and device HUD toggle
+        guard config.showNotchHUD, config.showDeviceHUD else {
             print("🎧 NotchHUDController: Device HUD disabled in config")
             return
         }
@@ -643,8 +657,8 @@ class NotchHUDController: ObservableObject {
     func showFocusChanged(status: FocusStatus) {
         let config = AegisConfig.shared
 
-        // Check if focus HUD is disabled in config
-        guard config.showFocusHUD else {
+        // Check master toggle and focus HUD toggle
+        guard config.showNotchHUD, config.showFocusHUD else {
             print("🎯 NotchHUDController: Focus HUD disabled in config")
             return
         }
@@ -677,8 +691,8 @@ class NotchHUDController: ObservableObject {
     func showNotification(appName: String, title: String, body: String, bundleIdentifier: String) {
         let config = AegisConfig.shared
 
-        // Check if notification HUD is disabled in config
-        guard config.showNotificationHUD else {
+        // Check master toggle and notification HUD toggle
+        guard config.showNotchHUD, config.showNotificationHUD else {
             print("🔔 NotchHUDController: Notification HUD disabled in config")
             return
         }
@@ -712,6 +726,15 @@ class NotchHUDController: ObservableObject {
             guard let self = self else { return }
             print("🔔 Auto-hide timer fired, hiding notification HUD")
             self.hideNotificationHUD()
+        }
+    }
+
+    // MARK: - Window Behavior Helpers
+
+    /// Ensure window has correct multi-space behavior (guards against macOS resetting it after orderOut)
+    private func ensureMultiSpaceBehavior(for window: NSWindow) {
+        if window.collectionBehavior != hudWindowBehavior {
+            window.collectionBehavior = hudWindowBehavior
         }
     }
 
@@ -784,6 +807,9 @@ class NotchHUDController: ObservableObject {
         // Enable mouse events for click handling
         notificationWindow.ignoresMouseEvents = false
 
+        // Ensure multi-space behavior before showing (guards against macOS resetting it after orderOut)
+        ensureMultiSpaceBehavior(for: notificationWindow)
+
         // Order window front with full opacity immediately
         notificationWindow.alphaValue = 1
         notificationWindow.orderFrontRegardless()
@@ -854,6 +880,9 @@ class NotchHUDController: ObservableObject {
             mediaViewModel.overlayDidShow()
         }
 
+        // Ensure multi-space behavior before showing (guards against macOS resetting it after orderOut)
+        ensureMultiSpaceBehavior(for: deviceWindow)
+
         // Order window front with full opacity immediately
         deviceWindow.alphaValue = 1
         deviceWindow.orderFrontRegardless()
@@ -910,6 +939,9 @@ class NotchHUDController: ObservableObject {
             mediaViewModel.overlayDidShow()
         }
 
+        // Ensure multi-space behavior before showing (guards against macOS resetting it after orderOut)
+        ensureMultiSpaceBehavior(for: focusWindow)
+
         // Order window front with full opacity immediately
         focusWindow.alphaValue = 1
         focusWindow.orderFrontRegardless()
@@ -957,6 +989,10 @@ class NotchHUDController: ObservableObject {
     // MARK: - Private helpers - Media HUD
 
     private func showMediaHUD() {
+        // Cancel any pending hide operation to prevent race conditions during fullscreen transitions
+        mediaHideWorkItem?.cancel()
+        mediaHideWorkItem = nil
+
         // Safety: Reset overlay counter if no overlays are actually visible
         // This prevents stuck state where isOverlayActive is true but no overlay HUDs are showing
         if !overlayViewModel.isVisible && !deviceViewModel.isVisible &&
@@ -967,11 +1003,15 @@ class NotchHUDController: ObservableObject {
         // If already visible, ensure window is shown
         guard !mediaViewModel.isVisible else {
             if mediaWindow.alphaValue < 1 || !mediaWindow.isVisible {
+                ensureMultiSpaceBehavior(for: mediaWindow)
                 mediaWindow.alphaValue = 1
                 mediaWindow.orderFrontRegardless()
             }
             return
         }
+
+        // Ensure multi-space behavior before showing (guards against macOS resetting it after orderOut)
+        ensureMultiSpaceBehavior(for: mediaWindow)
 
         // Order window front with full opacity immediately
         mediaWindow.alphaValue = 1
@@ -1009,13 +1049,19 @@ class NotchHUDController: ObservableObject {
             updateMediaHUDLayout(isVisible: false)
         }
 
-        // After animation completes, hide the windows
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+        // After animation completes, hide the window by setting alpha to 0
+        // NOTE: We intentionally avoid orderOut() here because it breaks .canJoinAllSpaces behavior
+        // (same pattern as MenuBarWindowController uses for fullscreen handling)
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
             if !self.mediaViewModel.isVisible {
                 self.mediaWindow.alphaValue = 0
-                self.mediaWindow.orderOut(nil)
+                // Don't use orderOut() - it breaks multi-space behavior
             }
+            self.mediaHideWorkItem = nil
         }
+        mediaHideWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: workItem)
     }
 
     // MARK: - Private helpers - Overlay HUD (volume/brightness)
@@ -1024,6 +1070,7 @@ class NotchHUDController: ObservableObject {
         // If already visible, nothing to do (data already updated in ViewModel)
         guard !overlayViewModel.isVisible else {
             // Ensure window is actually visible (might have been hidden by animation)
+            ensureMultiSpaceBehavior(for: overlayWindow)
             overlayWindow.alphaValue = 1
             overlayWindow.orderFrontRegardless()
             return
@@ -1038,6 +1085,9 @@ class NotchHUDController: ObservableObject {
 
         // Tell media HUD to hide its right panel (to avoid overlap)
         mediaViewModel.overlayDidShow()
+
+        // Ensure multi-space behavior before showing (guards against macOS resetting it after orderOut)
+        ensureMultiSpaceBehavior(for: overlayWindow)
 
         // Order window front and make visible
         overlayWindow.alphaValue = 1
@@ -1183,13 +1233,12 @@ class NotchHUDController: ObservableObject {
         focusWindow.ignoresMouseEvents = true
         notificationWindow.ignoresMouseEvents = true
 
-        // Ensure windows are on all spaces
-        let behavior: NSWindow.CollectionBehavior = [.canJoinAllSpaces, .stationary]
-        overlayWindow.collectionBehavior = behavior
-        mediaWindow.collectionBehavior = behavior
-        deviceWindow.collectionBehavior = behavior
-        focusWindow.collectionBehavior = behavior
-        notificationWindow.collectionBehavior = behavior
+        // Ensure windows are on all spaces (including over fullscreen video)
+        overlayWindow.collectionBehavior = hudWindowBehavior
+        mediaWindow.collectionBehavior = hudWindowBehavior
+        deviceWindow.collectionBehavior = hudWindowBehavior
+        focusWindow.collectionBehavior = hudWindowBehavior
+        notificationWindow.collectionBehavior = hudWindowBehavior
     }
 
     /// Reposition all HUD windows for new screen geometry

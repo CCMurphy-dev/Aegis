@@ -8,6 +8,28 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.12</title>
+            <sparkle:version>1.0.12</sparkle:version>
+            <sparkle:shortVersionString>1.0.12</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Sun, 16 Feb 2026 08:44:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.12</h2>
+                <ul>
+                    <li><strong>Multi-Space HUD Fix</strong> - Media HUD now appears on all spaces during video playback</li>
+                    <li><strong>Fullscreen Support</strong> - Added fullscreen auxiliary behavior for proper overlay support</li>
+                    <li><strong>Race Condition Fix</strong> - Fixed timing issues during fullscreen transitions</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.12/Aegis.app.zip"
+                length="2249735"
+                type="application/octet-stream"
+                sparkle:edSignature="/i8zdilxkUm6ddwnI/2lRGAjKiA3vzZC6zo37lot+4aRsYjj+fSKOeDJu1amQiHa3aK4cEoiqejtH4fviAoqBA==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 1.0.11</title>
             <sparkle:version>1.0.11</sparkle:version>
             <sparkle:shortVersionString>1.0.11</sparkle:shortVersionString>
@@ -29,8 +51,6 @@
                 type="application/octet-stream"
                 sparkle:edSignature="3V/JicQiCZ2t7XwxwZlN1heYB5qqOPOU/AtrnCX1W+4XcVmc0XOgviSSUBH9UCTDI4lmuZBk82Ffay3u3YyqAw==" />
         </item>
-
-        <!-- Previous Releases -->
         <item>
             <title>Version 1.0.10</title>
             <sparkle:version>1.0.10</sparkle:version>

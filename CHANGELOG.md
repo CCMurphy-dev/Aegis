@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.12] - 2026-02-16
+
+### Fixed
+- Media HUD now appears on all spaces during video playback
+  - Added `.fullScreenAuxiliary` to window collection behavior for proper fullscreen overlay support
+  - Replaced `orderOut()` with alpha-based hiding to preserve `.canJoinAllSpaces` behavior
+  - Added cancellable hide operation to prevent race conditions during fullscreen transitions
+  - Same fix applied to all notch HUD elements (volume, brightness, device, focus, notification)
+
 ## [1.0.11] - 2026-02-07
 
 ### Added

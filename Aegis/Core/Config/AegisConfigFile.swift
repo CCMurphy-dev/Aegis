@@ -174,10 +174,18 @@ struct AegisConfigData: Codable {
     var showFocusHUD: Bool?
     var focusHUDAutoHideDelay: Double?
 
+    // Master Toggles
+    var showNotchHUD: Bool?       // Master toggle for entire notch HUD system
+    var showOverlayHUD: Bool?     // Toggle for volume/brightness overlay
+    var showSystemStatus: Bool?   // Toggle for system status panel (WiFi, time, battery, focus)
+
     // App Launcher Settings
     var launcherApps: [String]?
 
-    // Notification HUD Exclusions
+    // Notification HUD Settings
+    var showNotificationHUD: Bool?
+    var notificationHUDAutoHide: Bool?
+    var notificationHUDAutoHideDelay: Double?
     var notificationExcludedApps: [String]?
 
     // Notch HUD Icon & Text Settings
@@ -427,10 +435,18 @@ extension AegisConfig {
         if let v = data.showFocusHUD { showFocusHUD = v }
         if let v = data.focusHUDAutoHideDelay { focusHUDAutoHideDelay = v }
 
+        // Master Toggles
+        if let v = data.showNotchHUD { showNotchHUD = v }
+        if let v = data.showOverlayHUD { showOverlayHUD = v }
+        if let v = data.showSystemStatus { showSystemStatus = v }
+
         // App Launcher Settings
         if let v = data.launcherApps { launcherApps = v }
 
-        // Notification HUD Exclusions
+        // Notification HUD Settings
+        if let v = data.showNotificationHUD { showNotificationHUD = v }
+        if let v = data.notificationHUDAutoHide { notificationHUDAutoHide = v }
+        if let v = data.notificationHUDAutoHideDelay { notificationHUDAutoHideDelay = v }
         if let v = data.notificationExcludedApps { notificationExcludedApps = v }
 
         // Notch HUD Icon & Text Settings
@@ -641,10 +657,18 @@ extension AegisConfig {
             showFocusHUD: showFocusHUD,
             focusHUDAutoHideDelay: focusHUDAutoHideDelay,
 
+            // Master Toggles
+            showNotchHUD: showNotchHUD,
+            showOverlayHUD: showOverlayHUD,
+            showSystemStatus: showSystemStatus,
+
             // App Launcher Settings
             launcherApps: launcherApps,
 
-            // Notification HUD Exclusions
+            // Notification HUD Settings
+            showNotificationHUD: showNotificationHUD,
+            notificationHUDAutoHide: notificationHUDAutoHide,
+            notificationHUDAutoHideDelay: notificationHUDAutoHideDelay,
             notificationExcludedApps: notificationExcludedApps,
 
             // Notch HUD Icon & Text Settings
@@ -710,6 +734,16 @@ Only include settings you want to change - defaults are used for anything not sp
 
 ---
 
+## Master Toggles
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `showNotchHUD` | bool | `true` | Master toggle for entire notch HUD system (volume, brightness, media, device, focus, notifications) |
+| `showOverlayHUD` | bool | `true` | Show volume/brightness overlay in the notch |
+| `showSystemStatus` | bool | `true` | Show system status panel (WiFi, time, date, battery, focus icon) |
+
+---
+
 ## App Switcher
 
 | Option | Type | Default | Description |
@@ -770,10 +804,13 @@ osascript -e 'id of app "AppName"'
 
 ---
 
-## Notification HUD Exclusions
+## Notch HUD - Notifications
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
+| `showNotificationHUD` | bool | `true` | Show system notifications in the notch HUD |
+| `notificationHUDAutoHide` | bool | `true` | Auto-hide notification HUD after delay |
+| `notificationHUDAutoHideDelay` | number | `8.0` | Seconds before notification auto-hides |
 | `notificationExcludedApps` | [string] | See below | Bundle IDs or app names to exclude from notification HUD |
 
 **Default notificationExcludedApps:**

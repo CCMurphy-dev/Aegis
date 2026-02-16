@@ -436,6 +436,15 @@ class AegisConfig: ObservableObject {
     /// Note: May impact performance on some systems
     @Published var visualizerUseBlurEffect: Bool = false
 
+    // MARK: - Notch HUD Master Toggles
+
+    /// Master toggle for the entire notch HUD system
+    /// When disabled, no notch HUD elements will appear (volume, brightness, media, device, focus, notifications)
+    @Published var showNotchHUD: Bool = true
+
+    /// Show the volume/brightness overlay HUD in the notch
+    @Published var showOverlayHUD: Bool = true
+
     /// Show the Now Playing media HUD when media is playing
     @Published var showMediaHUD: Bool = true
 
@@ -805,6 +814,8 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(visualizerBarMaxHeight, forKey: "visualizerBarMaxHeight")
         UserDefaults.standard.set(visualizerAnimationDuration, forKey: "visualizerAnimationDuration")
         UserDefaults.standard.set(visualizerUseBlurEffect, forKey: "visualizerUseBlurEffect")
+        UserDefaults.standard.set(showNotchHUD, forKey: "showNotchHUD")
+        UserDefaults.standard.set(showOverlayHUD, forKey: "showOverlayHUD")
         UserDefaults.standard.set(showMediaHUD, forKey: "showMusicHUD")
         UserDefaults.standard.set(mediaHUDRightPanelMode.rawValue, forKey: "musicHUDRightPanelMode")
         UserDefaults.standard.set(mediaHUDAutoHide, forKey: "musicHUDAutoHide")
@@ -1171,6 +1182,12 @@ class AegisConfig: ObservableObject {
         }
         if let val = UserDefaults.standard.object(forKey: "visualizerUseBlurEffect") as? Bool {
             visualizerUseBlurEffect = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "showNotchHUD") as? Bool {
+            showNotchHUD = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "showOverlayHUD") as? Bool {
+            showOverlayHUD = val
         }
         if let val = UserDefaults.standard.object(forKey: "showMusicHUD") as? Bool {
             showMediaHUD = val
