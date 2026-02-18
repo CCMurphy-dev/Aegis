@@ -61,6 +61,14 @@ class MenuBarViewModel: ObservableObject {
         updateTimer = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { [weak self] _ in
             self?.updateSpaces()
         }
+
+        // Observe config changes to refresh when maxAppIconsPerSpace changes
+        AegisConfig.shared.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.scheduleCoalescedUpdate()
+            }
+            .store(in: &cancellables)
     }
 
     deinit {
@@ -87,10 +95,13 @@ class MenuBarViewModel: ObservableObject {
         var activeSpaceIndices: Set<Int> = []
         var allWindowIds: Set<Int> = []
 
+        let maxIcons = AegisConfig.shared.maxAppIconsPerSpace
+
         for space in spaces {
             let icons = yabaiService.getWindowIconsForSpace(space.index)
-            newIconsBySpace[space.index] = icons
-            newAllIconsBySpace[space.index] = icons  // Same for now, overflow handled in view
+            // Apply the maxAppIconsPerSpace limit - visible icons are capped, allIcons keeps everything
+            newIconsBySpace[space.index] = Array(icons.prefix(maxIcons))
+            newAllIconsBySpace[space.index] = icons
 
             // Pre-compute focused index to avoid O(N) search in views
             if let focusedIdx = icons.firstIndex(where: { $0.hasFocus }) {

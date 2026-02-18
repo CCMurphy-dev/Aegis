@@ -96,6 +96,12 @@ class BluetoothDeviceService: NSObject {
     }
 
     private func stopMonitoring() {
+        // Cancel any pending debounced events
+        for (_, workItem) in pendingEvents {
+            workItem.cancel()
+        }
+        pendingEvents.removeAll()
+
         connectNotification?.unregister()
         connectNotification = nil
 

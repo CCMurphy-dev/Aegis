@@ -1,12 +1,16 @@
 import Foundation
 import AppKit
 import Carbon.HIToolbox
+import Combine
 
 /// Service that intercepts Cmd+Tab to provide a custom app switcher
 /// Displays windows organized by space in a centered overlay
 final class AppSwitcherService {
 
     static let shared = AppSwitcherService()
+
+    /// Cancellable for config observation
+    private var configCancellable: AnyCancellable?
 
     // MARK: - State
 
@@ -64,6 +68,19 @@ final class AppSwitcherService {
             name: NSWorkspace.didTerminateApplicationNotification,
             object: nil
         )
+
+        // Observe config changes to start/stop service dynamically
+        configCancellable = config.$appSwitcherEnabled
+            .dropFirst() // Skip initial value
+            .receive(on: DispatchQueue.main) // Event tap must be created on main thread
+            .sink { [weak self] enabled in
+                logInfo("AppSwitcherService config changed: enabled = \(enabled)")
+                if enabled {
+                    self?.start()
+                } else {
+                    self?.stop()
+                }
+            }
     }
 
     @objc private func appDidLaunchOrTerminate(_ notification: Notification) {

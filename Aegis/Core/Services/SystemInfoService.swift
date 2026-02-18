@@ -1,6 +1,7 @@
 import Foundation
 import CoreAudio
 import AppKit
+import Combine
 
 // Model for system state (volume and brightness only - battery handled by BatteryStatusMonitor)
 struct SystemState {
@@ -12,7 +13,9 @@ struct SystemState {
 // Service to monitor system volume, brightness, battery
 class SystemInfoService {
     private let eventRouter: EventRouter
+    private let config = AegisConfig.shared
     private var currentState = SystemState(volume: 0, brightness: 0, isMuted: false)
+    private var configCancellable: AnyCancellable?
 
     // Audio device ID for volume monitoring
     private var audioDeviceID: AudioDeviceID = 0
@@ -38,8 +41,10 @@ class SystemInfoService {
     init(eventRouter: EventRouter) {
         self.eventRouter = eventRouter
 
-        // Suppress native macOS volume/brightness HUD
-        suppressNativeHUD()
+        // Only suppress native macOS volume/brightness HUD if overlay is enabled
+        if config.showOverlayHUD {
+            suppressNativeHUD()
+        }
 
         // Start monitoring
         setupDefaultDeviceChangeMonitoring()
@@ -48,6 +53,17 @@ class SystemInfoService {
         // Note: Battery monitoring is handled by BatteryStatusMonitor (event-based via IOPowerSource)
         // which is bound to SystemStatusMonitor.shared - no polling needed here
         setupKeyEventMonitoring()
+
+        // Observe config changes to toggle native HUD suppression
+        configCancellable = config.$showOverlayHUD
+            .dropFirst() // Skip initial value
+            .sink { [weak self] enabled in
+                if enabled {
+                    self?.suppressNativeHUD()
+                } else {
+                    self?.restoreNativeHUD()
+                }
+            }
     }
 
     // MARK: - Default Device Change Monitoring
@@ -81,17 +97,34 @@ class SystemInfoService {
         let script = """
         launchctl unload -w /System/Library/LaunchAgents/com.apple.OSDUIHelper.plist 2>/dev/null
         """
-        
+
         // Run with elevated privileges
         let task = Process()
         task.launchPath = "/bin/sh"
         task.arguments = ["-c", script]
-        
+
         do {
             try task.run()
         } catch {
             print("Could not suppress native HUD: \(error)")
             // Continue anyway - custom HUD will still work
+        }
+    }
+
+    // Restore the native macOS HUD overlays
+    private func restoreNativeHUD() {
+        let script = """
+        launchctl load -w /System/Library/LaunchAgents/com.apple.OSDUIHelper.plist 2>/dev/null
+        """
+
+        let task = Process()
+        task.launchPath = "/bin/sh"
+        task.arguments = ["-c", script]
+
+        do {
+            try task.run()
+        } catch {
+            print("Could not restore native HUD: \(error)")
         }
     }
     
@@ -259,6 +292,9 @@ class SystemInfoService {
         // Always publish event to show HUD, even if value didn't change (e.g., pressing vol up at max)
         currentState.volume = volume
         currentState.isMuted = effectivelyMuted
+
+        // Only publish if overlay HUD is enabled
+        guard config.showOverlayHUD else { return }
         eventRouter.publish(.volumeChanged, data: ["level": effectivelyMuted ? 0.0 : volume, "isMuted": effectivelyMuted])
     }
     
@@ -353,8 +389,11 @@ class SystemInfoService {
         // Get brightness using BrightnessHelper
         let brightness = BrightnessHelper.shared().getBrightness()
 
-        // Always publish event to show HUD, even if value didn't change (e.g., pressing brightness up at max)
+        // Always update internal state, even if HUD is disabled
         currentState.brightness = brightness
+
+        // Only publish if overlay HUD is enabled
+        guard config.showOverlayHUD else { return }
         eventRouter.publish(.brightnessChanged, data: ["level": brightness])
     }
     
@@ -370,6 +409,7 @@ class SystemInfoService {
     }
 
     deinit {
+        NotificationCenter.default.removeObserver(self)
         if let monitor = keyEventMonitor {
             NSEvent.removeMonitor(monitor)
         }
@@ -456,6 +496,9 @@ class SystemInfoService {
         // Publish volume event with estimated value
         currentState.volume = estimatedBluetoothVolume
         currentState.isMuted = false
+
+        // Only publish if overlay HUD is enabled
+        guard config.showOverlayHUD else { return }
         eventRouter.publish(.volumeChanged, data: ["level": estimatedBluetoothVolume, "isMuted": false])
     }
 
@@ -468,6 +511,9 @@ class SystemInfoService {
         currentState.isMuted = estimatedBluetoothMuted
         // When muted, show level as 0; when unmuted, show the estimated volume
         let displayLevel: Float = estimatedBluetoothMuted ? 0.0 : estimatedBluetoothVolume
+
+        // Only publish if overlay HUD is enabled
+        guard config.showOverlayHUD else { return }
         eventRouter.publish(.volumeChanged, data: ["level": displayLevel, "isMuted": estimatedBluetoothMuted])
     }
 }

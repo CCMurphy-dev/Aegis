@@ -1,20 +1,26 @@
 import SwiftUI
 import Combine
 
-enum DateFormatOption {
-    case short    // "DD/MM/YY"
-    case long     // "E MMM d"
-}
-
 struct DateView: View {
     @State private var currentDate = Date()
-    
-    // Allow the format to be set externally
-    var format: DateFormatOption = .long
-    
+    @ObservedObject private var config = AegisConfig.shared
+
     // Timer updates every minute
     private let timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
-    
+
+    // Cached formatters - created once, reused on every render
+    private static let longFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "E MMM d" // e.g., "Mon Jan 13"
+        return formatter
+    }()
+
+    private static let shortFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd/MM/yy" // e.g., "13/01/26"
+        return formatter
+    }()
+
     var body: some View {
         Text(dateString)
             .monospacedDigit()
@@ -22,15 +28,13 @@ struct DateView: View {
                 currentDate = Date()
             }
     }
-    
+
     private var dateString: String {
-        let formatter = DateFormatter()
-        switch format {
+        switch config.dateFormat {
         case .long:
-            formatter.dateFormat = "E MMM d" // e.g., "Mon Jan 13"
+            return Self.longFormatter.string(from: currentDate)
         case .short:
-            formatter.dateFormat = "dd/MM/yy" // e.g., "13/01/26"
+            return Self.shortFormatter.string(from: currentDate)
         }
-        return formatter.string(from: currentDate)
     }
 }

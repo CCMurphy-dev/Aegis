@@ -155,6 +155,15 @@ final class YabaiService {
             await refreshAll(source: "FIFO:window_focused", forceRefresh: true)
         case "window_created", "window_destroyed", "window_moved":
             await refreshWindows()
+        case "window_minimized", "window_deminimized":
+            // Window visibility changed - refresh windows to update icons
+            await refreshWindows()
+        case "application_launched", "application_terminated":
+            // App launched/quit - refresh all to update spaces and windows
+            await refreshAll(source: "FIFO:\(event)")
+        case "application_hidden", "application_visible":
+            // App visibility changed - refresh windows to update all app's windows
+            await refreshWindows()
         default:
             invalidateFocusedSpaceCache()
             await refreshAll(source: "FIFO:default(\(event))")

@@ -31,6 +31,9 @@ final class LogService {
     private let queue = DispatchQueue(label: "com.aegis.log", qos: .utility)
     private var fileHandle: FileHandle?
 
+    /// Cached timestamp formatter - created once, reused for all log entries
+    private let timestampFormatter = ISO8601DateFormatter()
+
     /// Minimum level to log (can be changed at runtime)
     var minimumLevel: Level = .info
 
@@ -102,7 +105,7 @@ final class LogService {
     }
 
     private func writeEntry(level: Level, message: String, file: String, function: String, line: Int) {
-        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let timestamp = timestampFormatter.string(from: Date())
         let filename = (file as NSString).lastPathComponent
         let entry = "[\(timestamp)] [\(level.prefix)] \(filename):\(line) \(message)\n"
 

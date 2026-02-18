@@ -211,10 +211,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let router = eventRouter else { return }
 
         router.subscribe(to: .spaceChanged) { [weak self] _ in
+            // Skip space updates if space indicators are disabled
+            guard AegisConfig.shared.showSpaceIndicators else { return }
             self?.menuBarController?.updateSpaces()
         }
 
         router.subscribe(to: .windowsChanged) { [weak self] _ in
+            // Skip window updates if space indicators are disabled
+            guard AegisConfig.shared.showSpaceIndicators else { return }
             self?.menuBarController?.updateWindows()
         }
 

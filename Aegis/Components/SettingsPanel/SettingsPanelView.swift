@@ -1,11 +1,28 @@
 import SwiftUI
 
 /// Main Settings Panel for configuring Aegis
-/// Mirrors the options available in config.json
+/// Organized into 4 tabs: Features, Appearance, Behavior, Advanced
 struct SettingsPanelView: View {
     @ObservedObject var config = AegisConfig.shared
     @ObservedObject var updater = UpdaterService.shared
     @Environment(\.presentationMode) var presentationMode
+    @State private var selectedTab: SettingsTab = .features
+
+    enum SettingsTab: String, CaseIterable {
+        case features = "Features"
+        case appearance = "Appearance"
+        case behavior = "Behavior"
+        case advanced = "Advanced"
+
+        var icon: String {
+            switch self {
+            case .features: return "switch.2"
+            case .appearance: return "paintbrush"
+            case .behavior: return "gearshape"
+            case .advanced: return "wrench.and.screwdriver"
+            }
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -20,29 +37,25 @@ struct SettingsPanelView: View {
                 Divider()
                     .background(Color.white.opacity(0.2))
 
+                // Tab Bar
+                tabBar
+
+                Divider()
+                    .background(Color.white.opacity(0.15))
+
                 // Content Area
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        // App Switcher
-                        appSwitcherSection
-
-                        // Notch HUD
-                        notchHUDSection
-
-                        // Menu Bar
-                        menuBarSection
-
-                        // System Status
-                        systemStatusSection
-
-                        // Behavior
-                        behaviorSection
-
-                        // Visual
-                        visualSection
-
-                        // Config File
-                        configFileSection
+                        switch selectedTab {
+                        case .features:
+                            featuresContent
+                        case .appearance:
+                            appearanceContent
+                        case .behavior:
+                            behaviorContent
+                        case .advanced:
+                            advancedContent
+                        }
                     }
                     .padding()
                 }
@@ -85,183 +98,126 @@ struct SettingsPanelView: View {
         .background(Color.black.opacity(0.3))
     }
 
-    // MARK: - App Switcher Section
+    // MARK: - Tab Bar
 
-    private var appSwitcherSection: some View {
-        SettingsSection(title: "App Switcher", icon: "rectangle.on.rectangle.angled") {
+    private var tabBar: some View {
+        HStack(spacing: 0) {
+            ForEach(SettingsTab.allCases, id: \.self) { tab in
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        selectedTab = tab
+                    }
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: tab.icon)
+                            .font(.system(size: 12, weight: .medium))
+
+                        Text(tab.rawValue)
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundColor(selectedTab == tab ? .white : .white.opacity(0.5))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(
+                        selectedTab == tab
+                            ? Color.white.opacity(0.1)
+                            : Color.clear
+                    )
+                    .cornerRadius(6)
+                }
+                .buttonStyle(PlainButtonStyle())
+
+                if tab != SettingsTab.allCases.last {
+                    Spacer()
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Color.black.opacity(0.2))
+    }
+
+    // MARK: - Features Tab Content
+
+    private var featuresContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // App Switcher
             SettingsToggle(
-                label: "Enable App Switcher",
+                label: "App Switcher",
                 description: "Intercept Cmd+Tab to show custom switcher",
                 isOn: $config.appSwitcherEnabled
             )
 
-            SettingsToggle(
-                label: "Cmd+Scroll to Open",
-                description: "Enable Cmd+scroll to open/cycle app switcher",
-                isOn: $config.appSwitcherCmdScrollEnabled
-            )
+            Divider().background(Color.white.opacity(0.1))
 
-            SettingsToggle(
-                label: "Show Minimized Windows",
-                description: "Include minimized windows in the switcher",
-                isOn: $config.appSwitcherShowMinimized
-            )
-
-            SettingsToggle(
-                label: "Show Hidden Windows",
-                description: "Include hidden app windows in the switcher",
-                isOn: $config.appSwitcherShowHidden
-            )
-        }
-    }
-
-    // MARK: - Notch HUD Section
-
-    private var notchHUDSection: some View {
-        SettingsSection(title: "Notch HUD", icon: "rectangle.topthird.inset.filled") {
-            // Media
-            SettingsSubsection(title: "Media (Now Playing)") {
+            // Notch HUD
+            SettingsSubsection(title: "Notch HUD") {
                 SettingsToggle(
-                    label: "Show Media HUD",
+                    label: "Media (Now Playing)",
                     description: "Show Now Playing HUD when media is playing",
                     isOn: $config.showMediaHUD
                 )
 
-                SettingsEnumPicker(
-                    label: "Right Panel Mode",
-                    selection: $config.mediaHUDRightPanelMode
-                )
-
                 SettingsToggle(
-                    label: "Enable Marquee",
-                    description: "Scroll long track/artist names",
-                    isOn: $config.mediaHUDEnableMarquee
-                )
-
-                SettingsToggle(
-                    label: "Auto-Hide Media HUD",
-                    description: "Hide after showing track info",
-                    isOn: $config.mediaHUDAutoHide
-                )
-
-                if config.mediaHUDAutoHide {
-                    SettingsDoubleSlider(
-                        label: "Auto-Hide Delay",
-                        value: $config.mediaHUDAutoHideDelay,
-                        range: 1.0...10.0,
-                        step: 0.5,
-                        unit: "s"
-                    )
-                }
-            }
-
-            // Bluetooth
-            SettingsSubsection(title: "Bluetooth Devices") {
-                SettingsToggle(
-                    label: "Show Device HUD",
-                    description: "Show HUD when Bluetooth devices connect/disconnect",
+                    label: "Bluetooth Devices",
+                    description: "Show HUD when devices connect/disconnect",
                     isOn: $config.showDeviceHUD
                 )
 
-                SettingsDoubleSlider(
-                    label: "Auto-Hide Delay",
-                    value: $config.deviceHUDAutoHideDelay,
-                    range: 1.0...10.0,
-                    step: 0.5,
-                    unit: "s"
-                )
-            }
-
-            // Focus Mode
-            SettingsSubsection(title: "Focus Mode") {
                 SettingsToggle(
-                    label: "Show Focus HUD",
+                    label: "Focus Mode",
                     description: "Show HUD when Focus mode changes",
                     isOn: $config.showFocusHUD
                 )
 
-                SettingsDoubleSlider(
-                    label: "Auto-Hide Delay",
-                    value: $config.focusHUDAutoHideDelay,
-                    range: 1.0...10.0,
-                    step: 0.5,
-                    unit: "s"
-                )
-            }
-
-            // Notifications
-            SettingsSubsection(title: "Notifications") {
                 SettingsToggle(
-                    label: "Show Notification HUD",
+                    label: "Notifications",
                     description: "Intercept system notifications in notch area",
                     isOn: $config.showNotificationHUD
                 )
 
                 SettingsToggle(
-                    label: "Auto-Hide Notifications",
-                    description: "Automatically hide notification HUD",
-                    isOn: $config.notificationHUDAutoHide
+                    label: "Volume/Brightness",
+                    description: "Show HUD when adjusting (restores native if disabled)",
+                    isOn: $config.showOverlayHUD
                 )
-
-                if config.notificationHUDAutoHide {
-                    SettingsDoubleSlider(
-                        label: "Auto-Hide Delay",
-                        value: $config.notificationHUDAutoHideDelay,
-                        range: 2.0...15.0,
-                        step: 1.0,
-                        unit: "s"
-                    )
-                }
             }
 
-            // Volume/Brightness
-            SettingsSubsection(title: "Volume/Brightness") {
-                SettingsDoubleSlider(
-                    label: "Auto-Hide Delay",
-                    value: $config.notchHUDAutoHideDelay,
-                    range: 0.5...5.0,
-                    step: 0.5,
-                    unit: "s"
+            Divider().background(Color.white.opacity(0.1))
+
+            // Menu Bar
+            SettingsSubsection(title: "Menu Bar") {
+                SettingsToggle(
+                    label: "Context Button",
+                    description: "Show layout actions button (rotate, flip, balance)",
+                    isOn: $config.showContextButton
+                )
+
+                SettingsToggle(
+                    label: "Space Indicators",
+                    description: "Show space indicator buttons (Yabai integration)",
+                    isOn: $config.showSpaceIndicators
+                )
+
+                SettingsToggle(
+                    label: "App Launcher",
+                    description: "Show app launcher button",
+                    isOn: $config.showAppLauncher
+                )
+
+                SettingsToggle(
+                    label: "System Status",
+                    description: "Show WiFi, time, battery, focus panel",
+                    isOn: $config.showSystemStatus
                 )
             }
         }
     }
 
-    // MARK: - Menu Bar Section
+    // MARK: - Appearance Tab Content
 
-    private var menuBarSection: some View {
-        SettingsSection(title: "Menu Bar", icon: "menubar.rectangle") {
-            SettingsIntSlider(
-                label: "Max Icons Per Space",
-                value: $config.maxAppIconsPerSpace,
-                range: 1...10,
-                unit: ""
-            )
-
-            SettingsToggle(
-                label: "Show App Names",
-                description: "Display app names under window titles when expanded",
-                isOn: $config.showAppNameInExpansion
-            )
-
-            SettingsToggle(
-                label: "Swipe to Destroy Space",
-                description: "Enable swipe-up gesture to destroy spaces",
-                isOn: $config.useSwipeToDestroySpace
-            )
-
-            SettingsToggle(
-                label: "Expand Context on Scroll",
-                description: "Expand context button when scrolling over it",
-                isOn: $config.expandContextButtonOnScroll
-            )
-        }
-    }
-
-    // MARK: - System Status Section
-
-    private var systemStatusSection: some View {
-        SettingsSection(title: "System Status", icon: "clock") {
+    private var appearanceContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
             SettingsEnumPicker(
                 label: "Date Format",
                 selection: $config.dateFormat
@@ -272,66 +228,9 @@ struct SettingsPanelView: View {
                 description: "Display Focus mode name alongside icon",
                 isOn: $config.showFocusName
             )
-        }
-    }
 
-    // MARK: - Behavior Section
+            Divider().background(Color.white.opacity(0.1))
 
-    private var behaviorSection: some View {
-        SettingsSection(title: "Behavior", icon: "gearshape") {
-            SettingsToggle(
-                label: "Launch at Login",
-                description: "Start Aegis automatically when macOS starts",
-                isOn: $config.launchAtLogin
-            )
-
-            SettingsToggle(
-                label: "Haptic Feedback",
-                description: "Provide haptic feedback on layout actions",
-                isOn: $config.enableLayoutActionHaptics
-            )
-
-            SettingsDoubleSlider(
-                label: "Window Expansion Collapse Delay",
-                value: $config.windowIconExpansionAutoCollapseDelay,
-                range: 0.5...5.0,
-                step: 0.5,
-                unit: "s"
-            )
-
-            // Thresholds subsection
-            SettingsSubsection(title: "Interaction Thresholds") {
-                SettingsSlider(
-                    label: "Drag Distance",
-                    value: $config.dragDistanceThreshold,
-                    range: 1...10,
-                    step: 1,
-                    unit: "px"
-                )
-
-                SettingsSlider(
-                    label: "Swipe Destroy Distance",
-                    value: $config.swipeDestroyThreshold,
-                    range: -200...(-50),
-                    step: 10,
-                    unit: "px"
-                )
-
-                SettingsSlider(
-                    label: "Scroll Action Threshold",
-                    value: $config.scrollActionThreshold,
-                    range: 1...10,
-                    step: 1,
-                    unit: ""
-                )
-            }
-        }
-    }
-
-    // MARK: - Visual Section
-
-    private var visualSection: some View {
-        SettingsSection(title: "Visual", icon: "paintbrush") {
             SettingsSubsection(title: "Space Background Opacity") {
                 SettingsDoubleSlider(
                     label: "Active Space",
@@ -357,6 +256,8 @@ struct SettingsPanelView: View {
                     unit: ""
                 )
             }
+
+            Divider().background(Color.white.opacity(0.1))
 
             SettingsSubsection(title: "Animation Timings") {
                 SettingsDoubleSlider(
@@ -386,10 +287,214 @@ struct SettingsPanelView: View {
         }
     }
 
-    // MARK: - Config File Section
+    // MARK: - Behavior Tab Content
 
-    private var configFileSection: some View {
-        SettingsSection(title: "Configuration", icon: "doc.text") {
+    private var behaviorContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            SettingsToggle(
+                label: "Launch at Login",
+                description: "Start Aegis automatically when macOS starts",
+                isOn: $config.launchAtLogin
+            )
+
+            SettingsToggle(
+                label: "Haptic Feedback",
+                description: "Provide haptic feedback on layout actions",
+                isOn: $config.enableLayoutActionHaptics
+            )
+
+            // App Switcher options
+            if config.appSwitcherEnabled {
+                Divider().background(Color.white.opacity(0.1))
+
+                SettingsSubsection(title: "App Switcher") {
+                    SettingsToggle(
+                        label: "Cmd+Scroll to Open",
+                        description: "Enable Cmd+scroll to open/cycle app switcher",
+                        isOn: $config.appSwitcherCmdScrollEnabled
+                    )
+
+                    SettingsToggle(
+                        label: "Show Minimized Windows",
+                        description: "Include minimized windows in the switcher",
+                        isOn: $config.appSwitcherShowMinimized
+                    )
+
+                    SettingsToggle(
+                        label: "Show Hidden Windows",
+                        description: "Include hidden app windows in the switcher",
+                        isOn: $config.appSwitcherShowHidden
+                    )
+                }
+            }
+
+            // Space Indicators options
+            if config.showSpaceIndicators {
+                Divider().background(Color.white.opacity(0.1))
+
+                SettingsSubsection(title: "Space Indicators") {
+                    SettingsIntSlider(
+                        label: "Max Icons Per Space",
+                        value: $config.maxAppIconsPerSpace,
+                        range: 1...10,
+                        unit: ""
+                    )
+
+                    SettingsToggle(
+                        label: "Show App Names",
+                        description: "Display app names under window titles when expanded",
+                        isOn: $config.showAppNameInExpansion
+                    )
+
+                    SettingsToggle(
+                        label: "Swipe to Destroy Space",
+                        description: "Enable swipe-up gesture to destroy spaces",
+                        isOn: $config.useSwipeToDestroySpace
+                    )
+
+                    SettingsToggle(
+                        label: "Expand Context on Scroll",
+                        description: "Expand context button when scrolling over it",
+                        isOn: $config.expandContextButtonOnScroll
+                    )
+                }
+            }
+
+            // Media HUD options
+            if config.showMediaHUD {
+                Divider().background(Color.white.opacity(0.1))
+
+                SettingsSubsection(title: "Media HUD") {
+                    SettingsEnumPicker(
+                        label: "Right Panel Mode",
+                        selection: $config.mediaHUDRightPanelMode
+                    )
+
+                    SettingsToggle(
+                        label: "Enable Marquee",
+                        description: "Scroll long track/artist names",
+                        isOn: $config.mediaHUDEnableMarquee
+                    )
+
+                    SettingsToggle(
+                        label: "Auto-Hide",
+                        description: "Hide after showing track info",
+                        isOn: $config.mediaHUDAutoHide
+                    )
+                }
+            }
+
+            // Notifications options
+            if config.showNotificationHUD {
+                Divider().background(Color.white.opacity(0.1))
+
+                SettingsSubsection(title: "Notifications") {
+                    SettingsToggle(
+                        label: "Auto-Hide",
+                        description: "Automatically hide notification HUD",
+                        isOn: $config.notificationHUDAutoHide
+                    )
+                }
+            }
+
+            Divider().background(Color.white.opacity(0.1))
+
+            // Auto-hide delays
+            SettingsSubsection(title: "Auto-Hide Delays") {
+                if config.showMediaHUD && config.mediaHUDAutoHide {
+                    SettingsDoubleSlider(
+                        label: "Media HUD",
+                        value: $config.mediaHUDAutoHideDelay,
+                        range: 1.0...10.0,
+                        step: 0.5,
+                        unit: "s"
+                    )
+                }
+
+                if config.showDeviceHUD {
+                    SettingsDoubleSlider(
+                        label: "Device HUD",
+                        value: $config.deviceHUDAutoHideDelay,
+                        range: 1.0...10.0,
+                        step: 0.5,
+                        unit: "s"
+                    )
+                }
+
+                if config.showFocusHUD {
+                    SettingsDoubleSlider(
+                        label: "Focus HUD",
+                        value: $config.focusHUDAutoHideDelay,
+                        range: 1.0...10.0,
+                        step: 0.5,
+                        unit: "s"
+                    )
+                }
+
+                if config.showNotificationHUD && config.notificationHUDAutoHide {
+                    SettingsDoubleSlider(
+                        label: "Notification HUD",
+                        value: $config.notificationHUDAutoHideDelay,
+                        range: 2.0...15.0,
+                        step: 1.0,
+                        unit: "s"
+                    )
+                }
+
+                if config.showOverlayHUD {
+                    SettingsDoubleSlider(
+                        label: "Volume/Brightness HUD",
+                        value: $config.notchHUDAutoHideDelay,
+                        range: 0.5...5.0,
+                        step: 0.5,
+                        unit: "s"
+                    )
+                }
+
+                SettingsDoubleSlider(
+                    label: "Window Expansion",
+                    value: $config.windowIconExpansionAutoCollapseDelay,
+                    range: 0.5...5.0,
+                    step: 0.5,
+                    unit: "s"
+                )
+            }
+
+            Divider().background(Color.white.opacity(0.1))
+
+            // Interaction thresholds
+            SettingsSubsection(title: "Interaction Thresholds") {
+                SettingsSlider(
+                    label: "Drag Distance",
+                    value: $config.dragDistanceThreshold,
+                    range: 1...10,
+                    step: 1,
+                    unit: "px"
+                )
+
+                SettingsSlider(
+                    label: "Swipe Destroy Distance",
+                    value: $config.swipeDestroyThreshold,
+                    range: -200...(-50),
+                    step: 10,
+                    unit: "px"
+                )
+
+                SettingsSlider(
+                    label: "Scroll Action Threshold",
+                    value: $config.scrollActionThreshold,
+                    range: 1...10,
+                    step: 1,
+                    unit: ""
+                )
+            }
+        }
+    }
+
+    // MARK: - Advanced Tab Content
+
+    private var advancedContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Config File")
@@ -409,6 +514,8 @@ struct SettingsPanelView: View {
                 }
                 .buttonStyle(SettingsButtonStyle())
             }
+
+            Divider().background(Color.white.opacity(0.1))
 
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
@@ -432,8 +539,12 @@ struct SettingsPanelView: View {
                 .buttonStyle(SettingsButtonStyle())
             }
 
+            Divider().background(Color.white.opacity(0.1))
+
             // Update button
             SettingsUpdateButton(updater: updater)
+
+            Divider().background(Color.white.opacity(0.1))
 
             // Yabai Setup button
             SettingsYabaiSetupButton()
@@ -465,45 +576,6 @@ struct SettingsPanelView: View {
     }
 }
 
-// MARK: - Settings Section
-
-struct SettingsSection<Content: View>: View {
-    let title: String
-    let icon: String
-    let content: () -> Content
-
-    init(title: String, icon: String, @ViewBuilder content: @escaping () -> Content) {
-        self.title = title
-        self.icon = icon
-        self.content = content
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Section Header
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.blue)
-
-                Text(title)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
-            }
-            .padding(.bottom, 4)
-
-            // Section Content
-            VStack(alignment: .leading, spacing: 8) {
-                content()
-            }
-            .padding(.leading, 4)
-
-            Divider()
-                .background(Color.white.opacity(0.1))
-        }
-    }
-}
-
 // MARK: - Settings Subsection
 
 struct SettingsSubsection<Content: View>: View {
@@ -518,14 +590,15 @@ struct SettingsSubsection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(.white.opacity(0.7))
-                .padding(.top, 4)
+                .textCase(.uppercase)
+                .tracking(0.5)
 
             VStack(alignment: .leading, spacing: 6) {
                 content()
             }
-            .padding(.leading, 8)
+            .padding(.leading, 4)
         }
     }
 }

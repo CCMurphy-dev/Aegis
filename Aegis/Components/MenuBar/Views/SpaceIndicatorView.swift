@@ -17,11 +17,21 @@ struct SpaceIndicatorView: View {
     @Binding var draggedWindowId: Int?  // Shared: ID of window currently being dragged
     @Binding var expandedWindowId: Int?  // Shared: ID of currently expanded window icon (persists across updates)
 
-    @State private var showOverflowMenu = false
+    @State private var isOverflowExpanded = false  // True when showing all icons (overflow expanded)
     @State private var autoCollapseTask: Task<Void, Never>?
     @State private var isDraggingOver = false  // True when actively dragging over this space
 
     private let config = AegisConfig.shared
+
+    // Icons to display - either limited or all based on expansion state
+    private var displayedIcons: [WindowIcon] {
+        isOverflowExpanded ? allWindowIcons : windowIcons
+    }
+
+    // Number of hidden icons (only shown when not expanded)
+    private var hiddenCount: Int {
+        allWindowIcons.count - windowIcons.count
+    }
 
     var body: some View {
         Group {
@@ -69,7 +79,7 @@ struct SpaceIndicatorView: View {
 
     private var windowIconsContent: some View {
         HStack(alignment: .center, spacing: 6) {
-                    ForEach(Array(windowIcons.enumerated()), id: \.element.id) { index, windowIcon in
+                    ForEach(Array(displayedIcons.enumerated()), id: \.element.id) { index, windowIcon in
                         HStack(alignment: .center, spacing: 6) {
                             ZStack(alignment: .bottomTrailing) {
                                 RightClickableIcon(
@@ -132,36 +142,39 @@ struct SpaceIndicatorView: View {
                         .id(windowIcon.id)  // Stable ID prevents re-creation when windows reorder
                     }
 
-            // Overflow button
-            if allWindowIcons.count > windowIcons.count {
-                overflowButton
+            // Overflow toggle button - shows "+N" when collapsed, "-" when expanded
+            if hiddenCount > 0 {
+                overflowToggleButton
             }
         }
+        .animation(.easeInOut(duration: 0.2), value: isOverflowExpanded)
     }
 
-    private var overflowButton: some View {
+    private var overflowToggleButton: some View {
         Button {
-            showOverflowMenu.toggle()
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isOverflowExpanded.toggle()
+            }
         } label: {
-            Text("+\(allWindowIcons.count - windowIcons.count)")
-                .font(.system(size: 9, weight: .medium))
-                .foregroundColor(.white.opacity(0.6))
-                .frame(width: 20, height: 20)
-                .background(
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.white.opacity(showOverflowMenu ? 0.25 : 0.12))
-                )
-        }
-        .buttonStyle(.plain)
-        .popover(isPresented: $showOverflowMenu, arrowEdge: .bottom) {
-            OverflowWindowMenu(
-                hiddenIcons: Array(allWindowIcons.dropFirst(windowIcons.count)),
-                onWindowClick: { id in
-                    showOverflowMenu = false
-                    onWindowClick?(id)
+            Group {
+                if isOverflowExpanded {
+                    // Collapse button when expanded
+                    Image(systemName: "minus")
+                        .font(.system(size: 9, weight: .bold))
+                } else {
+                    // Show count when collapsed
+                    Text("+\(hiddenCount)")
+                        .font(.system(size: 9, weight: .medium))
                 }
+            }
+            .foregroundColor(.white.opacity(0.6))
+            .frame(width: 20, height: 20)
+            .background(
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.white.opacity(isOverflowExpanded ? 0.25 : 0.12))
             )
         }
+        .buttonStyle(.plain)
     }
 
     // Pre-compute dot position to avoid recalculation in view body
@@ -171,13 +184,14 @@ struct SpaceIndicatorView: View {
         var xPosition: CGFloat = 8 + 16 + 6
 
         // Add width of all icons before the focused one
+        let iconsToCheck = displayedIcons
         for i in 0..<idx {
             xPosition += 22  // Icon width
             xPosition += 6   // Spacing in icon's HStack
 
             // If this icon is expanded, add the title width
-            if i < windowIcons.count && expandedWindowId == windowIcons[i].id {
-                xPosition += windowIcons[i].expandedWidth
+            if i < iconsToCheck.count && expandedWindowId == iconsToCheck[i].id {
+                xPosition += iconsToCheck[i].expandedWidth
             }
 
             xPosition += 6  // Spacing after this icon

@@ -570,6 +570,18 @@ class AegisConfig: ObservableObject {
     /// Show the system status panel (WiFi, time, date, battery, focus)
     @Published var showSystemStatus: Bool = true
 
+    // MARK: - Menu Bar Component Toggles
+
+    /// Show space indicator buttons in menu bar (Yabai integration)
+    /// When disabled, space indicators and related Yabai events are skipped
+    @Published var showSpaceIndicators: Bool = true
+
+    /// Show app launcher button in menu bar
+    @Published var showAppLauncher: Bool = true
+
+    /// Show context/layout actions button in menu bar
+    @Published var showContextButton: Bool = true
+
     // MARK: - SystemStatus / Date Settings
 
     enum DateFormat: String, CaseIterable {
@@ -595,13 +607,31 @@ class AegisConfig: ObservableObject {
 
     private var configFileWatcher: DispatchSourceFileSystemObject?
     private var configFileWatcherResolved: DispatchSourceFileSystemObject?
+    private var autoSaveCancellable: AnyCancellable?
+    private var isLoadingPreferences = false
 
     private init() {
+        isLoadingPreferences = true
         loadPreferences()
         // JSON file takes priority over UserDefaults
         loadFromJSONFile()
+        isLoadingPreferences = false
         // Start watching for config file changes
         startWatchingConfigFile()
+        // Set up auto-save when properties change
+        setupAutoSave()
+    }
+
+    /// Set up auto-save that persists changes when any @Published property changes
+    private func setupAutoSave() {
+        autoSaveCancellable = objectWillChange
+            .debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self = self, !self.isLoadingPreferences else { return }
+                self.savePreferences()
+                // Also save to JSON file since it takes priority on load
+                self.saveToJSONFile()
+            }
     }
 
     deinit {
@@ -646,7 +676,7 @@ class AegisConfig: ObservableObject {
 
         source.setEventHandler { [weak self] in
             // Debounce rapid changes
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                 self?.reloadConfigFile()
             }
         }
@@ -678,11 +708,13 @@ class AegisConfig: ObservableObject {
         }
 
         print("🔄 AegisConfig: Reloading config...")
+        isLoadingPreferences = true
         if loadFromJSONFile() {
             // Notify observers that config changed
             objectWillChange.send()
             print("✅ AegisConfig: Config reloaded successfully")
         }
+        isLoadingPreferences = false
     }
 
     // MARK: - Persistence
@@ -847,6 +879,9 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(batteryCriticalThreshold, forKey: "batteryCriticalThreshold")
         UserDefaults.standard.set(showFocusName, forKey: "showFocusName")
         UserDefaults.standard.set(showSystemStatus, forKey: "showSystemStatus")
+        UserDefaults.standard.set(showSpaceIndicators, forKey: "showSpaceIndicators")
+        UserDefaults.standard.set(showAppLauncher, forKey: "showAppLauncher")
+        UserDefaults.standard.set(showContextButton, forKey: "showContextButton")
         UserDefaults.standard.set(dateFormat.rawValue, forKey: "dateFormat")
     }
 
@@ -1279,6 +1314,15 @@ class AegisConfig: ObservableObject {
         if let val = UserDefaults.standard.object(forKey: "showSystemStatus") as? Bool {
             showSystemStatus = val
         }
+        if let val = UserDefaults.standard.object(forKey: "showSpaceIndicators") as? Bool {
+            showSpaceIndicators = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "showAppLauncher") as? Bool {
+            showAppLauncher = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "showContextButton") as? Bool {
+            showContextButton = val
+        }
         if let val = UserDefaults.standard.string(forKey: "dateFormat"),
            let format = DateFormat(rawValue: val) {
             dateFormat = format
@@ -1434,6 +1478,9 @@ class AegisConfig: ObservableObject {
         batteryLowThreshold = 0.25
         batteryCriticalThreshold = 0.1
         showFocusName = false
+        showSpaceIndicators = true
+        showAppLauncher = true
+        showContextButton = true
         dateFormat = .long
 
         savePreferences()

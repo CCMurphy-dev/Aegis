@@ -70,11 +70,35 @@ struct MenuBarView: View {
     @State private var previousSpaceCount: Int = 0
     @State private var isContextButtonExpanded: Bool = false
 
-    // Dynamic context button width based on expansion state
+    // Dynamic context button width based on expansion state and visibility
     private var contextButtonWidth: CGFloat {
-        isContextButtonExpanded
+        guard config.showContextButton else { return 0 }
+        return isContextButtonExpanded
             ? AppKitLayoutActionsButton.expandedWidth
             : AppKitLayoutActionsButton.collapsedWidth
+    }
+
+    // Calculate left button area width for spacer
+    private var leftButtonsWidth: CGFloat {
+        var width: CGFloat = config.menuBarEdgePadding
+
+        if config.showContextButton {
+            width += contextButtonWidth
+        }
+
+        if config.showContextButton && config.showAppLauncher {
+            width += 6 // spacing between buttons
+        }
+
+        if config.showAppLauncher {
+            width += 32 // launcher button width
+        }
+
+        if config.showSpaceIndicators {
+            width += config.spaceIndicatorSpacing
+        }
+
+        return width
     }
 
     init(
@@ -117,14 +141,14 @@ struct MenuBarView: View {
             GeometryReader { geometry in
                 ZStack(alignment: .topLeading) {
                     HStack(alignment: .center, spacing: 0) {
-                        // Dynamic spacer - accounts for context button expansion
-                        // Width = edge padding + context button + spacing (6) + launcher button (32) + spacing to spaces
+                        // Dynamic spacer - accounts for visible buttons (context, launcher)
                         Spacer()
-                            .frame(width: config.menuBarEdgePadding + contextButtonWidth + 6 + 32 + config.spaceIndicatorSpacing)
+                            .frame(width: leftButtonsWidth)
 
                         // Spaces (with scrolling if needed)
                         ZStack(alignment: .leading) {
-                        // Scrollable spaces area (full width)
+                        // Scrollable spaces area (full width) - only show if space indicators enabled
+                        if config.showSpaceIndicators {
                         ScrollViewReader { scrollProxy in
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(alignment: .center, spacing: config.spaceIndicatorSpacing) {
@@ -221,6 +245,7 @@ struct MenuBarView: View {
                         }
                         .animation(.easeInOut(duration: 0.2), value: isScrolled)
                     )
+                        } // end if showSpaceIndicators
                         }
 
                         Spacer()
@@ -241,27 +266,31 @@ struct MenuBarView: View {
                     // Buttons on top layer to ensure they're interactive
                     // Using pure AppKit buttons to bypass SwiftUI during scroll for minimal CPU
                     HStack(spacing: 6) {
-                        AppKitLayoutActionsButtonWrapper(
-                            viewModel: viewModel,
-                            isExpanded: $isContextButtonExpanded,
-                            onRotate: onRotateLayout,
-                            onFlip: onFlipLayout,
-                            onBalance: onBalanceLayout,
-                            onToggleLayout: onToggleLayout,
-                            onStackAllWindows: onStackAllWindows,
-                            onSpaceCreate: onSpaceCreate,
-                            onSpaceDestroy: onSpaceDestroy
-                        )
-                        // Animate frame width when context button expands/collapses
-                        .frame(
-                            width: isContextButtonExpanded
-                                ? AppKitLayoutActionsButton.expandedWidth
-                                : AppKitLayoutActionsButton.collapsedWidth,
-                            height: 26
-                        )
+                        if config.showContextButton {
+                            AppKitLayoutActionsButtonWrapper(
+                                viewModel: viewModel,
+                                isExpanded: $isContextButtonExpanded,
+                                onRotate: onRotateLayout,
+                                onFlip: onFlipLayout,
+                                onBalance: onBalanceLayout,
+                                onToggleLayout: onToggleLayout,
+                                onStackAllWindows: onStackAllWindows,
+                                onSpaceCreate: onSpaceCreate,
+                                onSpaceDestroy: onSpaceDestroy
+                            )
+                            // Animate frame width when context button expands/collapses
+                            .frame(
+                                width: isContextButtonExpanded
+                                    ? AppKitLayoutActionsButton.expandedWidth
+                                    : AppKitLayoutActionsButton.collapsedWidth,
+                                height: 26
+                            )
+                        }
 
-                        AppKitAppLauncherButtonWrapper(apps: FloatingApp.appsFromConfig(), onToggleApp: onToggleApp)
-                            .frame(width: 32, height: 26)
+                        if config.showAppLauncher {
+                            AppKitAppLauncherButtonWrapper(apps: FloatingApp.appsFromConfig(), onToggleApp: onToggleApp)
+                                .frame(width: 32, height: 26)
+                        }
 
                         Spacer()
                     }

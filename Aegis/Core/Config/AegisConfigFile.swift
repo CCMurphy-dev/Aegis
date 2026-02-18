@@ -179,6 +179,11 @@ struct AegisConfigData: Codable {
     var showOverlayHUD: Bool?     // Toggle for volume/brightness overlay
     var showSystemStatus: Bool?   // Toggle for system status panel (WiFi, time, battery, focus)
 
+    // Menu Bar Component Toggles
+    var showSpaceIndicators: Bool?  // Toggle for space indicator buttons (Yabai integration)
+    var showAppLauncher: Bool?      // Toggle for app launcher button
+    var showContextButton: Bool?    // Toggle for context/layout actions button
+
     // App Launcher Settings
     var launcherApps: [String]?
 
@@ -440,6 +445,11 @@ extension AegisConfig {
         if let v = data.showOverlayHUD { showOverlayHUD = v }
         if let v = data.showSystemStatus { showSystemStatus = v }
 
+        // Menu Bar Component Toggles
+        if let v = data.showSpaceIndicators { showSpaceIndicators = v }
+        if let v = data.showAppLauncher { showAppLauncher = v }
+        if let v = data.showContextButton { showContextButton = v }
+
         // App Launcher Settings
         if let v = data.launcherApps { launcherApps = v }
 
@@ -662,6 +672,11 @@ extension AegisConfig {
             showOverlayHUD: showOverlayHUD,
             showSystemStatus: showSystemStatus,
 
+            // Menu Bar Component Toggles
+            showSpaceIndicators: showSpaceIndicators,
+            showAppLauncher: showAppLauncher,
+            showContextButton: showContextButton,
+
             // App Launcher Settings
             launcherApps: launcherApps,
 
@@ -741,6 +756,9 @@ Only include settings you want to change - defaults are used for anything not sp
 | `showNotchHUD` | bool | `true` | Master toggle for entire notch HUD system (volume, brightness, media, device, focus, notifications) |
 | `showOverlayHUD` | bool | `true` | Show volume/brightness overlay in the notch |
 | `showSystemStatus` | bool | `true` | Show system status panel (WiFi, time, date, battery, focus icon) |
+| `showSpaceIndicators` | bool | `true` | Show space indicator buttons in menu bar (Yabai integration) |
+| `showAppLauncher` | bool | `true` | Show app launcher button in menu bar |
+| `showContextButton` | bool | `true` | Show context/layout actions button in menu bar |
 
 ---
 

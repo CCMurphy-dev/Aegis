@@ -38,7 +38,7 @@ struct SystemStatusView: View {
 
             Color.clear.frame(width: 8)
 
-            DateView(format: .short)
+            DateView()
 
             // Show battery when not full, or when charging
             // Animated slide in/out from trailing edge

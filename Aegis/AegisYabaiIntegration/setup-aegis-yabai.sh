@@ -53,22 +53,34 @@ echo "✅ Found yabai at $(which yabai)"
 # 4. Remove any existing Aegis signals
 echo "🧹 Cleaning up old signals..."
 yabai -m signal --remove aegis_space_changed 2>/dev/null || true
+yabai -m signal --remove aegis_space_created 2>/dev/null || true
 yabai -m signal --remove aegis_space_destroyed 2>/dev/null || true
 yabai -m signal --remove aegis_window_focused 2>/dev/null || true
 yabai -m signal --remove aegis_window_created 2>/dev/null || true
 yabai -m signal --remove aegis_window_destroyed 2>/dev/null || true
 yabai -m signal --remove aegis_window_moved 2>/dev/null || true
+yabai -m signal --remove aegis_window_minimized 2>/dev/null || true
+yabai -m signal --remove aegis_window_deminimized 2>/dev/null || true
+yabai -m signal --remove aegis_application_launched 2>/dev/null || true
+yabai -m signal --remove aegis_application_terminated 2>/dev/null || true
 yabai -m signal --remove aegis_application_front_switched 2>/dev/null || true
+yabai -m signal --remove aegis_application_hidden 2>/dev/null || true
+yabai -m signal --remove aegis_application_visible 2>/dev/null || true
 
 # 5. Register yabai signals with YABAI_EVENT_TYPE environment variable
 echo "📡 Registering yabai signals..."
 
+# Space events
 yabai -m signal --add event=space_changed action="YABAI_EVENT_TYPE=space_changed $NOTIFY_SCRIPT" label=aegis_space_changed
 echo "  ✓ space_changed"
+
+yabai -m signal --add event=space_created action="YABAI_EVENT_TYPE=space_created $NOTIFY_SCRIPT" label=aegis_space_created
+echo "  ✓ space_created"
 
 yabai -m signal --add event=space_destroyed action="YABAI_EVENT_TYPE=space_destroyed $NOTIFY_SCRIPT" label=aegis_space_destroyed
 echo "  ✓ space_destroyed"
 
+# Window events
 yabai -m signal --add event=window_focused action="YABAI_EVENT_TYPE=window_focused $NOTIFY_SCRIPT" label=aegis_window_focused
 echo "  ✓ window_focused"
 
@@ -81,8 +93,27 @@ echo "  ✓ window_destroyed"
 yabai -m signal --add event=window_moved action="YABAI_EVENT_TYPE=window_moved $NOTIFY_SCRIPT" label=aegis_window_moved
 echo "  ✓ window_moved"
 
+yabai -m signal --add event=window_minimized action="YABAI_EVENT_TYPE=window_minimized $NOTIFY_SCRIPT" label=aegis_window_minimized
+echo "  ✓ window_minimized"
+
+yabai -m signal --add event=window_deminimized action="YABAI_EVENT_TYPE=window_deminimized $NOTIFY_SCRIPT" label=aegis_window_deminimized
+echo "  ✓ window_deminimized"
+
+# Application events
+yabai -m signal --add event=application_launched action="YABAI_EVENT_TYPE=application_launched $NOTIFY_SCRIPT" label=aegis_application_launched
+echo "  ✓ application_launched"
+
+yabai -m signal --add event=application_terminated action="YABAI_EVENT_TYPE=application_terminated $NOTIFY_SCRIPT" label=aegis_application_terminated
+echo "  ✓ application_terminated"
+
 yabai -m signal --add event=application_front_switched action="YABAI_EVENT_TYPE=application_front_switched $NOTIFY_SCRIPT" label=aegis_application_front_switched
 echo "  ✓ application_front_switched"
+
+yabai -m signal --add event=application_hidden action="YABAI_EVENT_TYPE=application_hidden $NOTIFY_SCRIPT" label=aegis_application_hidden
+echo "  ✓ application_hidden"
+
+yabai -m signal --add event=application_visible action="YABAI_EVENT_TYPE=application_visible $NOTIFY_SCRIPT" label=aegis_application_visible
+echo "  ✓ application_visible"
 
 # 6. Verify signals are registered
 echo ""
@@ -117,19 +148,33 @@ if [ -f "$YABAIRC" ]; then
 # Aegis window manager integration - DO NOT EDIT THIS SECTION
 AEGIS_NOTIFY="$HOME/.config/aegis/aegis-yabai-notify"
 yabai -m signal --remove aegis_space_changed 2>/dev/null || true
+yabai -m signal --remove aegis_space_created 2>/dev/null || true
 yabai -m signal --remove aegis_space_destroyed 2>/dev/null || true
 yabai -m signal --remove aegis_window_focused 2>/dev/null || true
 yabai -m signal --remove aegis_window_created 2>/dev/null || true
 yabai -m signal --remove aegis_window_destroyed 2>/dev/null || true
 yabai -m signal --remove aegis_window_moved 2>/dev/null || true
+yabai -m signal --remove aegis_window_minimized 2>/dev/null || true
+yabai -m signal --remove aegis_window_deminimized 2>/dev/null || true
+yabai -m signal --remove aegis_application_launched 2>/dev/null || true
+yabai -m signal --remove aegis_application_terminated 2>/dev/null || true
 yabai -m signal --remove aegis_application_front_switched 2>/dev/null || true
+yabai -m signal --remove aegis_application_hidden 2>/dev/null || true
+yabai -m signal --remove aegis_application_visible 2>/dev/null || true
 yabai -m signal --add event=space_changed action="YABAI_EVENT_TYPE=space_changed $AEGIS_NOTIFY" label=aegis_space_changed
+yabai -m signal --add event=space_created action="YABAI_EVENT_TYPE=space_created $AEGIS_NOTIFY" label=aegis_space_created
 yabai -m signal --add event=space_destroyed action="YABAI_EVENT_TYPE=space_destroyed $AEGIS_NOTIFY" label=aegis_space_destroyed
 yabai -m signal --add event=window_focused action="YABAI_EVENT_TYPE=window_focused $AEGIS_NOTIFY" label=aegis_window_focused
 yabai -m signal --add event=window_created action="YABAI_EVENT_TYPE=window_created $AEGIS_NOTIFY" label=aegis_window_created
 yabai -m signal --add event=window_destroyed action="YABAI_EVENT_TYPE=window_destroyed $AEGIS_NOTIFY" label=aegis_window_destroyed
 yabai -m signal --add event=window_moved action="YABAI_EVENT_TYPE=window_moved $AEGIS_NOTIFY" label=aegis_window_moved
+yabai -m signal --add event=window_minimized action="YABAI_EVENT_TYPE=window_minimized $AEGIS_NOTIFY" label=aegis_window_minimized
+yabai -m signal --add event=window_deminimized action="YABAI_EVENT_TYPE=window_deminimized $AEGIS_NOTIFY" label=aegis_window_deminimized
+yabai -m signal --add event=application_launched action="YABAI_EVENT_TYPE=application_launched $AEGIS_NOTIFY" label=aegis_application_launched
+yabai -m signal --add event=application_terminated action="YABAI_EVENT_TYPE=application_terminated $AEGIS_NOTIFY" label=aegis_application_terminated
 yabai -m signal --add event=application_front_switched action="YABAI_EVENT_TYPE=application_front_switched $AEGIS_NOTIFY" label=aegis_application_front_switched
+yabai -m signal --add event=application_hidden action="YABAI_EVENT_TYPE=application_hidden $AEGIS_NOTIFY" label=aegis_application_hidden
+yabai -m signal --add event=application_visible action="YABAI_EVENT_TYPE=application_visible $AEGIS_NOTIFY" label=aegis_application_visible
 # AEGIS_INTEGRATION_END
 YABAI_EOF
             echo "✅ Added Aegis integration to $YABAIRC"
@@ -144,19 +189,33 @@ YABAI_EOF
 # Aegis window manager integration - add this to your yabairc
 AEGIS_NOTIFY="$HOME/.config/aegis/aegis-yabai-notify"
 yabai -m signal --remove aegis_space_changed 2>/dev/null || true
+yabai -m signal --remove aegis_space_created 2>/dev/null || true
 yabai -m signal --remove aegis_space_destroyed 2>/dev/null || true
 yabai -m signal --remove aegis_window_focused 2>/dev/null || true
 yabai -m signal --remove aegis_window_created 2>/dev/null || true
 yabai -m signal --remove aegis_window_destroyed 2>/dev/null || true
 yabai -m signal --remove aegis_window_moved 2>/dev/null || true
+yabai -m signal --remove aegis_window_minimized 2>/dev/null || true
+yabai -m signal --remove aegis_window_deminimized 2>/dev/null || true
+yabai -m signal --remove aegis_application_launched 2>/dev/null || true
+yabai -m signal --remove aegis_application_terminated 2>/dev/null || true
 yabai -m signal --remove aegis_application_front_switched 2>/dev/null || true
+yabai -m signal --remove aegis_application_hidden 2>/dev/null || true
+yabai -m signal --remove aegis_application_visible 2>/dev/null || true
 yabai -m signal --add event=space_changed action="YABAI_EVENT_TYPE=space_changed $AEGIS_NOTIFY" label=aegis_space_changed
+yabai -m signal --add event=space_created action="YABAI_EVENT_TYPE=space_created $AEGIS_NOTIFY" label=aegis_space_created
 yabai -m signal --add event=space_destroyed action="YABAI_EVENT_TYPE=space_destroyed $AEGIS_NOTIFY" label=aegis_space_destroyed
 yabai -m signal --add event=window_focused action="YABAI_EVENT_TYPE=window_focused $AEGIS_NOTIFY" label=aegis_window_focused
 yabai -m signal --add event=window_created action="YABAI_EVENT_TYPE=window_created $AEGIS_NOTIFY" label=aegis_window_created
 yabai -m signal --add event=window_destroyed action="YABAI_EVENT_TYPE=window_destroyed $AEGIS_NOTIFY" label=aegis_window_destroyed
 yabai -m signal --add event=window_moved action="YABAI_EVENT_TYPE=window_moved $AEGIS_NOTIFY" label=aegis_window_moved
+yabai -m signal --add event=window_minimized action="YABAI_EVENT_TYPE=window_minimized $AEGIS_NOTIFY" label=aegis_window_minimized
+yabai -m signal --add event=window_deminimized action="YABAI_EVENT_TYPE=window_deminimized $AEGIS_NOTIFY" label=aegis_window_deminimized
+yabai -m signal --add event=application_launched action="YABAI_EVENT_TYPE=application_launched $AEGIS_NOTIFY" label=aegis_application_launched
+yabai -m signal --add event=application_terminated action="YABAI_EVENT_TYPE=application_terminated $AEGIS_NOTIFY" label=aegis_application_terminated
 yabai -m signal --add event=application_front_switched action="YABAI_EVENT_TYPE=application_front_switched $AEGIS_NOTIFY" label=aegis_application_front_switched
+yabai -m signal --add event=application_hidden action="YABAI_EVENT_TYPE=application_hidden $AEGIS_NOTIFY" label=aegis_application_hidden
+yabai -m signal --add event=application_visible action="YABAI_EVENT_TYPE=application_visible $AEGIS_NOTIFY" label=aegis_application_visible
 # AEGIS_INTEGRATION_END
 SNIPPET_EOF
             echo "  Snippet saved to: $CONFIG_DIR/yabairc-snippet.sh"
