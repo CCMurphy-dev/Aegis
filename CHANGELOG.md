@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.13] - 2026-02-19
+
+### Added
+- Additional Yabai event signals for instant menu bar updates
+  - `window_minimized` / `window_deminimized` for minimize/restore
+  - `application_hidden` / `application_visible` for Cmd+H hide/unhide
+  - `application_launched` / `application_terminated` for app start/quit
+  - `space_created` for new space detection
+- Context button toggle in settings panel
+- Auto-save for config changes (debounced 500ms)
+- Settings panel restructured into 4 tabs (General, Appearance, System, About)
+
+### Fixed
+- Memory leak: SystemInfoService missing NotificationCenter observer removal
+- Memory leak: BluetoothDeviceService pendingEvents not cleared on stop
+- Memory leak: AegisConfig nested closure missing weak self capture
+- Date format toggle not working (was hardcoded in SystemStatusView)
+
+### Changed
+- Removed `window_resized` signal (not needed for menu bar icons, reduces CPU)
+- Backup polling interval extended to 60s (event-driven updates are primary)
+- DateFormatter instances now cached as static (created once, reused)
+
 ## [1.0.12] - 2026-02-16
 
 ### Fixed

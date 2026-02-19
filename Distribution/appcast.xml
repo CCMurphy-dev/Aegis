@@ -8,6 +8,30 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.13</title>
+            <sparkle:version>1.0.13</sparkle:version>
+            <sparkle:shortVersionString>1.0.13</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Wed, 19 Feb 2026 07:45:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.13</h2>
+                <ul>
+                    <li><strong>Instant Yabai Updates</strong> - Menu bar now updates instantly on minimize, hide/unhide, and app launch/quit</li>
+                    <li><strong>Memory Leak Fixes</strong> - Fixed leaks in SystemInfoService, BluetoothDeviceService, and AegisConfig</li>
+                    <li><strong>Settings Panel</strong> - Restructured into 4 tabs with new context button toggle</li>
+                    <li><strong>Auto-Save Config</strong> - Settings now auto-save with debouncing</li>
+                    <li><strong>Date Format Fix</strong> - Date format toggle now works correctly</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.13/Aegis.app.zip"
+                length="2284037"
+                type="application/octet-stream"
+                sparkle:edSignature="3twvOKX8cqQz33TaYnnJE2kp0Gpp+2jB8I7IR/CrdCL8nkOxzFrKh5nfFgbS3TrG49SkuYnGyGUkRAe0LNL2AA==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 1.0.12</title>
             <sparkle:version>1.0.12</sparkle:version>
             <sparkle:shortVersionString>1.0.12</sparkle:shortVersionString>
@@ -27,8 +51,6 @@
                 type="application/octet-stream"
                 sparkle:edSignature="/i8zdilxkUm6ddwnI/2lRGAjKiA3vzZC6zo37lot+4aRsYjj+fSKOeDJu1amQiHa3aK4cEoiqejtH4fviAoqBA==" />
         </item>
-
-        <!-- Previous Releases -->
         <item>
             <title>Version 1.0.11</title>
             <sparkle:version>1.0.11</sparkle:version>
