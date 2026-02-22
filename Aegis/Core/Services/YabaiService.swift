@@ -11,6 +11,7 @@ final class YabaiService {
 
     private var spaces: [Int: Space] = [:]
     private var windows: [Int: WindowInfo] = [:]
+    private var displays: [Int: Display] = [:]
 
     // Cache window order per space to prevent shuffling on focus changes
     // Key: space index, Value: ordered array of window IDs
@@ -181,10 +182,40 @@ final class YabaiService {
         }
         lastRefreshTime = now
 
-        // Run both queries in parallel for better performance
+        // Run all queries in parallel for better performance
+        async let displaysTask: () = refreshDisplays()
         async let spacesTask: () = refreshSpaces()
         async let windowsTask: () = refreshWindows()
-        _ = await (spacesTask, windowsTask)
+        _ = await (displaysTask, spacesTask, windowsTask)
+    }
+
+    private func refreshDisplays() async {
+        do {
+            let json = try await command.run(["-m", "query", "--displays"])
+            let decoded = try JSONDecoder().decode([Display].self, from: Data(json.utf8))
+
+            // Check if displays changed
+            let displaysChanged = dataQueue.sync { [weak self] () -> Bool in
+                guard let self = self else { return false }
+                let oldDisplayIds = Set(self.displays.keys)
+                let newDisplayIds = Set(decoded.map { $0.id })
+                return oldDisplayIds != newDisplayIds
+            }
+
+            // Write to cache
+            dataQueue.sync(flags: .barrier) { [weak self] in
+                self?.displays = Dictionary(uniqueKeysWithValues: decoded.map { ($0.id, $0) })
+            }
+
+            // Publish event if displays changed
+            if displaysChanged {
+                DispatchQueue.main.async { [weak self] in
+                    self?.eventRouter.publish(.displaysChanged, data: ["displays": decoded])
+                }
+            }
+        } catch {
+            logError("yabai displays query failed: \(error)")
+        }
     }
 
     private func refreshSpaces() async {
@@ -281,6 +312,20 @@ final class YabaiService {
     func getCurrentSpaces() -> [Space] {
         dataQueue.sync {
             Array(spaces.values).sorted { $0.index < $1.index }
+        }
+    }
+
+    func getCurrentDisplays() -> [Display] {
+        dataQueue.sync {
+            Array(displays.values).sorted { $0.index < $1.index }
+        }
+    }
+
+    func getSpacesForDisplay(_ displayIndex: Int) -> [Space] {
+        dataQueue.sync {
+            Array(spaces.values)
+                .filter { $0.display == displayIndex }
+                .sorted { $0.index < $1.index }
         }
     }
 

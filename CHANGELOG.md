@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.14] - 2026-02-22
+
+### Added
+- Multi-display menu bar support with configurable modes
+  - `multiMonitorMode` setting: `auto`, `primary`, `all`, or `none`
+  - Automatic detection of display connect/disconnect events
+  - Per-display space filtering (each menu bar shows only spaces for its display)
+- CoreGraphics display reconfiguration callback for faster external monitor detection
+  - Provides granular info about display add/remove/move/main changes
+  - Complements existing NSNotification-based detection
+
+### Fixed
+- Swipe-to-destroy-space gesture now works reliably
+  - Switched from hierarchy-based to frame-based hit detection
+  - Added momentum phase support for trackpad gestures
+  - Fixed issue where gesture threshold was never reached
+
 ## [1.0.13] - 2026-02-19
 
 ### Added

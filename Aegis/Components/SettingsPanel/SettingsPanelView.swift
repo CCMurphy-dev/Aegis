@@ -303,6 +303,15 @@ struct SettingsPanelView: View {
                 isOn: $config.enableLayoutActionHaptics
             )
 
+            Divider().background(Color.white.opacity(0.1))
+
+            // Multi-Monitor Settings
+            SettingsMultiMonitorPicker(
+                label: "Multi-Monitor Mode",
+                description: "How Aegis displays across multiple monitors",
+                selection: $config.multiMonitorMode
+            )
+
             // App Switcher options
             if config.appSwitcherEnabled {
                 Divider().background(Color.white.opacity(0.1))

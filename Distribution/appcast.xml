@@ -8,6 +8,28 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.14</title>
+            <sparkle:version>1.0.14</sparkle:version>
+            <sparkle:shortVersionString>1.0.14</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Sat, 22 Feb 2026 19:41:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.14</h2>
+                <ul>
+                    <li><strong>Multi-Display Support</strong> - Menu bars now appear on all connected displays with configurable modes</li>
+                    <li><strong>Faster Monitor Detection</strong> - CoreGraphics callback for instant external display detection</li>
+                    <li><strong>Swipe-to-Destroy Fix</strong> - Space destruction gesture now works reliably on trackpad</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.14/Aegis.app.zip"
+                length="2332311"
+                type="application/octet-stream"
+                sparkle:edSignature="2JMGR6+VfUXNtItDIDndLAFyfrkwSrI1uM4FOF81By0XLM9Qj4ceqoDxTCn1OHemPEHs/OyipRLP5wf80oXUBw==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 1.0.13</title>
             <sparkle:version>1.0.13</sparkle:version>
             <sparkle:shortVersionString>1.0.13</sparkle:shortVersionString>
@@ -29,8 +51,6 @@
                 type="application/octet-stream"
                 sparkle:edSignature="3twvOKX8cqQz33TaYnnJE2kp0Gpp+2jB8I7IR/CrdCL8nkOxzFrKh5nfFgbS3TrG49SkuYnGyGUkRAe0LNL2AA==" />
         </item>
-
-        <!-- Previous Releases -->
         <item>
             <title>Version 1.0.12</title>
             <sparkle:version>1.0.12</sparkle:version>

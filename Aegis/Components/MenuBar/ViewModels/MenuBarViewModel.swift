@@ -15,6 +15,22 @@ class MenuBarViewModel: ObservableObject {
     /// Shared state for cross-space coordination (drag, expansion, HUD)
     let sharedState: SharedMenuBarState
 
+    // MARK: - Display Filtering
+
+    /// Display index this view model is associated with (nil = show all spaces)
+    var displayIndex: Int?
+
+    /// Target screen for this menu bar (for notch detection)
+    var targetScreen: NSScreen?
+
+    /// Space filter mode (set by DisplayMenuBarManager based on config)
+    var spaceFilterMode: SpaceFilterMode = .all
+
+    enum SpaceFilterMode {
+        case all          // Show all spaces on all monitors
+        case perMonitor   // Show only spaces belonging to this monitor
+    }
+
     // MARK: - Internal State (not directly observed by views)
 
     /// Raw spaces data from YabaiService
@@ -39,8 +55,9 @@ class MenuBarViewModel: ObservableObject {
     private var pendingUpdateWorkItem: DispatchWorkItem?
     private let updateCoalesceDelay: TimeInterval = 0.05  // 50ms coalesce window
 
-    init(yabaiService: YabaiService) {
+    init(yabaiService: YabaiService, targetScreen: NSScreen? = nil) {
         self.yabaiService = yabaiService
+        self.targetScreen = targetScreen
         self.spaceStore = SpaceViewModelStore()
         self.sharedState = SharedMenuBarState()
 
@@ -48,7 +65,8 @@ class MenuBarViewModel: ObservableObject {
         performUpdate()
 
         // Initialize HUD layout coordinator with screen dimensions
-        if let screen = NSScreen.main {
+        let screen = targetScreen ?? NSScreen.main
+        if let screen = screen {
             let notchDimensions = NotchDimensions.calculate(for: screen)
             self.sharedState.hudLayoutCoordinator = HUDLayoutCoordinator(
                 notchDimensions: notchDimensions,
@@ -86,7 +104,14 @@ class MenuBarViewModel: ObservableObject {
     /// Internal method that performs the actual update
     private func performUpdate() {
         // Fetch data from YabaiService
-        spaces = yabaiService.getCurrentSpaces()
+        var allSpaces = yabaiService.getCurrentSpaces()
+
+        // Apply display filtering if in perMonitor mode
+        if spaceFilterMode == .perMonitor, let displayIdx = displayIndex {
+            allSpaces = allSpaces.filter { $0.display == displayIdx }
+        }
+
+        spaces = allSpaces
 
         // Build window icons and focused indices
         var newIconsBySpace: [Int: [WindowIcon]] = [:]

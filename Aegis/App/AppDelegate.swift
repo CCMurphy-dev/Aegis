@@ -4,7 +4,7 @@ import SwiftUI
 @objc
 class AppDelegate: NSObject, NSApplicationDelegate {
 
-    var menuBarController: MenuBarController?
+    var displayMenuBarManager: DisplayMenuBarManager?
     var notchHUDController: NotchHUDController?
 
     var yabaiService: YabaiService?
@@ -94,7 +94,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         logInfo("Aegis shutting down")
-        menuBarController?.hide()
+        displayMenuBarManager?.hide()
         notchHUDController?.hide()
     }
 
@@ -128,11 +128,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Setup Menu Bar
     private func setupMenuBar() {
         guard let yabaiService, let eventRouter else { return }
-        menuBarController = MenuBarController(
+        displayMenuBarManager = DisplayMenuBarManager(
             yabaiService: yabaiService,
             eventRouter: eventRouter
         )
-        menuBarController?.show()
+        displayMenuBarManager?.show()
     }
 
     // MARK: - Setup Notch HUD
@@ -149,8 +149,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         notchHUDController?.prepareWindows()
 
         // Connect HUD visibility to menu bar
-        if let menuBarController, let notchHUDController {
-            menuBarController.connectHUDVisibility(from: notchHUDController)
+        if let displayMenuBarManager, let notchHUDController {
+            displayMenuBarManager.connectHUDVisibility(from: notchHUDController)
         }
 
     }
@@ -213,13 +213,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         router.subscribe(to: .spaceChanged) { [weak self] _ in
             // Skip space updates if space indicators are disabled
             guard AegisConfig.shared.showSpaceIndicators else { return }
-            self?.menuBarController?.updateSpaces()
+            self?.displayMenuBarManager?.updateSpaces()
         }
 
         router.subscribe(to: .windowsChanged) { [weak self] _ in
             // Skip window updates if space indicators are disabled
             guard AegisConfig.shared.showSpaceIndicators else { return }
-            self?.menuBarController?.updateWindows()
+            self?.displayMenuBarManager?.updateWindows()
         }
 
         router.subscribe(to: .volumeChanged) { [weak self] data in

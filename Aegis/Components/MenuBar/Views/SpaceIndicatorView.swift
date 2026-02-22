@@ -765,7 +765,15 @@ class SwipeDetectorView: NSView {
     private func setupEventMonitor() {
         // Use local event monitor to capture scroll events even when hit testing is disabled
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
-            guard let self = self, let _ = self.window else { return event }
+            guard let self = self, let selfWindow = self.window else {
+                print("🔴 SwipeDetector[\(ObjectIdentifier(self ?? SwipeDetectorView()))]: no window")
+                return event
+            }
+
+            // Only process events from our own window
+            if let eventWindow = event.window, eventWindow !== selfWindow {
+                return event
+            }
 
             // Throttle at monitor level to reduce CPU overhead
             let now = CACurrentMediaTime()
@@ -774,11 +782,13 @@ class SwipeDetectorView: NSView {
             }
             self.lastScrollEventTime = now
 
-            // Check if the event is within our bounds
+            // Use frame-based detection since SwipeDetectorView has allowsHitTesting(false)
+            // Convert our bounds to window coordinates and check if event location is inside
             let locationInWindow = event.locationInWindow
-            let locationInView = self.convert(locationInWindow, from: nil)
+            let boundsInWindow = self.convert(self.bounds, to: nil)
+            let isInside = boundsInWindow.contains(locationInWindow)
 
-            if self.bounds.contains(locationInView) {
+            if isInside {
                 self.handleScrollWheel(event)
             }
 
@@ -789,29 +799,51 @@ class SwipeDetectorView: NSView {
     private func handleScrollWheel(_ event: NSEvent) {
         let deltaY = event.scrollingDeltaY
 
+        // Phase values: 1=began, 4=changed, 8=ended, 16=cancelled, 32=mayBegin, 0=momentum
+        // Trackpad swipes quickly transition from changed to momentum, so we need to
+        // include early momentum events in our accumulation
+
         switch event.phase {
-        case .began:
+        case .began, .mayBegin:
+            // Start of a new gesture - reset accumulator and mark gesture as active
             scrollAccumulator = 0
+            isGestureActive = true
 
         case .changed:
+            // Gesture in progress - accumulate
             scrollAccumulator += deltaY
 
         case .ended:
+            // Gesture ended - final accumulation
             scrollAccumulator += deltaY
-
-            // Check if we scrolled up enough
-            // With natural scrolling: swipe up = negative deltaY
-            // Increased threshold from -50 to -120 to prevent accidental triggers
-            if scrollAccumulator < -120 {
-                onSwipeUp?()
-            }
+            checkThresholdAndTrigger()
             scrollAccumulator = 0
+            isGestureActive = false
 
         case .cancelled:
             scrollAccumulator = 0
+            isGestureActive = false
 
         default:
-            break
+            // Momentum phase (phase=0) - only count if gesture was recently active
+            // This handles the case where trackpad quickly transitions to momentum
+            if isGestureActive {
+                scrollAccumulator += deltaY
+                checkThresholdAndTrigger()
+            }
+        }
+    }
+
+    private var isGestureActive = false
+
+    private func checkThresholdAndTrigger() {
+        // Threshold for swipe-up gesture (negative = upward)
+        if scrollAccumulator < -80 {
+            DispatchQueue.main.async { [weak self] in
+                self?.onSwipeUp?()
+            }
+            scrollAccumulator = 0
+            isGestureActive = false  // Prevent re-triggering
         }
     }
 

@@ -13,6 +13,7 @@ import AppKit
 struct Space: Identifiable, Codable, Equatable {
     var id: Int
     var index: Int
+    var display: Int  // Display index this space belongs to (1-based)
     var label: String?
     var type: String  // "bsp", "float", "fullscreen", etc.
     var focused: Bool
@@ -21,6 +22,7 @@ struct Space: Identifiable, Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case id
         case index
+        case display
         case label
         case type
         case focused = "has-focus"

@@ -166,8 +166,8 @@ class NotchHUDController: ObservableObject {
     }
 
     private func prepareOverlayWindow() {
-        guard let screen = NSScreen.main else {
-            assertionFailure("No main screen available during overlay window preparation")
+        guard let screen = DisplayScreenMatcher.screenWithNotch() else {
+            assertionFailure("No notch screen available during overlay window preparation")
             return
         }
 
@@ -227,8 +227,8 @@ class NotchHUDController: ObservableObject {
     }
 
     private func prepareMediaWindow() {
-        guard let screen = NSScreen.main else {
-            assertionFailure("No main screen available during music window preparation")
+        guard let screen = DisplayScreenMatcher.screenWithNotch() else {
+            assertionFailure("No notch screen available during music window preparation")
             return
         }
 
@@ -294,8 +294,8 @@ class NotchHUDController: ObservableObject {
     }
 
     private func prepareDeviceWindow() {
-        guard let screen = NSScreen.main else {
-            assertionFailure("No main screen available during device window preparation")
+        guard let screen = DisplayScreenMatcher.screenWithNotch() else {
+            assertionFailure("No notch screen available during device window preparation")
             return
         }
 
@@ -346,8 +346,8 @@ class NotchHUDController: ObservableObject {
     }
 
     private func prepareFocusWindow() {
-        guard let screen = NSScreen.main else {
-            assertionFailure("No main screen available during focus window preparation")
+        guard let screen = DisplayScreenMatcher.screenWithNotch() else {
+            assertionFailure("No notch screen available during focus window preparation")
             return
         }
 
@@ -398,8 +398,8 @@ class NotchHUDController: ObservableObject {
     }
 
     private func prepareNotificationWindow() {
-        guard let screen = NSScreen.main else {
-            assertionFailure("No main screen available during notification window preparation")
+        guard let screen = DisplayScreenMatcher.screenWithNotch() else {
+            assertionFailure("No notch screen available during notification window preparation")
             return
         }
 
@@ -768,8 +768,8 @@ class NotchHUDController: ObservableObject {
     private func showNotificationHUD() {
         print("🔔 showNotificationHUD() called - currentlyVisible: \(notificationViewModel.isVisible)")
 
-        guard let screen = NSScreen.main, let notchDimensions = notchDimensions else {
-            print("🔔 showNotificationHUD: No screen or notch dimensions available")
+        guard let screen = DisplayScreenMatcher.screenWithNotch(), let notchDimensions = notchDimensions else {
+            print("🔔 showNotificationHUD: No notch screen or notch dimensions available")
             return
         }
 
@@ -1185,7 +1185,7 @@ class NotchHUDController: ObservableObject {
         logInfo("🔓 Screen unlock detected - reinitializing HUD state")
 
         // Recalculate notch dimensions in case display changed
-        if let screen = NSScreen.main {
+        if let screen = DisplayScreenMatcher.screenWithNotch() {
             notchDimensions = NotchDimensions.calculate(for: screen)
             logInfo("📐 Recalculated notch dimensions: \(notchDimensions?.width ?? 0)x\(notchDimensions?.height ?? 0)")
         }
@@ -1203,7 +1203,7 @@ class NotchHUDController: ObservableObject {
         logInfo("🖥️ Display config changed - recalculating layout")
 
         // Recalculate notch dimensions for new screen configuration
-        if let screen = NSScreen.main {
+        if let screen = DisplayScreenMatcher.screenWithNotch() {
             let newDimensions = NotchDimensions.calculate(for: screen)
 
             // Only reinitialize if dimensions actually changed
@@ -1243,7 +1243,7 @@ class NotchHUDController: ObservableObject {
 
     /// Reposition all HUD windows for new screen geometry
     private func repositionAllWindows() {
-        guard let screen = NSScreen.main, let notchDimensions = notchDimensions else { return }
+        guard let screen = DisplayScreenMatcher.screenWithNotch(), let notchDimensions = notchDimensions else { return }
 
         let screenFrame = screen.frame
 

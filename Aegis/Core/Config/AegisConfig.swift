@@ -591,6 +591,39 @@ class AegisConfig: ObservableObject {
 
     @Published var dateFormat: DateFormat = .long
 
+    // MARK: - Multi-Monitor Settings
+
+    /// Multi-monitor menu bar mode
+    enum MultiMonitorMode: String, CaseIterable, Codable {
+        case auto = "auto"              // Auto-detect: single display = primaryOnly, multiple = perMonitor
+        case primaryOnly = "primaryOnly" // Menu bar only on main display (current behavior)
+        case perMonitor = "perMonitor"   // Each monitor shows only its own spaces
+        case allShowAll = "allShowAll"   // All monitors show all spaces
+
+        /// Human-readable display name for UI
+        var displayName: String {
+            switch self {
+            case .auto: return "Auto"
+            case .primaryOnly: return "Primary Only"
+            case .perMonitor: return "Per Monitor"
+            case .allShowAll: return "All Show All"
+            }
+        }
+
+        /// Description of what this mode does
+        var description: String {
+            switch self {
+            case .auto: return "Detects monitors automatically"
+            case .primaryOnly: return "Menu bar on main display only"
+            case .perMonitor: return "Each monitor shows its own spaces"
+            case .allShowAll: return "All monitors show all spaces"
+            }
+        }
+    }
+
+    /// How to display menu bars across multiple monitors
+    @Published var multiMonitorMode: MultiMonitorMode = .auto
+
     // MARK: - Computed Color Properties
 
     /// Active space background color (uses activeSpaceBgOpacity)
@@ -883,6 +916,7 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(showAppLauncher, forKey: "showAppLauncher")
         UserDefaults.standard.set(showContextButton, forKey: "showContextButton")
         UserDefaults.standard.set(dateFormat.rawValue, forKey: "dateFormat")
+        UserDefaults.standard.set(multiMonitorMode.rawValue, forKey: "multiMonitorMode")
     }
 
     private func loadPreferences() {
@@ -1327,6 +1361,10 @@ class AegisConfig: ObservableObject {
            let format = DateFormat(rawValue: val) {
             dateFormat = format
         }
+        if let val = UserDefaults.standard.string(forKey: "multiMonitorMode"),
+           let mode = MultiMonitorMode(rawValue: val) {
+            multiMonitorMode = mode
+        }
     }
 
     func resetToDefaults() {
@@ -1482,6 +1520,7 @@ class AegisConfig: ObservableObject {
         showAppLauncher = true
         showContextButton = true
         dateFormat = .long
+        multiMonitorMode = .auto
 
         savePreferences()
     }

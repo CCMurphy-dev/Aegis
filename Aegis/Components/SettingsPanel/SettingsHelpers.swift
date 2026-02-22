@@ -197,6 +197,50 @@ struct SettingsEnumPicker<T: RawRepresentable & CaseIterable & Hashable>: View w
     }
 }
 
+/// Picker specifically for MultiMonitorMode with proper display names
+struct SettingsMultiMonitorPicker: View {
+    let label: String
+    let description: String?
+    @Binding var selection: AegisConfig.MultiMonitorMode
+
+    init(label: String, description: String? = nil, selection: Binding<AegisConfig.MultiMonitorMode>) {
+        self.label = label
+        self.description = description
+        self._selection = selection
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.9))
+
+                if let description = description {
+                    Text(description)
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.6))
+                }
+            }
+
+            Picker("", selection: $selection) {
+                ForEach(AegisConfig.MultiMonitorMode.allCases, id: \.self) { mode in
+                    Text(mode.displayName)
+                        .tag(mode)
+                }
+            }
+            .pickerStyle(SegmentedPickerStyle())
+
+            // Show description of selected mode
+            Text(selection.description)
+                .font(.system(size: 10))
+                .foregroundColor(.white.opacity(0.5))
+                .italic()
+        }
+        .padding(.vertical, 4)
+    }
+}
+
 /// Info text for displaying read-only information
 struct SettingsInfoText: View {
     let label: String

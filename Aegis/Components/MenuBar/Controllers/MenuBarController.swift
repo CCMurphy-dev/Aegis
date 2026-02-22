@@ -101,6 +101,27 @@ struct MenuBarView: View {
         return width
     }
 
+    /// Calculate available width for space indicators (stops before the notch HUD area on MacBook)
+    private func availableSpaceWidth(screenWidth: CGFloat) -> CGFloat {
+        guard let screen = viewModel.targetScreen ?? NSScreen.main,
+              screen.safeAreaInsets.top > 0 else {
+            // No notch - use generous width (leave room for system status on right)
+            return screenWidth - leftButtonsWidth - 150
+        }
+
+        // Calculate STATIC position where album art would appear (regardless of HUD state)
+        // Album art is trailing-aligned in its container, so its right edge touches notchLeftEdge
+        // and its left edge is at notchLeftEdge - albumArtWidth (no padding between art and notch)
+        let notchDimensions = NotchDimensions.calculate(for: screen)
+        let notchLeftEdge = screenWidth / 2 - notchDimensions.width / 2
+        let albumArtWidth = notchDimensions.height  // Album art is square
+        let hudLeftEdge = notchLeftEdge - albumArtWidth
+
+        // The ScrollView is offset left to extend under the buttons, so it visually starts at x=0
+        // Therefore, maxWidth = hudLeftEdge (the x-position where content should stop)
+        return hudLeftEdge
+    }
+
     init(
         viewModel: MenuBarViewModel,
         onSpaceClick: @escaping (Int) -> Void,
@@ -147,104 +168,111 @@ struct MenuBarView: View {
 
                         // Spaces (with scrolling if needed)
                         ZStack(alignment: .leading) {
-                        // Scrollable spaces area (full width) - only show if space indicators enabled
+                        // Scrollable spaces area - only show if space indicators enabled
                         if config.showSpaceIndicators {
-                        ScrollViewReader { scrollProxy in
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(alignment: .center, spacing: config.spaceIndicatorSpacing) {
-                                    // Split State Architecture: ForEach over space IDs
-                                    // Each SpaceIndicatorViewContainer observes only its own SpaceViewModel
-                                    // This prevents re-renders of all spaces when only one changes
-                                    ForEach(spaceStore.spaceIds, id: \.self) { spaceId in
-                                        if let spaceVM = spaceStore.viewModel(for: spaceId) {
-                                            SpaceIndicatorViewContainer(
-                                                spaceViewModel: spaceVM,
-                                                sharedState: sharedState,
-                                                onWindowClick: onWindowClick,
-                                                onSpaceClick: {
-                                                    onSpaceClick(spaceVM.space.index)
-                                                },
-                                                onSpaceDestroy: onSpaceDestroy,
-                                                onWindowDrop: onWindowDrop
-                                            )
-                                            // Insertion: slide in from left
-                                            // Removal: handled by SwipeableSpaceContainer's own animation (fade + move up)
-                                            // Using .identity for removal to avoid double-animation and vertical jiggle
-                                            .transition(.asymmetric(
-                                                insertion: .move(edge: .leading).combined(with: .opacity),
-                                                removal: .identity
-                                            ))
+                            let maxWidth = availableSpaceWidth(screenWidth: geometry.size.width)
+
+                            ZStack(alignment: .trailing) {
+                                ScrollViewReader { scrollProxy in
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(alignment: .center, spacing: config.spaceIndicatorSpacing) {
+                                            // Split State Architecture: ForEach over space IDs
+                                            // Each SpaceIndicatorViewContainer observes only its own SpaceViewModel
+                                            // This prevents re-renders of all spaces when only one changes
+                                            ForEach(spaceStore.spaceIds, id: \.self) { spaceId in
+                                                if let spaceVM = spaceStore.viewModel(for: spaceId) {
+                                                    SpaceIndicatorViewContainer(
+                                                        spaceViewModel: spaceVM,
+                                                        sharedState: sharedState,
+                                                        onWindowClick: onWindowClick,
+                                                        onSpaceClick: {
+                                                            onSpaceClick(spaceVM.space.index)
+                                                        },
+                                                        onSpaceDestroy: onSpaceDestroy,
+                                                        onWindowDrop: onWindowDrop
+                                                    )
+                                                    // Insertion: slide in from left
+                                                    // Removal: handled by SwipeableSpaceContainer's own animation (fade + move up)
+                                                    // Using .identity for removal to avoid double-animation and vertical jiggle
+                                                    .transition(.asymmetric(
+                                                        insertion: .move(edge: .leading).combined(with: .opacity),
+                                                        removal: .identity
+                                                    ))
+                                                }
+                                            }
+                                        }
+                                        .padding(.leading, config.menuBarEdgePadding + config.spaceIndicatorSpacing + contextButtonWidth)  // Start after button
+                                        .padding(.trailing, 20)  // Small trailing padding
+                                        .background(
+                                            GeometryReader { geo in
+                                                Color.clear
+                                                    .preference(
+                                                        key: ScrollOffsetPreferenceKey.self,
+                                                        value: geo.frame(in: .named("scroll")).minX
+                                                    )
+                                            }
+                                        )
+                                    }
+                                    .coordinateSpace(name: "scroll")
+                                    .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                                        scrollOffset = value
+                                        // Content is scrolled left (under button) if minX is less than 0
+                                        isScrolled = value < -5
+                                    }
+                                    .onChange(of: spaceStore.spaceIds) { newSpaceIds in
+                                        // Only auto-scroll when spaces are ADDED (not removed or focus changed)
+                                        // This ensures newly created spaces behind the notch become visible
+                                        // For removal, SwiftUI handles scroll position automatically
+                                        let newCount = newSpaceIds.count
+                                        if newCount > previousSpaceCount {
+                                            previousSpaceCount = newCount
+                                            // Find the focused space from the store
+                                            if let focusedSpaceId = newSpaceIds.first(where: { spaceId in
+                                                spaceStore.viewModel(for: spaceId)?.space.focused ?? false
+                                            }) {
+                                                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                                    scrollProxy.scrollTo(focusedSpaceId, anchor: .leading)
+                                                }
+                                            }
+                                        } else {
+                                            previousSpaceCount = newCount
                                         }
                                     }
-                                }
-                                .padding(.leading, config.menuBarEdgePadding + config.spaceIndicatorSpacing + contextButtonWidth)  // Start after button
-                                // Extra trailing padding allows scrolling content past the notch area
-                                // This creates scrollable space so user can scroll left to reveal spaces hidden behind notch/HUD
-                                .padding(.trailing, geometry.size.width / 2 + 50)
-                            .background(
-                                GeometryReader { geo in
-                                    Color.clear.preference(
-                                        key: ScrollOffsetPreferenceKey.self,
-                                        value: geo.frame(in: .named("scroll")).minX
-                                    )
-                                }
-                            )
-                        }
-                        .coordinateSpace(name: "scroll")
-                        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
-                            // Content is scrolled if minX is less than 0
-                            isScrolled = value < -5
-                        }
-                        .onChange(of: spaceStore.spaceIds) { newSpaceIds in
-                            // Only auto-scroll when spaces are ADDED (not removed or focus changed)
-                            // This ensures newly created spaces behind the notch become visible
-                            // For removal, SwiftUI handles scroll position automatically
-                            let newCount = newSpaceIds.count
-                            if newCount > previousSpaceCount {
-                                previousSpaceCount = newCount
-                                // Find the focused space from the store
-                                if let focusedSpaceId = newSpaceIds.first(where: { spaceId in
-                                    spaceStore.viewModel(for: spaceId)?.space.focused ?? false
-                                }) {
-                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                        scrollProxy.scrollTo(focusedSpaceId, anchor: .leading)
+                                    .onAppear {
+                                        // Initialize the previous space count
+                                        previousSpaceCount = spaceStore.spaceIds.count
                                     }
                                 }
-                            } else {
-                                previousSpaceCount = newCount
+                                .frame(maxWidth: maxWidth, alignment: .leading)  // Constrain width to stop before notch
+                                .clipped()  // Hard clip at boundary
+                                .offset(x: -(config.menuBarEdgePadding + config.spaceIndicatorSpacing + contextButtonWidth))  // Extend under button
+                                .mask(
+                                    // Simplified mask using HStack of gradients - avoids expensive blend modes
+                                    HStack(spacing: 0) {
+                                        // Left fade - hide content as it scrolls under the button
+                                        LinearGradient(
+                                            colors: [.clear, .white],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                        .frame(width: isScrolled ? (config.menuBarEdgePadding + config.spaceIndicatorSpacing + contextButtonWidth + 20) : 0)
+
+                                        // Middle - full visibility
+                                        Rectangle()
+                                            .fill(Color.white)
+
+                                        // Right fade - smooth fade before edge
+                                        LinearGradient(
+                                            colors: [.white, .clear],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                        .frame(width: 40)
+                                    }
+                                    .animation(.easeInOut(duration: 0.2), value: isScrolled)
+                                )
+
                             }
-                        }
-                        .onAppear {
-                            // Initialize the previous space count
-                            previousSpaceCount = spaceStore.spaceIds.count
-                        }
-                    }
-                    .offset(x: -(config.menuBarEdgePadding + config.spaceIndicatorSpacing + contextButtonWidth))  // Extend under button
-                    .mask(
-                        // Simplified mask using HStack of gradients - avoids expensive blend modes
-                        HStack(spacing: 0) {
-                            // Left fade - hide content as it scrolls under the button
-                            LinearGradient(
-                                colors: [.clear, .white],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                            .frame(width: isScrolled ? (config.menuBarEdgePadding + config.spaceIndicatorSpacing + contextButtonWidth + 20) : 0)
-
-                            // Middle - full visibility
-                            Rectangle()
-                                .fill(Color.white)
-
-                            // Right fade - smooth fade before notch/HUD
-                            LinearGradient(
-                                colors: [.white, .clear],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                            .frame(width: 60)
-                        }
-                        .animation(.easeInOut(duration: 0.2), value: isScrolled)
-                    )
                         } // end if showSpaceIndicators
                         }
 
@@ -303,7 +331,6 @@ struct MenuBarView: View {
         }
         .frame(height: config.menuBarHeight)
     }
-
 }
 
 // MARK: - Preference Key for Scroll Offset

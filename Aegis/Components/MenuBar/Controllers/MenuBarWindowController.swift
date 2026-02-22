@@ -16,16 +16,21 @@ class MenuBarWindowController: ObservableObject {
     /// Published fullscreen state that other components can observe
     @Published private(set) var currentSpaceIsFullscreen = false
 
+    /// The screen this menu bar is displayed on
+    private var targetScreen: NSScreen?
+
     // MARK: - Window Creation
 
-    func createWindow<Content: View>(with content: Content) {
-        guard let screen = NSScreen.main else { return }
+    func createWindow<Content: View>(with content: Content, for screen: NSScreen? = nil) {
+        let targetScreen = screen ?? NSScreen.main
+        guard let screen = targetScreen else { return }
+        self.targetScreen = screen
 
         // Menu bar window - only the interactive 40px area
         // Clicks below this window naturally pass through to windows underneath
         let frame = NSRect(
-            x: 0,
-            y: screen.frame.height - config.menuBarHeight,
+            x: screen.frame.origin.x,
+            y: screen.frame.origin.y + screen.frame.height - config.menuBarHeight,
             width: screen.frame.width,
             height: config.menuBarHeight
         )

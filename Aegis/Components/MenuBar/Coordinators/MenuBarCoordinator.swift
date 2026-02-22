@@ -13,9 +13,25 @@ class MenuBarCoordinator {
     private let interactionMonitor: MenuBarInteractionMonitor
     private var viewModel: MenuBarViewModel?
 
-    init(yabaiService: YabaiService, eventRouter: EventRouter) {
+    /// Display index this coordinator is associated with (nil = primary only)
+    private let displayIndex: Int?
+
+    /// Screen to display the menu bar on (nil = NSScreen.main)
+    private let targetScreen: NSScreen?
+
+    /// Space filter mode for this coordinator
+    private let spaceFilterMode: MenuBarViewModel.SpaceFilterMode
+
+    init(yabaiService: YabaiService,
+         eventRouter: EventRouter,
+         displayIndex: Int? = nil,
+         targetScreen: NSScreen? = nil,
+         spaceFilterMode: MenuBarViewModel.SpaceFilterMode = .all) {
         self.yabaiService = yabaiService
         self.eventRouter = eventRouter
+        self.displayIndex = displayIndex
+        self.targetScreen = targetScreen
+        self.spaceFilterMode = spaceFilterMode
         self.floatingAppController = FloatingAppController(yabaiService: yabaiService)
         self.windowController = MenuBarWindowController()
         self.interactionMonitor = MenuBarInteractionMonitor()
@@ -24,8 +40,10 @@ class MenuBarCoordinator {
     // MARK: - Show/Hide
 
     func show() {
-        // Create ViewModel
-        let vm = MenuBarViewModel(yabaiService: yabaiService)
+        // Create ViewModel with display-specific settings
+        let vm = MenuBarViewModel(yabaiService: yabaiService, targetScreen: targetScreen)
+        vm.displayIndex = displayIndex
+        vm.spaceFilterMode = spaceFilterMode
         viewModel = vm
 
         // SwiftUI content with action handlers
@@ -78,8 +96,8 @@ class MenuBarCoordinator {
             }
         )
 
-        // Create window with content
-        windowController.createWindow(with: contentView)
+        // Create window with content on the target screen
+        windowController.createWindow(with: contentView, for: targetScreen)
 
         // Check initial space fullscreen status
         checkAndUpdateFullscreenStatus()

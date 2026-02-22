@@ -6,6 +6,7 @@ import Foundation
 enum AppEvent: CaseIterable {
     case spaceChanged
     case windowsChanged
+    case displaysChanged  // Fired when displays are added/removed
     case volumeChanged
     case brightnessChanged
     case mediaPlaybackChanged
