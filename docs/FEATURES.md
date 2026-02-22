@@ -78,6 +78,18 @@ Right side of menu bar shows system state.
 - **Clock**: Current time
 - **Date**: Day and date (long or short format)
 
+### 7. Multi-Display Support
+Automatic menu bar management across multiple monitors.
+
+- **Auto-detection** of display connect/disconnect via CoreGraphics callbacks
+- **Configurable modes**:
+  - **Auto**: Single monitor = primary only, multiple = per monitor
+  - **Primary Only**: Menu bar only on main display
+  - **Per Monitor**: Each display shows only its own spaces
+  - **All Show All**: Every display shows all spaces
+- **Per-display space filtering** based on Yabai display-space mapping
+- **Instant updates** when monitors are connected or disconnected
+
 ---
 
 ## Architecture Overview
@@ -105,6 +117,7 @@ Services detect changes and publish events. UI subscribes and reacts. No polling
 | **EventRouter** | Decouples services from UI |
 | **MenuBarViewModel** | Per-space state for efficient SwiftUI updates |
 | **NotchHUDController** | Manages HUD windows and visibility |
+| **DisplayMenuBarManager** | Manages menu bars across multiple displays |
 
 ### Performance Optimizations
 
@@ -135,6 +148,7 @@ Settings stored in `~/.config/aegis/config.json` with hot-reload.
 | **Notifications** | `showNotificationHUD`, `notificationExcludedApps` |
 | **Focus HUD** | `showFocusHUD`, `showFocusName` |
 | **App Switcher** | `appSwitcherEnabled`, `appSwitcherCmdScrollEnabled` |
+| **Multi-Display** | `multiMonitorMode` (auto / primaryOnly / perMonitor / allShowAll) |
 
 Full reference: `~/.config/aegis/CONFIG_OPTIONS.md`
 

@@ -239,6 +239,19 @@ Right side of the menu bar shows:
 - **Clock** - Current time
 - **Date** - Configurable format (long or short)
 
+### Multi-Display Support
+
+Aegis automatically detects external monitors and creates menu bars for each display. Configure via Settings or `multiMonitorMode` in config:
+
+| Mode | Description |
+|------|-------------|
+| **Auto** (default) | Single display = primary only, multiple = per monitor |
+| **Primary Only** | Menu bar only on main display |
+| **Per Monitor** | Each monitor shows only its own spaces |
+| **All Show All** | All monitors show all spaces |
+
+Display changes are detected instantly via CoreGraphics callbacks.
+
 ---
 
 ## Usage
@@ -350,6 +363,9 @@ Right-click any space indicator → **Settings**
 - Spring response (snappiness)
 - Spring damping (bounciness)
 - Fade durations
+
+#### Multi-Display
+- `multiMonitorMode` - Auto, Primary Only, Per Monitor, All Show All
 
 ### Configuration File
 
@@ -467,6 +483,14 @@ Partially. The Notch HUD (volume/brightness/music) works independently. However,
 ### Q: Does Aegis work on Intel Macs?
 
 Yes, but the notch HUD features are designed for MacBooks with a notch. On other Macs, the HUD appears at the top center of the screen.
+
+### Q: Does Aegis work with multiple monitors?
+
+Yes. Aegis automatically detects external monitors and creates a menu bar for each display. You can configure the behavior in Settings:
+- **Auto**: Shows all spaces on single monitor, per-monitor spaces when multiple displays are connected
+- **Primary Only**: Menu bar only on the main display
+- **Per Monitor**: Each display shows only the spaces assigned to it
+- **All Show All**: Every display shows all spaces
 
 ### Q: Can I use Aegis with other window managers?
 
