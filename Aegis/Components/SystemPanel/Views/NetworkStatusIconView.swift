@@ -21,8 +21,8 @@ struct NetworkStatusIconView: View {
     
     private var iconColor: Color {
         switch status {
-        case .wifi(let strength): return strength > 0.33 ? .white : .red.opacity(0.8)
-        case .ethernet: return .white
+        case .wifi(let strength): return strength > 0.33 ? ThemeColors.foreground : .red.opacity(0.8)
+        case .ethernet: return ThemeColors.foreground
         case .disconnected: return .red.opacity(0.8)
         }
     }

@@ -21,7 +21,7 @@ struct BatteryStatusIconView: View {
         } else if isCritical {
             return Color.red
         } else {
-            return Color.white.opacity(0.9)
+            return ThemeColors.foreground.opacity(0.9)
         }
     }
 
@@ -30,7 +30,7 @@ struct BatteryStatusIconView: View {
         if isCritical {
             return .white
         }
-        return level > 0.5 ? .black : .white
+        return level > 0.5 ? ThemeColors.background : ThemeColors.foreground
     }
 
     var body: some View {

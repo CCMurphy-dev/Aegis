@@ -33,8 +33,8 @@ fi
 
 # Send event type to the pipe (non-blocking)
 # The YABAI_* environment variables are set by yabai when calling this script
-# We use timeout to prevent hanging if Aegis isn't reading
-echo "$YABAI_EVENT_TYPE" 2>/dev/null | timeout 0.1s tee "$PIPE_PATH" > /dev/null 2>&1 &
+# Write directly to the pipe in the background to avoid blocking yabai
+echo "$YABAI_EVENT_TYPE" > "$PIPE_PATH" 2>/dev/null &
 EOF
 
 # Make it executable (no sudo needed)

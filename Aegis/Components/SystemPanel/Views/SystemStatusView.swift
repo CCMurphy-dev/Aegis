@@ -58,17 +58,17 @@ struct SystemStatusView: View {
         .animation(.spring(response: 0.25, dampingFraction: 0.8), value: statusMonitor.focusStatus.focusName)
         .animation(.spring(response: 0.25, dampingFraction: 0.8), value: statusMonitor.batteryLevel >= 1.0 && !statusMonitor.isCharging)
         .font(.system(size: 13, weight: .medium)) // macOS menu bar font
-        .foregroundColor(.white)
+        .foregroundColor(ThemeColors.foreground)
         .padding(.horizontal, 6)
-        .frame(height: 20) 
+        .frame(height: 20)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color.white.opacity(0.18))
+                .fill(ThemeColors.background.opacity(config.systemStatusBgOpacity))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.white.opacity(0.2), lineWidth: 1) // light border
+                .stroke(ThemeColors.foreground.opacity(config.systemStatusBorderOpacity), lineWidth: 1)
         )
-        .shadow(color: Color.black.opacity(0.3), radius: 1, x: 0, y: 1)
+        .shadow(color: ThemeColors.shadow(), radius: 1, x: 0, y: 1)
     }
 }

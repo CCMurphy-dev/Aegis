@@ -61,7 +61,7 @@ final class YabaiService {
         try? FileManager.default.removeItem(atPath: pipePath)
         mkfifo(pipePath, 0o666)
 
-        pipeFD = open(pipePath, O_RDONLY | O_NONBLOCK)
+        pipeFD = open(pipePath, O_RDWR | O_NONBLOCK)
         guard pipeFD >= 0 else {
             logError("Failed to open FIFO pipe at \(pipePath)")
             return
@@ -87,10 +87,20 @@ final class YabaiService {
         let count = read(pipeFD, &buffer, buffer.count)
         guard count > 0 else { return }
 
-        let event = String(decoding: buffer.prefix(count), as: UTF8.self)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let raw = String(decoding: buffer.prefix(count), as: UTF8.self)
 
-        Task { await handleYabaiEvent(event) }
+        // Split on newlines — multiple events can arrive in a single read
+        let lines = raw.split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+
+        guard !lines.isEmpty else { return }
+
+        Task {
+            for line in lines {
+                await handleYabaiEvent(line)
+            }
+        }
     }
 
     // MARK: - Workspace fallback
@@ -157,7 +167,8 @@ final class YabaiService {
         case "window_created", "window_destroyed", "window_moved":
             await refreshWindows()
         case "window_minimized", "window_deminimized":
-            // Window visibility changed - refresh windows to update icons
+            // Brief delay to ensure yabai state is updated before we query
+            try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
             await refreshWindows()
         case "application_launched", "application_terminated":
             // App launched/quit - refresh all to update spaces and windows
@@ -280,7 +291,8 @@ final class YabaiService {
                     if let oldWindow = self.windows[window.id] {
                         if oldWindow.hasFocus != window.hasFocus ||
                            oldWindow.space != window.space ||
-                           oldWindow.isMinimized != window.isMinimized {
+                           oldWindow.isMinimized != window.isMinimized ||
+                           oldWindow.stackIndex != window.stackIndex {
                             return true
                         }
                     }
@@ -470,7 +482,7 @@ final class YabaiService {
     private var appIconCache: [String: NSImage] = [:]
     private let appIconCacheLimit = 100
 
-    private func getAppIcon(for appName: String) -> NSImage? {
+    func getAppIcon(for appName: String) -> NSImage? {
         // Check cache first
         if let cached = appIconCache[appName] {
             return cached
@@ -805,11 +817,15 @@ final class YabaiService {
 
     /// Stack a specific window onto another window
     func stackWindow(_ sourceId: Int, onto targetId: Int) {
-        print("📚 Stacking window \(sourceId) onto \(targetId)")
         Task {
             do {
-                let output = try await command.run(["-m", "window", "\(sourceId)", "--stack", "\(targetId)"])
-                print("✅ Stack succeeded: \(output)")
+                // Deminimize source if needed (no-op if not minimized)
+                try? await command.run(["-m", "window", "--deminimize", "\(sourceId)"])
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                // Use --insert stack + --warp pattern for reliable stack insertion
+                // This tells yabai the next insertion at target's node should be a stack
+                try? await command.run(["-m", "window", "\(targetId)", "--insert", "stack"])
+                _ = try await command.run(["-m", "window", "\(sourceId)", "--warp", "\(targetId)"])
                 await refreshWindows()
             } catch {
                 print("❌ Stack window failed: \(error)")
@@ -819,17 +835,23 @@ final class YabaiService {
 
     /// Stack all windows in the current space onto a target window
     func stackAllWindowsOnto(_ targetId: Int) {
-        print("📚 Stacking all windows onto \(targetId)")
         Task {
             do {
                 let focusedSpaceIndex = getFocusedSpaceIndexSync()
-                let spaceWindows = windows.values.filter { $0.space == focusedSpaceIndex && $0.id != targetId }
+                let spaceWindows = dataQueue.sync {
+                    windows.values.filter { $0.space == focusedSpaceIndex && $0.id != targetId }
+                }
 
                 for window in spaceWindows {
-                    let output = try await command.run(["-m", "window", "\(window.id)", "--stack", "\(targetId)"])
-                    print("✅ Stacked window \(window.id) onto \(targetId): \(output)")
-                    // Small delay to let Yabai process each stack operation
-                    try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+                    // Deminimize if needed
+                    if window.isMinimized {
+                        try? await command.run(["-m", "window", "--deminimize", "\(window.id)"])
+                        try? await Task.sleep(nanoseconds: 100_000_000)
+                    }
+                    // Use --insert stack + --warp for reliable stack insertion
+                    try? await command.run(["-m", "window", "\(targetId)", "--insert", "stack"])
+                    _ = try await command.run(["-m", "window", "\(window.id)", "--warp", "\(targetId)"])
+                    try? await Task.sleep(nanoseconds: 50_000_000)
                 }
 
                 await refreshWindows()
@@ -845,6 +867,33 @@ final class YabaiService {
     private static var cachedFocusedSpaceIndex = 1
     private static var cachedFocusedSpace: Space?
     private static let focusedSpaceQueryThrottle: TimeInterval = 0.1 // Max 10 queries/sec
+
+    /// Query yabai directly (blocking) for the currently focused space index.
+    /// Unlike getFocusedSpaceIndexSync(), this always runs a fresh yabai query.
+    func queryFocusedSpaceIndexSync() -> Int {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/yabai")
+        task.arguments = ["-m", "query", "--spaces", "--space"]
+
+        let stdoutPipe = Pipe()
+        let stderrPipe = Pipe()
+        task.standardOutput = stdoutPipe
+        task.standardError = stderrPipe
+
+        do {
+            try task.run()
+            task.waitUntilExit()
+
+            let data = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+            let spaceData = try JSONDecoder().decode(Space.self, from: data)
+            Self.cachedFocusedSpaceIndex = spaceData.index
+            Self.cachedFocusedSpace = spaceData
+            return spaceData.index
+        } catch {
+            print("❌ queryFocusedSpaceIndexSync failed: \(error)")
+        }
+        return Self.cachedFocusedSpaceIndex
+    }
 
     func getFocusedSpaceIndexSync() -> Int {
         return getFocusedSpaceSync()?.index ?? Self.cachedFocusedSpaceIndex
@@ -928,6 +977,77 @@ final class YabaiService {
             return output.isEmpty ? "Unknown" : output
         } catch {
             return "Error: \(error.localizedDescription)"
+        }
+    }
+
+    /// Query yabai synchronously for fresh window data in a specific space.
+    /// Used by the context menu to get accurate stack-index values.
+    func queryWindowsForSpaceSync(_ spaceIndex: Int) -> [WindowInfo] {
+        let excludedApps = AegisConfig.shared.excludedApps
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/yabai")
+        task.arguments = ["-m", "query", "--windows", "--space", "\(spaceIndex)"]
+
+        let stdoutPipe = Pipe()
+        let stderrPipe = Pipe()
+        task.standardOutput = stdoutPipe
+        task.standardError = stderrPipe
+
+        do {
+            try task.run()
+            task.waitUntilExit()
+
+            let data = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+            let decoded = try JSONDecoder().decode([WindowInfo].self, from: data)
+            let filtered = decoded.filter {
+                $0.role == "AXWindow"
+                && ($0.subrole == "AXStandardWindow" || $0.isMinimized)
+                && !excludedApps.contains($0.app)
+            }
+            print("📋 queryWindowsForSpaceSync(space:\(spaceIndex)): \(filtered.count) windows, stackIndexes: \(filtered.map { "\($0.app):\($0.stackIndex)" })")
+            return filtered
+        } catch {
+            let errData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+            let errStr = String(decoding: errData, as: UTF8.self)
+            print("❌ queryWindowsForSpaceSync(space:\(spaceIndex)) failed: \(error), stderr: \(errStr)")
+            return []
+        }
+    }
+
+    /// Unstack specific windows by warping them out of their stack
+    func unstackWindows(_ windowIds: [Int]) {
+        Task {
+            let directions = ["east", "south", "west", "north"]
+            var warpWorked = false
+
+            for (index, windowId) in windowIds.enumerated() {
+                let direction = directions[index % directions.count]
+
+                // Focus the window first
+                try? await command.run(["-m", "window", "--focus", "\(windowId)"])
+
+                // Try to warp it out of the stack
+                let output = try await command.run(["-m", "window", "--warp", direction])
+
+                if output.contains("could not locate") {
+                    print("⚠️ Warp \(direction) failed for window \(windowId)")
+                } else {
+                    print("✅ Warped window \(windowId) \(direction)")
+                    warpWorked = true
+                }
+            }
+
+            // Float toggle fallback if warps failed
+            if !warpWorked {
+                for windowId in windowIds {
+                    try? await command.run(["-m", "window", "--focus", "\(windowId)"])
+                    try? await command.run(["-m", "window", "\(windowId)", "--toggle", "float"])
+                    try? await Task.sleep(nanoseconds: 50_000_000)
+                    try? await command.run(["-m", "window", "\(windowId)", "--toggle", "float"])
+                }
+            }
+
+            await refreshWindows()
         }
     }
 

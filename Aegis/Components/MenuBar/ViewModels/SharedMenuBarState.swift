@@ -24,6 +24,15 @@ final class SharedMenuBarState: ObservableObject {
     /// Manages HUD module layout
     @Published var hudLayoutCoordinator: HUDLayoutCoordinator?
 
+    /// Whether a launcher-configured app currently has focus
+    @Published var launcherAppFocused: Bool = false
+
+    /// Index of the space that previously had focus (for directional dot animation)
+    var previousFocusedSpaceIndex: Int?
+
+    /// Index of the space that currently has focus
+    var currentFocusedSpaceIndex: Int?
+
     /// Clear expandedWindowId if the window no longer exists
     func cleanupExpandedWindowIfNeeded(allWindowIds: Set<Int>) {
         guard let expandedId = expandedWindowId else { return }

@@ -19,7 +19,7 @@ struct FocusStatusIconView: View {
                     .lineLimit(1)
             }
         }
-        .foregroundColor(.white)
+        .foregroundColor(ThemeColors.foreground)
     }
 
     /// Uses the actual symbol from the Focus configuration, falls back to moon.fill

@@ -16,20 +16,21 @@ struct SpaceStyleView: View {
             .animation(.easeInOut(duration: 0.25), value: isActive)
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(isActive ? Color.white.opacity(0.18) : .clear, lineWidth: 1)
+                    .strokeBorder(isActive ? ThemeColors.border(opacity: 0.18) : .clear, lineWidth: 1)
                     .animation(.easeInOut(duration: 0.25), value: isActive)
             )
-            .shadow(color: isActive ? .white.opacity(0.12) : .clear, radius: 6)
+            .shadow(color: isActive ? ThemeColors.foreground.opacity(0.12) : .clear, radius: 6)
             .animation(.easeInOut(duration: 0.25), value: isActive)
     }
 
     private var backgroundColor: Color {
+        let config = AegisConfig.shared
         if isActive {
-            return Color.white.opacity(0.18)
+            return ThemeColors.background.opacity(config.activeSpaceBgOpacity)
         } else if isHovered {
-            return Color.white.opacity(0.15)
+            return ThemeColors.background.opacity(config.hoveredSpaceBgOpacity)
         } else {
-            return Color.white.opacity(0.12)
+            return ThemeColors.background.opacity(config.inactiveSpaceBgOpacity)
         }
     }
 }
@@ -48,7 +49,7 @@ struct FocusDotView: View {
                 let xPosition = calculateDotPosition(for: focusedIndex, in: geometry)
 
                 Circle()
-                    .fill(Color.white)
+                    .fill(ThemeColors.foreground)
                     .frame(width: 3, height: 3)
                     .offset(x: xPosition - 1.5, y: geometry.size.height - 2.5)
                     .animation(.spring(response: 0.3, dampingFraction: 0.7), value: xPosition)

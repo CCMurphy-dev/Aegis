@@ -19,6 +19,12 @@ struct SpaceIndicatorViewContainer: View {
     let onSpaceDestroy: (Int) -> Void
     let onWindowDrop: (Int, Int, Int?, Bool) -> Void
 
+    /// Compute entry edge based on previous focused space
+    private var dotEntryEdge: Edge {
+        guard let previous = sharedState.previousFocusedSpaceIndex else { return .leading }
+        return previous > spaceViewModel.space.index ? .trailing : .leading
+    }
+
     var body: some View {
         SpaceIndicatorView(
             space: spaceViewModel.space,
@@ -26,6 +32,7 @@ struct SpaceIndicatorViewContainer: View {
             windowIcons: spaceViewModel.windowIcons,
             allWindowIcons: spaceViewModel.allWindowIcons,
             focusedIndex: spaceViewModel.focusedIndex,
+            dotEntryEdge: dotEntryEdge,
             onWindowClick: onWindowClick,
             onSpaceClick: onSpaceClick,
             onSpaceDestroy: onSpaceDestroy,
@@ -34,5 +41,11 @@ struct SpaceIndicatorViewContainer: View {
             expandedWindowId: $sharedState.expandedWindowId
         )
         .id(spaceViewModel.spaceId)
+        .onChange(of: spaceViewModel.isActive) { isActive in
+            if isActive {
+                sharedState.previousFocusedSpaceIndex = sharedState.currentFocusedSpaceIndex
+                sharedState.currentFocusedSpaceIndex = spaceViewModel.space.index
+            }
+        }
     }
 }

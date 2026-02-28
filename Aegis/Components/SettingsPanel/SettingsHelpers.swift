@@ -15,11 +15,11 @@ struct SettingsSlider: View {
             HStack {
                 Text(label)
                     .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(Color.white.opacity(0.9))
                 Spacer()
                 Text("\(value, specifier: "%.1f")\(unit)")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(Color.white.opacity(0.7))
                     .frame(minWidth: 50, alignment: .trailing)
             }
 
@@ -53,11 +53,11 @@ struct SettingsDoubleSlider: View {
             HStack {
                 Text(label)
                     .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(Color.white.opacity(0.9))
                 Spacer()
                 Text("\(value, specifier: precision)\(unit)")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(Color.white.opacity(0.7))
                     .frame(minWidth: 50, alignment: .trailing)
             }
 
@@ -80,11 +80,11 @@ struct SettingsIntSlider: View {
             HStack {
                 Text(label)
                     .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(Color.white.opacity(0.9))
                 Spacer()
                 Text("\(value)\(unit)")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(Color.white.opacity(0.7))
                     .frame(minWidth: 50, alignment: .trailing)
             }
 
@@ -116,12 +116,12 @@ struct SettingsToggle: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(label)
                         .font(.system(size: 12))
-                        .foregroundColor(.white.opacity(0.9))
+                        .foregroundColor(Color.white.opacity(0.9))
 
                     if let description = description {
                         Text(description)
                             .font(.system(size: 10))
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundColor(Color.white.opacity(0.6))
                     }
                 }
 
@@ -183,7 +183,7 @@ struct SettingsEnumPicker<T: RawRepresentable & CaseIterable & Hashable>: View w
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
                 .font(.system(size: 12))
-                .foregroundColor(.white.opacity(0.9))
+                .foregroundColor(Color.white.opacity(0.9))
 
             Picker("", selection: $selection) {
                 ForEach(Array(T.allCases), id: \.self) { option in
@@ -214,12 +214,12 @@ struct SettingsMultiMonitorPicker: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
                     .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(Color.white.opacity(0.9))
 
                 if let description = description {
                     Text(description)
                         .font(.system(size: 10))
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(Color.white.opacity(0.6))
                 }
             }
 
@@ -234,7 +234,7 @@ struct SettingsMultiMonitorPicker: View {
             // Show description of selected mode
             Text(selection.description)
                 .font(.system(size: 10))
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(Color.white.opacity(0.5))
                 .italic()
         }
         .padding(.vertical, 4)
@@ -250,11 +250,11 @@ struct SettingsInfoText: View {
         HStack {
             Text(label)
                 .font(.system(size: 12))
-                .foregroundColor(.white.opacity(0.7))
+                .foregroundColor(Color.white.opacity(0.7))
             Spacer()
             Text(value)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.white.opacity(0.9))
+                .foregroundColor(Color.white.opacity(0.9))
         }
         .padding(.vertical, 4)
     }
@@ -310,11 +310,11 @@ struct SettingsUpdateButton: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Check for Updates")
                     .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(Color.white.opacity(0.9))
 
                 Text("Current version: v\(updater.currentVersion)")
                     .font(.system(size: 10))
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(Color.white.opacity(0.6))
             }
 
             Spacer()
@@ -353,7 +353,7 @@ struct SettingsYabaiSetupButton: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Yabai Integration")
                     .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(Color.white.opacity(0.9))
 
                 Text(statusText)
                     .font(.system(size: 10))
@@ -435,7 +435,7 @@ struct SettingsCollapsibleSection<Content: View>: View {
                 HStack(spacing: 8) {
                     Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(Color.white.opacity(0.7))
 
                     if let icon = icon {
                         Image(systemName: icon)
@@ -445,7 +445,7 @@ struct SettingsCollapsibleSection<Content: View>: View {
 
                     Text(title)
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.9))
+                        .foregroundColor(Color.white.opacity(0.9))
 
                     Spacer()
                 }

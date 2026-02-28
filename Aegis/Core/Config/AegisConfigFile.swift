@@ -12,6 +12,9 @@ import Foundation
 /// Codable struct that mirrors AegisConfig for JSON serialization
 /// All properties are optional to allow partial configs (only override what you need)
 struct AegisConfigData: Codable {
+    // Appearance
+    var appTheme: String?
+
     // Menu Bar Layout
     var menuBarHeight: Double?
     var menuBarEdgePadding: Double?
@@ -275,6 +278,10 @@ extension AegisConfig {
     /// Apply values from AegisConfigData to this config
     /// Only applies non-nil values (allows partial configs)
     private func applyConfigData(_ data: AegisConfigData) {
+        // Appearance
+        if let raw = data.appTheme, let theme = AppTheme(rawValue: raw) {
+            appTheme = theme
+        }
         // Menu Bar Layout
         if let v = data.menuBarHeight { menuBarHeight = CGFloat(v) }
         if let v = data.menuBarEdgePadding { menuBarEdgePadding = CGFloat(v) }
@@ -506,6 +513,8 @@ extension AegisConfig {
     /// Convert current config to AegisConfigData
     private func toConfigData() -> AegisConfigData {
         AegisConfigData(
+            // Appearance
+            appTheme: appTheme.rawValue,
             // Menu Bar Layout
             menuBarHeight: Double(menuBarHeight),
             menuBarEdgePadding: Double(menuBarEdgePadding),

@@ -149,6 +149,14 @@ class MenuBarViewModel: ObservableObject {
         allWindowIconsBySpace = newAllIconsBySpace
         focusedIndexBySpace = newFocusedIndexBySpace
 
+        // Check if focused window belongs to a launcher app
+        let launcherAppNames = Set(FloatingApp.appsFromConfig().map { $0.name })
+        let focusedWindow = yabaiService.getAllWindows().first { $0.hasFocus }
+        let launcherFocused = focusedWindow.map { launcherAppNames.contains($0.app) } ?? false
+        if sharedState.launcherAppFocused != launcherFocused {
+            sharedState.launcherAppFocused = launcherFocused
+        }
+
         // Update the space store - this is the key to the split state architecture
         // Each SpaceViewModel only publishes if its data changed
         spaceStore.update(

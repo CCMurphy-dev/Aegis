@@ -316,7 +316,7 @@ struct MenuBarView: View {
                         }
 
                         if config.showAppLauncher {
-                            AppKitAppLauncherButtonWrapper(apps: FloatingApp.appsFromConfig(), onToggleApp: onToggleApp)
+                            AppKitAppLauncherButtonWrapper(apps: FloatingApp.appsFromConfig(), onToggleApp: onToggleApp, isAppFocused: sharedState.launcherAppFocused)
                                 .frame(width: 32, height: 26)
                         }
 
@@ -437,7 +437,6 @@ struct GradientBlurView: NSViewRepresentable {
 struct NewSpaceButton: View {
     let onSpaceCreate: () -> Void
     @State private var isHovered = false
-
     private let config = AegisConfig.shared
 
     var body: some View {
@@ -447,18 +446,18 @@ struct NewSpaceButton: View {
             HStack(spacing: 6) {
                 Image(systemName: "plus")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.white.opacity(isHovered ? 1.0 : 0.6))
+                    .foregroundColor(ThemeColors.foreground.opacity(isHovered ? 1.0 : 0.6))
                     .frame(width: 16, height: 16)
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(isHovered ? Color.white.opacity(0.18) : Color.white.opacity(0.12))
+                    .fill(ThemeColors.background.opacity(isHovered ? config.hoveredSpaceBgOpacity : config.inactiveSpaceBgOpacity))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+                    .strokeBorder(ThemeColors.border(opacity: config.activeBorderOpacity), lineWidth: 1)
                     .opacity(isHovered ? 1.0 : 0.0)
             )
             .scaleEffect(isHovered ? 1.02 : 1.0)
@@ -475,6 +474,7 @@ struct AppLauncherButton: View {
     let onToggleApp: (FloatingApp) -> Void
     let apps: [FloatingApp]
 
+    private let config = AegisConfig.shared
     @State private var isHovered = false
     @State private var selectedAppIndex: Int = 0
 
@@ -492,11 +492,11 @@ struct AppLauncherButton: View {
             .padding(.vertical, 4)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(isHovered ? Color.white.opacity(0.18) : Color.white.opacity(0.12))
+                    .fill(ThemeColors.background.opacity(isHovered ? config.hoveredSpaceBgOpacity : config.inactiveSpaceBgOpacity))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+                    .strokeBorder(ThemeColors.border(opacity: config.activeBorderOpacity), lineWidth: 1)
                     .opacity(isHovered ? 1.0 : 0.0)
             )
             .scaleEffect(isHovered ? 1.02 : 1.0)
@@ -666,7 +666,7 @@ private struct ActionIconView: View {
     var body: some View {
         Text(icon)
             .font(.system(size: 14, weight: .semibold))
-            .foregroundColor(.white.opacity(isHovered ? 1.0 : 0.6))
+            .foregroundColor(ThemeColors.foreground.opacity(isHovered ? 1.0 : 0.6))
             .frame(width: 16, height: 16)
     }
 }
@@ -717,7 +717,7 @@ struct LayoutActionsButton: View {
             if showActionLabel {
                 Text(currentLabel)
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(ThemeColors.secondaryText())
                     .frame(width: 95, alignment: .leading)
                     .padding(.leading, 6)
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
@@ -728,11 +728,11 @@ struct LayoutActionsButton: View {
         .background(
             // Simplified background - no conditional blur that forces re-render
             RoundedRectangle(cornerRadius: 8)
-                .fill(showActionLabel ? Color.white.opacity(0.2) : (isHovered ? Color.white.opacity(0.15) : Color.white.opacity(0.12)))
+                .fill(ThemeColors.background.opacity(showActionLabel ? config.activeSpaceBgOpacity : (isHovered ? config.hoveredSpaceBgOpacity : config.inactiveSpaceBgOpacity)))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
+                .strokeBorder(ThemeColors.border(opacity: 0.18), lineWidth: 1)
                 .opacity((isHovered || showActionLabel) ? 1.0 : 0.0)
         )
         .scaleEffect(isHovered ? 1.02 : 1.0)
@@ -782,8 +782,8 @@ struct LayoutActionsButton: View {
         // Get all spaces from cache
         let spaces = yabaiService.getCurrentSpaces()
 
-        // Query yabai synchronously for the actual focused space (more accurate than cache)
-        let focusedSpaceIndex = yabaiService.getFocusedSpaceIndexSync()
+        // Query yabai directly (blocking) for accurate focused space
+        let focusedSpaceIndex = yabaiService.queryFocusedSpaceIndexSync()
         let focusedSpace = spaces.first(where: { $0.index == focusedSpaceIndex })
 
         // Get window count for current space
@@ -931,15 +931,16 @@ struct LayoutActionsButton: View {
         let stackSubmenu = NSMenu()
         stackSubmenu.autoenablesItems = false
 
-        // Get windows in current space for stacking selection
-        let spaceWindows = focusedSpace.map { yabaiService.getWindowIconsForSpace($0.index) } ?? []
+        // Query yabai fresh for accurate stack-index values
+        let freshWindows = yabaiService.queryWindowsForSpaceSync(focusedSpaceIndex)
+        print("📋 Stack menu: focusedSpace=\(focusedSpaceIndex), freshWindows=\(freshWindows.count)")
 
-        if spaceWindows.count >= 2 {
-            // Pre-scale icons once and cache them to avoid repeated scaling
+        if freshWindows.count >= 2 {
+            // Pre-scale icons once
             let iconSize = NSSize(width: 16, height: 16)
             var scaledIcons: [Int: NSImage] = [:]
-            for window in spaceWindows {
-                if let icon = window.icon {
+            for window in freshWindows {
+                if let icon = yabaiService.getAppIcon(for: window.app) {
                     let scaled = NSImage(size: iconSize)
                     scaled.lockFocus()
                     icon.draw(in: NSRect(origin: .zero, size: iconSize))
@@ -948,45 +949,123 @@ struct LayoutActionsButton: View {
                 }
             }
 
-            // Create a submenu item for each window that can be the stack target
-            for targetWindow in spaceWindows {
-                let targetTitle = targetWindow.title.isEmpty ? targetWindow.appName : String(targetWindow.title.prefix(30))
-                let targetItem = NSMenuItem(title: targetTitle, action: nil, keyEquivalent: "")
-                targetItem.image = scaledIcons[targetWindow.id]
+            // Group windows by stack using exact frame match
+            // Stacked windows in yabai share the identical frame (x, y, w, h)
+            var stackGroups: [[WindowInfo]] = []
+            var unstackedWindows: [WindowInfo] = []
 
-                let windowsToStackSubmenu = NSMenu()
-                windowsToStackSubmenu.autoenablesItems = false
+            let stacked = freshWindows.filter { $0.stackIndex > 0 }
+            let notStacked = freshWindows.filter { $0.stackIndex == 0 }
 
-                // Add other windows that can be stacked onto this target
-                for sourceWindow in spaceWindows where sourceWindow.id != targetWindow.id {
-                    let sourceTitle = sourceWindow.title.isEmpty ? sourceWindow.appName : String(sourceWindow.title.prefix(40))
-                    let sourceItem = NSMenuItem(
-                        title: sourceTitle,
+            // Group stacked windows by their exact frame (rounded to avoid float precision issues)
+            let frameKey: (WindowInfo) -> String = { w in
+                guard let f = w.frame else { return "nil-\(w.id)" }
+                return "\(Int(f.origin.x)),\(Int(f.origin.y)),\(Int(f.width)),\(Int(f.height))"
+            }
+            var frameGroups: [String: [WindowInfo]] = [:]
+            for window in stacked {
+                let key = frameKey(window)
+                frameGroups[key, default: []].append(window)
+            }
+            stackGroups = frameGroups.values.map { $0.sorted { $0.stackIndex < $1.stackIndex } }
+
+            unstackedWindows = notStacked
+            print("📋 Stack grouping: \(stackGroups.count) stacks, \(unstackedWindows.count) unstacked (stacked windows: \(stacked.count))")
+
+            // Helper to get display title for a window
+            func windowTitle(_ w: WindowInfo) -> String {
+                w.title.isEmpty ? w.app : String(w.title.prefix(30))
+            }
+
+            // -- Show stack groups --
+            for (groupIndex, group) in stackGroups.enumerated() {
+                let stackItem = NSMenuItem(title: "Stack \(groupIndex + 1)", action: nil, keyEquivalent: "")
+                let stackGroupMenu = NSMenu()
+                stackGroupMenu.autoenablesItems = false
+
+                for (windowIndex, window) in group.enumerated() {
+                    let label = windowIndex == 0
+                        ? "\(windowTitle(window)) (base)"
+                        : windowTitle(window)
+                    let item = NSMenuItem(title: label, action: nil, keyEquivalent: "")
+                    item.image = scaledIcons[window.id]
+                    item.isEnabled = false
+                    stackGroupMenu.addItem(item)
+                }
+
+                stackGroupMenu.addItem(NSMenuItem.separator())
+
+                let unstackItem = NSMenuItem(
+                    title: "Unstack This Stack",
+                    action: #selector(LayoutActionsMenuTarget.unstackStack(_:)),
+                    keyEquivalent: ""
+                )
+                unstackItem.target = menuTarget
+                unstackItem.representedObject = group.map { $0.id }
+                stackGroupMenu.addItem(unstackItem)
+
+                stackItem.submenu = stackGroupMenu
+                stackSubmenu.addItem(stackItem)
+            }
+
+            // -- Separator between stacks and unstacked --
+            if !stackGroups.isEmpty && !unstackedWindows.isEmpty {
+                stackSubmenu.addItem(NSMenuItem.separator())
+            }
+
+            // -- Show unstacked windows with stack-to options --
+            for window in unstackedWindows {
+                let windowItem = NSMenuItem(title: windowTitle(window), action: nil, keyEquivalent: "")
+                windowItem.image = scaledIcons[window.id]
+
+                let windowSubmenu = NSMenu()
+                windowSubmenu.autoenablesItems = false
+
+                // "Stack onto Stack N" options
+                for (groupIndex, group) in stackGroups.enumerated() {
+                    guard let baseWindow = group.first else { continue }
+                    let item = NSMenuItem(
+                        title: "Stack onto Stack \(groupIndex + 1)",
                         action: #selector(LayoutActionsMenuTarget.stackWindowOnto(_:)),
                         keyEquivalent: ""
                     )
-                    sourceItem.target = menuTarget
-                    sourceItem.image = scaledIcons[sourceWindow.id]
-                    // Store both window IDs: source to stack onto target
-                    sourceItem.representedObject = ["source": sourceWindow.id, "target": targetWindow.id]
-                    windowsToStackSubmenu.addItem(sourceItem)
+                    item.target = menuTarget
+                    item.representedObject = ["source": window.id, "target": baseWindow.id]
+                    windowSubmenu.addItem(item)
                 }
 
-                // Add "Stack All Others" option
-                if spaceWindows.count > 2 {
-                    windowsToStackSubmenu.addItem(NSMenuItem.separator())
-                    let stackAllItem = NSMenuItem(
-                        title: "Stack All Others Here",
-                        action: #selector(LayoutActionsMenuTarget.stackAllOnto(_:)),
+                if !stackGroups.isEmpty && unstackedWindows.count > 1 {
+                    windowSubmenu.addItem(NSMenuItem.separator())
+                }
+
+                // "Stack with [other unstacked window]" options
+                for otherWindow in unstackedWindows where otherWindow.id != window.id {
+                    let item = NSMenuItem(
+                        title: "Stack with \(windowTitle(otherWindow))",
+                        action: #selector(LayoutActionsMenuTarget.stackWindowOnto(_:)),
                         keyEquivalent: ""
                     )
-                    stackAllItem.target = menuTarget
-                    stackAllItem.representedObject = targetWindow.id
-                    windowsToStackSubmenu.addItem(stackAllItem)
+                    item.target = menuTarget
+                    item.image = scaledIcons[otherWindow.id]
+                    item.representedObject = ["source": window.id, "target": otherWindow.id]
+                    windowSubmenu.addItem(item)
                 }
 
-                targetItem.submenu = windowsToStackSubmenu
-                stackSubmenu.addItem(targetItem)
+                windowItem.submenu = windowSubmenu
+                stackSubmenu.addItem(windowItem)
+            }
+
+            // -- Stack All option --
+            if freshWindows.count > 2 {
+                stackSubmenu.addItem(NSMenuItem.separator())
+                let stackAllItem = NSMenuItem(
+                    title: "Stack All Windows",
+                    action: #selector(LayoutActionsMenuTarget.stackAllOnto(_:)),
+                    keyEquivalent: ""
+                )
+                stackAllItem.target = menuTarget
+                stackAllItem.representedObject = freshWindows.first!.id
+                stackSubmenu.addItem(stackAllItem)
             }
         } else {
             let noWindowsItem = NSMenuItem(title: "Need 2+ windows to stack", action: nil, keyEquivalent: "")
@@ -1385,6 +1464,11 @@ class LayoutActionsMenuTarget: NSObject {
     @objc func stackAllOnto(_ sender: NSMenuItem) {
         guard let targetId = sender.representedObject as? Int else { return }
         yabaiService?.stackAllWindowsOnto(targetId)
+    }
+
+    @objc func unstackStack(_ sender: NSMenuItem) {
+        guard let windowIds = sender.representedObject as? [Int] else { return }
+        yabaiService?.unstackWindows(windowIds)
     }
 }
 

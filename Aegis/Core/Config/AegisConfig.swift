@@ -2,11 +2,30 @@ import Foundation
 import SwiftUI
 import Combine
 
+enum AppTheme: String, CaseIterable, Codable {
+    case dark = "dark"
+    case light = "light"
+    case system = "system"
+
+    var displayName: String {
+        switch self {
+        case .dark: return "Dark"
+        case .light: return "Light"
+        case .system: return "System"
+        }
+    }
+}
+
 /// Centralized configuration for all Aegis UI elements, behaviors, and visual parameters
 /// This singleton provides @Published properties that can be observed by SwiftUI views
 /// and persisted via UserDefaults for user customization
 class AegisConfig: ObservableObject {
     static let shared = AegisConfig()
+
+    // MARK: - Appearance
+
+    /// App theme mode: dark, light, or system
+    @Published var appTheme: AppTheme = .dark
 
     // MARK: - Menu Bar Layout
 
@@ -627,16 +646,16 @@ class AegisConfig: ObservableObject {
     // MARK: - Computed Color Properties
 
     /// Active space background color (uses activeSpaceBgOpacity)
-    var activeSpaceColor: Color { Color.white.opacity(activeSpaceBgOpacity) }
+    var activeSpaceColor: Color { ThemeColors.background.opacity(activeSpaceBgOpacity) }
 
     /// Hovered space background color (uses hoveredSpaceBgOpacity)
-    var hoveredSpaceColor: Color { Color.white.opacity(hoveredSpaceBgOpacity) }
+    var hoveredSpaceColor: Color { ThemeColors.background.opacity(hoveredSpaceBgOpacity) }
 
     /// Inactive space background color (uses inactiveSpaceBgOpacity)
-    var inactiveSpaceColor: Color { Color.white.opacity(inactiveSpaceBgOpacity) }
+    var inactiveSpaceColor: Color { ThemeColors.background.opacity(inactiveSpaceBgOpacity) }
 
     /// Active border color (uses activeBorderOpacity)
-    var activeBorderColor: Color { Color.white.opacity(activeBorderOpacity) }
+    var activeBorderColor: Color { ThemeColors.foreground.opacity(activeBorderOpacity) }
 
     private var configFileWatcher: DispatchSourceFileSystemObject?
     private var configFileWatcherResolved: DispatchSourceFileSystemObject?
@@ -753,6 +772,8 @@ class AegisConfig: ObservableObject {
     // MARK: - Persistence
 
     func savePreferences() {
+        // Appearance
+        UserDefaults.standard.set(appTheme.rawValue, forKey: "appTheme")
         // Menu Bar Layout
         UserDefaults.standard.set(menuBarHeight, forKey: "menuBarHeight")
         UserDefaults.standard.set(menuBarEdgePadding, forKey: "menuBarEdgePadding")
@@ -920,6 +941,11 @@ class AegisConfig: ObservableObject {
     }
 
     private func loadPreferences() {
+        // Appearance
+        if let raw = UserDefaults.standard.string(forKey: "appTheme"),
+           let theme = AppTheme(rawValue: raw) {
+            appTheme = theme
+        }
         // Menu Bar Layout
         if let val = UserDefaults.standard.object(forKey: "menuBarHeight") as? Double {
             menuBarHeight = CGFloat(val)
@@ -1369,6 +1395,7 @@ class AegisConfig: ObservableObject {
 
     func resetToDefaults() {
         // Reset all values to their default state
+        appTheme = .dark
         menuBarHeight = NSScreen.main?.safeAreaInsets.top ?? 37
         menuBarEdgePadding = 50
         spaceIndicatorSpacing = 8

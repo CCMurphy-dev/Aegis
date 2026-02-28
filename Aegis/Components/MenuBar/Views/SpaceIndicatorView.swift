@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Combine
 import UniformTypeIdentifiers
 
 // MARK: - Space Indicator View
@@ -10,6 +11,7 @@ struct SpaceIndicatorView: View {
     let windowIcons: [WindowIcon]
     let allWindowIcons: [WindowIcon]
     let focusedIndex: Int?  // Pre-computed by ViewModel (avoids O(N) search per render)
+    let dotEntryEdge: Edge  // Direction for focus dot entry animation
     let onWindowClick: ((Int) -> Void)?
     let onSpaceClick: (() -> Void)?
     let onSpaceDestroy: ((Int) -> Void)?
@@ -55,7 +57,7 @@ struct SpaceIndicatorView: View {
     private var spaceNumberView: some View {
         Text("\(space.index)")
             .font(.system(size: 12, weight: .semibold))
-            .foregroundColor(.white.opacity(isActive ? 1.0 : 0.6))
+            .foregroundColor(ThemeColors.primaryText(opacity: isActive ? 1.0 : 0.6))
             .frame(width: 16)
             .onTapGesture {
                 onSpaceClick?()
@@ -116,13 +118,13 @@ struct SpaceIndicatorView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(windowIcon.title)
                                     .font(.system(size: 11, weight: .medium))
-                                    .foregroundColor(.white.opacity(0.9))
+                                    .foregroundColor(ThemeColors.secondaryText())
                                     .lineLimit(1)
 
                                 if config.showAppNameInExpansion {
                                     Text(windowIcon.appName)
                                         .font(.system(size: 9))
-                                        .foregroundColor(.white.opacity(0.6))
+                                        .foregroundColor(ThemeColors.tertiaryText())
                                         .lineLimit(1)
                                 }
                             }
@@ -167,11 +169,11 @@ struct SpaceIndicatorView: View {
                         .font(.system(size: 9, weight: .medium))
                 }
             }
-            .foregroundColor(.white.opacity(0.6))
+            .foregroundColor(ThemeColors.tertiaryText())
             .frame(width: 20, height: 20)
             .background(
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.white.opacity(isOverflowExpanded ? 0.25 : 0.12))
+                    .fill(ThemeColors.background.opacity(isOverflowExpanded ? 0.25 : 0.12))
             )
         }
         .buttonStyle(.plain)
@@ -212,18 +214,25 @@ struct SpaceIndicatorView: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(isActive ? Color.white.opacity(0.18) : .clear, lineWidth: 1)
+                    .strokeBorder(isActive ? ThemeColors.border(opacity: 0.18) : .clear, lineWidth: 1)
             )
             .overlay(alignment: .bottomLeading) {
-                // Focus indicator dot at bottom edge
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: 3, height: 3)
-                    .offset(x: dotXPosition - 1.5, y: 1.5)
-                    .opacity(focusedIndex != nil ? 1 : 0)
-                    .allowsHitTesting(false)
+                // Focus indicator dot at bottom edge with directional entry
+                if focusedIndex != nil {
+                    Circle()
+                        .fill(ThemeColors.foreground)
+                        .frame(width: 3, height: 3)
+                        .offset(x: dotXPosition - 1.5, y: 1.5)
+                        .transition(.asymmetric(
+                            insertion: .move(edge: dotEntryEdge).combined(with: .opacity),
+                            removal: .opacity
+                        ))
+                        .animation(.easeOut(duration: 0.2), value: dotXPosition)
+                        .allowsHitTesting(false)
+                }
             }
-            .shadow(color: isActive ? .white.opacity(0.12) : .clear, radius: 6)
+            .animation(.easeOut(duration: 0.2), value: focusedIndex != nil)
+            .shadow(color: isActive ? ThemeColors.foreground.opacity(0.12) : .clear, radius: 6)
             .animation(.easeOut(duration: 0.12), value: isActive)
         // Add invisible padding to expand drop zone
         // Use asymmetric padding: no top padding to maintain alignment, bottom padding for drop zone
@@ -600,27 +609,60 @@ final class HoverableBackgroundView: NSView {
 
     private let backgroundLayer = CALayer()
     private var trackingArea: NSTrackingArea?
-
-    // Pre-computed CGColor values to avoid repeated allocations
-    private static let activeColor = CGColor(gray: 1.0, alpha: 0.18)
-    private static let hoveredColor = CGColor(gray: 1.0, alpha: 0.16)
-    private static let normalColor = CGColor(gray: 1.0, alpha: 0.12)
+    private var themeObserver: NSObjectProtocol?
+    private var configCancellable: AnyCancellable?
+    private let config = AegisConfig.shared
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         setupLayer()
+        setupThemeObserver()
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupLayer()
+        setupThemeObserver()
+    }
+
+    deinit {
+        if let observer = themeObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
 
     private func setupLayer() {
         wantsLayer = true
         layer?.addSublayer(backgroundLayer)
         backgroundLayer.cornerRadius = cornerRadius
-        backgroundLayer.backgroundColor = Self.normalColor
+        backgroundLayer.backgroundColor = colorForCurrentState()
+    }
+
+    private func setupThemeObserver() {
+        themeObserver = NotificationCenter.default.addObserver(
+            forName: .themeDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.updateBackgroundColor(animated: true)
+        }
+        configCancellable = config.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.updateBackgroundColor(animated: false)
+            }
+    }
+
+    private func colorForCurrentState() -> CGColor {
+        let opacity: CGFloat
+        if isActiveSpace {
+            opacity = config.activeSpaceBgOpacity
+        } else if isHovered {
+            opacity = config.hoveredSpaceBgOpacity
+        } else {
+            opacity = config.inactiveSpaceBgOpacity
+        }
+        return ThemeColors.backgroundCGColor(alpha: opacity)
     }
 
     override func layout() {
@@ -656,14 +698,7 @@ final class HoverableBackgroundView: NSView {
     }
 
     private func updateBackgroundColor(animated: Bool) {
-        let targetColor: CGColor
-        if isActiveSpace {
-            targetColor = Self.activeColor
-        } else if isHovered {
-            targetColor = Self.hoveredColor
-        } else {
-            targetColor = Self.normalColor
-        }
+        let targetColor = colorForCurrentState()
 
         if animated {
             // Use Core Animation for smooth, GPU-accelerated transition

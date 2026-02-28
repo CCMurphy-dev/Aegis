@@ -80,7 +80,7 @@ struct SettingsPanelView: View {
 
                 Text("Changes are saved automatically")
                     .font(.system(size: 11))
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(Color.white.opacity(0.6))
             }
 
             Spacer()
@@ -90,7 +90,7 @@ struct SettingsPanelView: View {
             }) {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 20))
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(Color.white.opacity(0.6))
             }
             .buttonStyle(PlainButtonStyle())
         }
@@ -115,7 +115,7 @@ struct SettingsPanelView: View {
                         Text(tab.rawValue)
                             .font(.system(size: 12, weight: .medium))
                     }
-                    .foregroundColor(selectedTab == tab ? .white : .white.opacity(0.5))
+                    .foregroundColor(selectedTab == tab ? .white : Color.white.opacity(0.5))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(
@@ -218,6 +218,13 @@ struct SettingsPanelView: View {
 
     private var appearanceContent: some View {
         VStack(alignment: .leading, spacing: 16) {
+            SettingsEnumPicker(
+                label: "Theme",
+                selection: $config.appTheme
+            )
+
+            Divider().background(Color.white.opacity(0.1))
+
             SettingsEnumPicker(
                 label: "Date Format",
                 selection: $config.dateFormat
@@ -512,7 +519,7 @@ struct SettingsPanelView: View {
 
                     Text("~/.config/aegis/config.json")
                         .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(Color.white.opacity(0.5))
                 }
 
                 Spacer()
@@ -534,7 +541,7 @@ struct SettingsPanelView: View {
 
                     Text("CONFIG_OPTIONS.md")
                         .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(Color.white.opacity(0.5))
                 }
 
                 Spacer()
@@ -600,7 +607,7 @@ struct SettingsSubsection<Content: View>: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(.white.opacity(0.7))
+                .foregroundColor(Color.white.opacity(0.7))
                 .textCase(.uppercase)
                 .tracking(0.5)
 

@@ -7,6 +7,7 @@
 //
 
 import AppKit
+import Combine
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -57,6 +58,8 @@ final class AppKitLayoutActionsButton: NSView {
     private let labelSpacing: CGFloat = 6
 
     private let config = AegisConfig.shared
+    private var themeObserver: NSObjectProtocol?
+    private var configCancellable: AnyCancellable?
 
     // Computed widths for SwiftUI layout coordination
     static let collapsedWidth: CGFloat = 8 * 2 + 16  // horizontalPadding * 2 + iconSize = 32
@@ -68,12 +71,45 @@ final class AppKitLayoutActionsButton: NSView {
         super.init(frame: frameRect)
         setupLayers()
         setupTrackingArea()
+        setupThemeObserver()
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupLayers()
         setupTrackingArea()
+        setupThemeObserver()
+    }
+
+    deinit {
+        if let observer = themeObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+
+    private func setupThemeObserver() {
+        themeObserver = NotificationCenter.default.addObserver(
+            forName: .themeDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.updateColors()
+        }
+        configCancellable = config.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.updateColors()
+            }
+    }
+
+    private func updateColors() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        backgroundLayer.backgroundColor = ThemeColors.backgroundNSColor(alpha: config.inactiveSpaceBgOpacity).cgColor
+        borderLayer.strokeColor = ThemeColors.foregroundNSColor(alpha: config.activeBorderOpacity).cgColor
+        iconLayer.foregroundColor = ThemeColors.foregroundNSColor(alpha: config.tertiaryTextOpacity).cgColor
+        labelLayer.foregroundColor = ThemeColors.foregroundNSColor(alpha: config.secondaryTextOpacity).cgColor
+        CATransaction.commit()
     }
 
     func configure(actions: [Action]) {
@@ -90,13 +126,13 @@ final class AppKitLayoutActionsButton: NSView {
         // Background layer
         backgroundLayer = CALayer()
         backgroundLayer.cornerRadius = cornerRadius
-        backgroundLayer.backgroundColor = NSColor.white.withAlphaComponent(0.12).cgColor
+        backgroundLayer.backgroundColor = ThemeColors.backgroundNSColor(alpha: config.inactiveSpaceBgOpacity).cgColor
         layer?.addSublayer(backgroundLayer)
 
         // Border layer
         borderLayer = CAShapeLayer()
         borderLayer.fillColor = nil
-        borderLayer.strokeColor = NSColor.white.withAlphaComponent(0.18).cgColor
+        borderLayer.strokeColor = ThemeColors.foregroundNSColor(alpha: config.activeBorderOpacity).cgColor
         borderLayer.lineWidth = 1
         borderLayer.opacity = 0
         layer?.addSublayer(borderLayer)
@@ -105,7 +141,7 @@ final class AppKitLayoutActionsButton: NSView {
         iconLayer = CATextLayer()
         iconLayer.font = NSFont.systemFont(ofSize: 14, weight: .semibold)
         iconLayer.fontSize = 14
-        iconLayer.foregroundColor = NSColor.white.withAlphaComponent(0.6).cgColor
+        iconLayer.foregroundColor = ThemeColors.foregroundNSColor(alpha: config.tertiaryTextOpacity).cgColor
         iconLayer.alignmentMode = .center
         iconLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
         layer?.addSublayer(iconLayer)
@@ -114,7 +150,7 @@ final class AppKitLayoutActionsButton: NSView {
         labelLayer = CATextLayer()
         labelLayer.font = NSFont.systemFont(ofSize: 11, weight: .medium)
         labelLayer.fontSize = 11
-        labelLayer.foregroundColor = NSColor.white.withAlphaComponent(0.9).cgColor
+        labelLayer.foregroundColor = ThemeColors.foregroundNSColor(alpha: config.secondaryTextOpacity).cgColor
         labelLayer.alignmentMode = .left
         labelLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
         labelLayer.opacity = 0
@@ -197,14 +233,14 @@ final class AppKitLayoutActionsButton: NSView {
         }
 
         // Background opacity
-        let bgOpacity: CGFloat = showLabel ? 0.2 : (isHovered ? 0.15 : 0.12)
-        backgroundLayer.backgroundColor = NSColor.white.withAlphaComponent(bgOpacity).cgColor
+        let bgOpacity: CGFloat = showLabel ? config.activeSpaceBgOpacity : (isHovered ? config.hoveredSpaceBgOpacity : config.inactiveSpaceBgOpacity)
+        backgroundLayer.backgroundColor = ThemeColors.backgroundNSColor(alpha: bgOpacity).cgColor
 
         // Border visibility
         borderLayer.opacity = (isHovered || showLabel) ? 1.0 : 0.0
 
         // Icon brightness
-        iconLayer.foregroundColor = NSColor.white.withAlphaComponent(isHovered ? 1.0 : 0.6).cgColor
+        iconLayer.foregroundColor = ThemeColors.foregroundNSColor(alpha: isHovered ? config.primaryTextOpacity : config.tertiaryTextOpacity).cgColor
 
         // Scale effect
         let scale: CGFloat = isHovered ? 1.02 : 1.0
@@ -237,8 +273,8 @@ final class AppKitLayoutActionsButton: NSView {
         backgroundLayer.frame = CGRect(x: 0, y: 0, width: contentWidth, height: height)
 
         // Update hover-related styling
-        let bgOpacity: CGFloat = visible ? 0.2 : (isHovered ? 0.15 : 0.12)
-        backgroundLayer.backgroundColor = NSColor.white.withAlphaComponent(bgOpacity).cgColor
+        let bgOpacity: CGFloat = visible ? config.activeSpaceBgOpacity : (isHovered ? config.hoveredSpaceBgOpacity : config.inactiveSpaceBgOpacity)
+        backgroundLayer.backgroundColor = ThemeColors.backgroundNSColor(alpha: bgOpacity).cgColor
         borderLayer.opacity = (isHovered || visible) ? 1.0 : 0.0
 
         CATransaction.commit()
@@ -410,9 +446,10 @@ struct AppKitLayoutActionsButtonWrapper: NSViewRepresentable {
 
             let yabaiService = parent.viewModel.yabaiService
             let spaces = yabaiService.getCurrentSpaces()
-            let focusedSpaceIndex = yabaiService.getFocusedSpaceIndexSync()
+            let focusedSpaceIndex = yabaiService.queryFocusedSpaceIndexSync()
             let focusedSpace = spaces.first(where: { $0.index == focusedSpaceIndex })
-            let windowCount = focusedSpace.map { yabaiService.getWindowIconsForSpace($0.index).count } ?? 0
+            let freshWindows = yabaiService.queryWindowsForSpaceSync(focusedSpaceIndex)
+            let windowCount = freshWindows.count
             let currentLayoutType = focusedSpace?.type ?? "bsp"
 
             // Create menu target
@@ -544,56 +581,164 @@ struct AppKitLayoutActionsButtonWrapper: NSViewRepresentable {
             let stackSubmenu = NSMenu()
             stackSubmenu.autoenablesItems = false
 
-            let spaceWindows = focusedSpace.map { yabaiService.getWindowIconsForSpace($0.index) } ?? []
-
-            if spaceWindows.count >= 2 {
+            if freshWindows.count >= 2 {
+                // Build scaled icons for each window (dimmed for minimized/hidden)
                 let iconSize = NSSize(width: 16, height: 16)
                 var scaledIcons: [Int: NSImage] = [:]
-                for window in spaceWindows {
-                    if let icon = window.icon {
+                for window in freshWindows {
+                    if let icon = yabaiService.getAppIcon(for: window.app) {
+                        let stateOpacity: CGFloat = (window.isMinimized || window.isHidden) ? 0.5 : 1.0
                         let scaled = NSImage(size: iconSize)
                         scaled.lockFocus()
-                        icon.draw(in: NSRect(origin: .zero, size: iconSize))
+                        icon.draw(in: NSRect(origin: .zero, size: iconSize), from: .zero, operation: .sourceOver, fraction: stateOpacity)
+                        if window.isMinimized {
+                            if let badge = NSImage(systemSymbolName: "minus.circle.fill", accessibilityDescription: nil) {
+                                let config = NSImage.SymbolConfiguration(paletteColors: [.systemYellow])
+                                    .applying(.init(pointSize: 7, weight: .bold))
+                                let tinted = badge.withSymbolConfiguration(config) ?? badge
+                                tinted.draw(in: NSRect(x: 9, y: 0, width: 8, height: 8))
+                            }
+                        }
                         scaled.unlockFocus()
                         scaledIcons[window.id] = scaled
                     }
                 }
 
-                for targetWindow in spaceWindows {
-                    let targetTitle = targetWindow.title.isEmpty ? targetWindow.appName : String(targetWindow.title.prefix(30))
-                    let targetItem = NSMenuItem(title: targetTitle, action: nil, keyEquivalent: "")
-                    targetItem.image = scaledIcons[targetWindow.id]
+                // Helper for window display name
+                let displayName: (WindowInfo) -> String = { w in
+                    w.title.isEmpty ? w.app.components(separatedBy: ".").last ?? w.app : String(w.title.prefix(30))
+                }
 
-                    let windowsToStackSubmenu = NSMenu()
-                    windowsToStackSubmenu.autoenablesItems = false
+                // Separate stacked vs unstacked windows
+                let stacked = freshWindows.filter { $0.stackIndex > 0 }
+                let unstacked = freshWindows.filter { $0.stackIndex == 0 }
 
-                    for sourceWindow in spaceWindows where sourceWindow.id != targetWindow.id {
-                        let sourceTitle = sourceWindow.title.isEmpty ? sourceWindow.appName : String(sourceWindow.title.prefix(40))
-                        let sourceItem = NSMenuItem(
-                            title: sourceTitle,
-                            action: #selector(LayoutActionsMenuTarget.stackWindowOnto(_:)),
+                // Group stacked windows by frame proximity
+                // Windows in the same stack share nearly identical origins but frames
+                // can differ by 10-20+ pixels, so use proximity clustering (100px tolerance)
+                var stackGroups: [[WindowInfo]] = []
+                if !stacked.isEmpty {
+                    var remaining = stacked
+                    while !remaining.isEmpty {
+                        var group = [remaining.removeFirst()]
+                        let anchor = group[0].frame ?? .zero
+                        var i = 0
+                        while i < remaining.count {
+                            let f = remaining[i].frame ?? CGRect(x: -9999, y: -9999, width: 0, height: 0)
+                            let dx = abs(f.origin.x - anchor.origin.x)
+                            let dy = abs(f.origin.y - anchor.origin.y)
+                            if dx < 100 && dy < 100 {
+                                group.append(remaining.remove(at: i))
+                            } else {
+                                i += 1
+                            }
+                        }
+                        stackGroups.append(group.sorted { $0.stackIndex < $1.stackIndex })
+                    }
+                }
+
+                // Show each stack group
+                for (groupIndex, group) in stackGroups.enumerated() {
+                    let headerItem = NSMenuItem(title: "Stack \(groupIndex + 1)", action: nil, keyEquivalent: "")
+                    headerItem.isEnabled = false
+                    headerItem.attributedTitle = NSAttributedString(
+                        string: "Stack \(groupIndex + 1) (\(group.count) windows)",
+                        attributes: [.font: NSFont.boldSystemFont(ofSize: 12)]
+                    )
+                    stackSubmenu.addItem(headerItem)
+
+                    for window in group {
+                        let item = NSMenuItem(
+                            title: "  \(displayName(window))",
+                            action: #selector(LayoutActionsMenuTarget.unstackStack(_:)),
                             keyEquivalent: ""
                         )
-                        sourceItem.target = menuTarget
-                        sourceItem.image = scaledIcons[sourceWindow.id]
-                        sourceItem.representedObject = ["source": sourceWindow.id, "target": targetWindow.id]
-                        windowsToStackSubmenu.addItem(sourceItem)
+                        item.target = menuTarget
+                        item.image = scaledIcons[window.id]
+                        item.representedObject = [window.id]
+                        stackSubmenu.addItem(item)
                     }
 
-                    if spaceWindows.count > 2 {
-                        windowsToStackSubmenu.addItem(NSMenuItem.separator())
-                        let stackAllItem = NSMenuItem(
-                            title: "Stack All Others Here",
-                            action: #selector(LayoutActionsMenuTarget.stackAllOnto(_:)),
-                            keyEquivalent: ""
+                    // Unstack this group
+                    let unstackItem = NSMenuItem(
+                        title: "  Unstack This Stack",
+                        action: #selector(LayoutActionsMenuTarget.unstackStack(_:)),
+                        keyEquivalent: ""
+                    )
+                    unstackItem.target = menuTarget
+                    unstackItem.representedObject = group.map { $0.id }
+                    stackSubmenu.addItem(unstackItem)
+
+                    stackSubmenu.addItem(NSMenuItem.separator())
+                }
+
+                // Show unstacked windows with stack-to options
+                if !unstacked.isEmpty {
+                    if !stackGroups.isEmpty {
+                        let unHeader = NSMenuItem(title: "Unstacked", action: nil, keyEquivalent: "")
+                        unHeader.isEnabled = false
+                        unHeader.attributedTitle = NSAttributedString(
+                            string: "Unstacked",
+                            attributes: [.font: NSFont.boldSystemFont(ofSize: 12)]
                         )
-                        stackAllItem.target = menuTarget
-                        stackAllItem.representedObject = targetWindow.id
-                        windowsToStackSubmenu.addItem(stackAllItem)
+                        stackSubmenu.addItem(unHeader)
                     }
 
-                    targetItem.submenu = windowsToStackSubmenu
-                    stackSubmenu.addItem(targetItem)
+                    for window in unstacked {
+                        let windowItem = NSMenuItem(title: displayName(window), action: nil, keyEquivalent: "")
+                        windowItem.image = scaledIcons[window.id]
+
+                        // Submenu: stack onto existing stacks or other unstacked windows
+                        let windowSubmenu = NSMenu()
+                        windowSubmenu.autoenablesItems = false
+
+                        // Stack onto existing stack groups
+                        for (groupIndex, group) in stackGroups.enumerated() {
+                            if let target = group.first {
+                                let item = NSMenuItem(
+                                    title: "Stack onto Stack \(groupIndex + 1)",
+                                    action: #selector(LayoutActionsMenuTarget.stackWindowOnto(_:)),
+                                    keyEquivalent: ""
+                                )
+                                item.target = menuTarget
+                                item.representedObject = ["source": window.id, "target": target.id]
+                                windowSubmenu.addItem(item)
+                            }
+                        }
+
+                        if !stackGroups.isEmpty && unstacked.count > 1 {
+                            windowSubmenu.addItem(NSMenuItem.separator())
+                        }
+
+                        // Stack with another unstacked window
+                        for other in unstacked where other.id != window.id {
+                            let item = NSMenuItem(
+                                title: "Stack with \(displayName(other))",
+                                action: #selector(LayoutActionsMenuTarget.stackWindowOnto(_:)),
+                                keyEquivalent: ""
+                            )
+                            item.target = menuTarget
+                            item.image = scaledIcons[other.id]
+                            item.representedObject = ["source": window.id, "target": other.id]
+                            windowSubmenu.addItem(item)
+                        }
+
+                        windowItem.submenu = windowSubmenu
+                        stackSubmenu.addItem(windowItem)
+                    }
+                }
+
+                // Stack All Windows option at the bottom
+                if freshWindows.count > 1 {
+                    stackSubmenu.addItem(NSMenuItem.separator())
+                    let stackAllItem = NSMenuItem(
+                        title: "Stack All Windows",
+                        action: #selector(LayoutActionsMenuTarget.executeAction(_:)),
+                        keyEquivalent: ""
+                    )
+                    stackAllItem.target = menuTarget
+                    stackAllItem.tag = 7
+                    stackSubmenu.addItem(stackAllItem)
                 }
             } else {
                 let noWindowsItem = NSMenuItem(title: "Need 2+ windows to stack", action: nil, keyEquivalent: "")
@@ -762,6 +907,7 @@ final class AppKitAppLauncherButton: NSView {
     private var backgroundLayer: CALayer!
     private var borderLayer: CAShapeLayer!
     private var iconLayer: CALayer!
+    private var dotLayer: CALayer!
 
     // Layout constants
     private let cornerRadius: CGFloat = 8
@@ -770,6 +916,8 @@ final class AppKitAppLauncherButton: NSView {
     private let iconSize: CGFloat = 18
 
     private let config = AegisConfig.shared
+    private var themeObserver: NSObjectProtocol?
+    private var configCancellable: AnyCancellable?
 
     // MARK: - Initialization
 
@@ -777,17 +925,59 @@ final class AppKitAppLauncherButton: NSView {
         super.init(frame: frameRect)
         setupLayers()
         setupTrackingArea()
+        setupThemeObserver()
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupLayers()
         setupTrackingArea()
+        setupThemeObserver()
+    }
+
+    deinit {
+        if let observer = themeObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+
+    private func setupThemeObserver() {
+        themeObserver = NotificationCenter.default.addObserver(
+            forName: .themeDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.updateColors()
+        }
+        configCancellable = config.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.updateColors()
+            }
+    }
+
+    private func updateColors() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        backgroundLayer.backgroundColor = ThemeColors.backgroundNSColor(alpha: config.inactiveSpaceBgOpacity).cgColor
+        borderLayer.strokeColor = ThemeColors.foregroundNSColor(alpha: config.activeBorderOpacity).cgColor
+        dotLayer.backgroundColor = ThemeColors.foregroundNSColor(alpha: 1.0).cgColor
+        CATransaction.commit()
     }
 
     func configure(apps: [FloatingApp]) {
         self.apps = apps
         updateIcon()
+    }
+
+    func setFocused(_ focused: Bool) {
+        let targetOpacity: Float = focused ? 1.0 : 0.0
+        guard dotLayer.opacity != targetOpacity else { return }
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(0.2)
+        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
+        dotLayer.opacity = targetOpacity
+        CATransaction.commit()
     }
 
     // MARK: - Layer Setup
@@ -803,14 +993,14 @@ final class AppKitAppLauncherButton: NSView {
         // Background layer
         backgroundLayer = CALayer()
         backgroundLayer.cornerRadius = cornerRadius
-        backgroundLayer.backgroundColor = NSColor.white.withAlphaComponent(0.12).cgColor
+        backgroundLayer.backgroundColor = ThemeColors.backgroundNSColor(alpha: config.inactiveSpaceBgOpacity).cgColor
         backgroundLayer.frame = bounds
         layer?.addSublayer(backgroundLayer)
 
         // Border layer
         borderLayer = CAShapeLayer()
         borderLayer.fillColor = nil
-        borderLayer.strokeColor = NSColor.white.withAlphaComponent(0.2).cgColor
+        borderLayer.strokeColor = ThemeColors.foregroundNSColor(alpha: config.activeBorderOpacity).cgColor
         borderLayer.lineWidth = 1
         borderLayer.opacity = 0
         let borderPath = CGPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5),
@@ -828,6 +1018,14 @@ final class AppKitAppLauncherButton: NSView {
 
         // Initial opacity
         iconLayer.opacity = 0.7
+
+        // Focus dot layer (matches space indicator dot style)
+        dotLayer = CALayer()
+        dotLayer.backgroundColor = ThemeColors.foregroundNSColor(alpha: 1.0).cgColor
+        dotLayer.cornerRadius = 1.5
+        dotLayer.frame = CGRect(x: (bounds.width - 3) / 2, y: -1.5, width: 3, height: 3)
+        dotLayer.opacity = 0
+        layer?.addSublayer(dotLayer)
     }
 
     private func setupTrackingArea() {
@@ -864,7 +1062,7 @@ final class AppKitAppLauncherButton: NSView {
         CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
 
         // Background
-        backgroundLayer.backgroundColor = NSColor.white.withAlphaComponent(isHovered ? 0.18 : 0.12).cgColor
+        backgroundLayer.backgroundColor = ThemeColors.backgroundNSColor(alpha: isHovered ? config.hoveredSpaceBgOpacity : config.inactiveSpaceBgOpacity).cgColor
 
         // Border
         borderLayer.opacity = isHovered ? 1.0 : 0.0
@@ -970,6 +1168,7 @@ final class AppKitAppLauncherButton: NSView {
 struct AppKitAppLauncherButtonWrapper: NSViewRepresentable {
     let apps: [FloatingApp]
     let onToggleApp: (FloatingApp) -> Void
+    var isAppFocused: Bool = false
 
     func makeNSView(context: Context) -> AppKitAppLauncherButton {
         let button = AppKitAppLauncherButton()
@@ -984,6 +1183,7 @@ struct AppKitAppLauncherButtonWrapper: NSViewRepresentable {
     func updateNSView(_ nsView: AppKitAppLauncherButton, context: Context) {
         // Reconfigure if apps list changes
         nsView.configure(apps: apps)
+        nsView.setFocused(isAppFocused)
     }
 
     func makeCoordinator() -> Coordinator {
