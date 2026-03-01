@@ -8,6 +8,30 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.15</title>
+            <sparkle:version>1.0.15</sparkle:version>
+            <sparkle:shortVersionString>1.0.15</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Sat, 01 Mar 2026 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.15</h2>
+                <ul>
+                    <li><strong>Stack Windows Menu</strong> - Full stack management from the right-click context menu with live yabai data</li>
+                    <li><strong>Minimized Window Indicators</strong> - Dimmed icons with yellow badge for minimized windows in stack menu</li>
+                    <li><strong>Stack/Unstack Individual Windows</strong> - Click to unstack, or stack minimized windows (auto-deminimize)</li>
+                    <li><strong>Theme System</strong> - Dark, Light, and System theme modes with consistent styling</li>
+                    <li><strong>Reliable Stacking</strong> - Fixed boot-out bug when adding windows to existing stacks</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.15/Aegis.app.zip"
+                length="2375970"
+                type="application/octet-stream"
+                sparkle:edSignature="PvmJ0716lPUWeYn7R9ytPNvsxkeWT57BiggsngfaGxLYhHk4rfARtdVWlKKCYOnBS6m7OvPUpm98nV2W3Rq3Ag==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 1.0.14</title>
             <sparkle:version>1.0.14</sparkle:version>
             <sparkle:shortVersionString>1.0.14</sparkle:shortVersionString>
@@ -27,8 +51,6 @@
                 type="application/octet-stream"
                 sparkle:edSignature="2JMGR6+VfUXNtItDIDndLAFyfrkwSrI1uM4FOF81By0XLM9Qj4ceqoDxTCn1OHemPEHs/OyipRLP5wf80oXUBw==" />
         </item>
-
-        <!-- Previous Releases -->
         <item>
             <title>Version 1.0.13</title>
             <sparkle:version>1.0.13</sparkle:version>

@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.15] - 2026-03-01
+
+### Added
+- **Stack Windows context menu** - Right-click menu now shows stacked and unstacked windows with full stack management
+  - Live yabai queries for accurate window and stack data
+  - Visual indicators for minimized windows (dimmed icons + yellow badge)
+  - Click individual stacked windows to unstack them
+  - Stack unstacked windows onto existing stacks or with other windows
+  - "Unstack This Stack" option per stack group
+  - "Stack All Windows" to combine everything
+  - Deminimize-before-stack support (minimized windows automatically restored when stacking)
+  - Reliable stack insertion using `--insert stack` + `--warp` pattern
+  - Proximity-based stack grouping (handles yabai frame pixel variations)
+- **Theme system** - New `appTheme` setting with Dark, Light, and System modes
+  - ThemeManager and ThemeColors for consistent styling across all components
+  - Theme-aware colors for space indicators, context button, and system status icons
+- **Additional yabai event signals** - `space_created` and `display_changed` events for instant updates
+
+### Fixed
+- Context menu now queries yabai directly instead of using stale cached data
+- Stacking a third window onto an existing 2-window stack no longer ejects a window
+- FIFO pipe writes simplified to prevent blocking yabai
+- Multi-event FIFO reads now correctly split and handle batched events
+- Stack index changes now trigger window refresh
+- Window minimize/deminimize events now include a brief delay for yabai state consistency
+
+### Changed
+- `getAppIcon(for:)` visibility changed to internal for context menu icon access
+- Computed color properties now use ThemeColors instead of hardcoded white
+- Settings panel appearance controls updated for theme support
+
 ## [1.0.14] - 2026-02-22
 
 ### Added
