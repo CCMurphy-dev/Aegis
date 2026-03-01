@@ -13,18 +13,73 @@ A macOS menu bar replacement for [Yabai](https://github.com/koekeishiya/yabai) w
 ## Features
 
 ### Menu Bar
-- **Space indicators** - Visual workspace display with app icons, click to switch, scroll to navigate
-- **Context button** - a scroll-able button to cycle through yabai commands. Right click menu for expanded commands (stack windows, move to/destroy space, access settings etc)
-- **App launcher** - Quick-access floating apps button with configurable app list (e.g. finder, iTerm, passwords etc)
+
+**Space indicators** - Visual workspace display with app icons, click to switch, scroll to navigate
+
+https://github.com/user-attachments/assets/d01ef29e-56db-4fe4-b824-def183cf2cdb
+
+**App launcher** - Quick-access floating apps button with configurable app list (e.g. finder, iTerm, passwords etc)
+
+https://github.com/user-attachments/assets/3d41c1ed-b028-4801-bfcb-bbda3952af8b
+
+https://github.com/user-attachments/assets/9291ffb2-c68c-4b17-8cf9-52b5d76a1c27
+
+**Context button** - a scroll-able button to cycle through yabai commands. Right click menu for expanded commands (stack windows, move to/destroy space, access settings etc)
+
+https://github.com/user-attachments/assets/3c384235-ff87-451d-add1-aac5967bf806
+
 - **System status** - Battery, WiFi, Focus mode, clock
 - **Multi-display support** - Menu bars on all connected monitors with configurable modes (auto, primary only, per-monitor, all show all)
 
 ### Notch HUD
-- **Volume/Brightness** - Smooth progress bar with adaptive frame rate
+
+<table>
+<tr>
+<td align="center"><strong>Volume</strong></td>
+<td align="center"><strong>Brightness</strong></td>
+</tr>
+<tr>
+<td>
+
+https://github.com/user-attachments/assets/6f992786-983b-4ba7-89fc-6fb285375cae
+
+</td>
+<td>
+
+https://github.com/user-attachments/assets/75b30230-6137-4ece-96ce-2e1c06c53700
+
+</td>
+</tr>
+<tr>
+<td align="center"><strong>Focus Mode</strong></td>
+<td align="center"><strong>Device Connect</strong></td>
+</tr>
+<tr>
+<td>
+
+https://github.com/user-attachments/assets/e88d539d-3218-4a96-b2ec-71525ed0bbe7
+
+</td>
+<td>
+
+https://github.com/user-attachments/assets/1c089f72-73f9-48e5-b499-ec7f5ae9ed4e
+
+</td>
+</tr>
+<tr>
+<td align="center" colspan="2"><strong>Media</strong></td>
+</tr>
+<tr>
+<td colspan="2">
+
+https://github.com/user-attachments/assets/95c7d4cf-5b05-4b03-b176-f2a5e10938bd
+
+</td>
+</tr>
+</table>
+
 - **Media** - Album art with visualizer or track info (static or marquee scrolling for long titles)
   - Works with Music, Spotify, Safari, Chrome, Firefox, YouTube, and more
-- **Bluetooth** - Device connection notifications with battery indicator
-- **Focus Mode** - Shows Focus mode icon and name when enabled/disabled
 - **Notifications** - Intercepts system notifications, click to open source app
 
 ### App Switcher
