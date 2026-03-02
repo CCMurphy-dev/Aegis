@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.16] - 2026-03-02
+
+### Fixed
+- HUD windows (volume, brightness, device, focus, notification) no longer get stuck on a single space after exiting fullscreen apps
+  - Replaced `orderOut()` with alpha-based hiding across all HUD windows to preserve `.canJoinAllSpaces` behavior
+  - Changed device, focus, and notification window init from `orderOut()` to `orderFront()` to keep them in the window server list
+- Focus mode notifications no longer obscure the dedicated Focus HUD
+  - Notifications are suppressed while the Focus HUD is visible
+
 ## [1.0.15] - 2026-03-01
 
 ### Added

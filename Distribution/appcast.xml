@@ -8,6 +8,27 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.16</title>
+            <sparkle:version>1.0.16</sparkle:version>
+            <sparkle:shortVersionString>1.0.16</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Mon, 02 Mar 2026 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.16</h2>
+                <ul>
+                    <li><strong>Fullscreen HUD Fix</strong> - Volume, brightness, and other HUD elements now appear on all spaces after exiting fullscreen apps</li>
+                    <li><strong>Focus Notification Suppression</strong> - Focus mode notifications no longer obscure the dedicated Focus HUD</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.16/Aegis.app.zip"
+                length="2375972"
+                type="application/octet-stream"
+                sparkle:edSignature="ArYaBKruKjAfeM4IkClPRu3If+6GDe8bMHDvRgZ/ZU/7K7dnS7YkKWKCnVM0DGslnO1RaEWNCI7dPT4lGghXCQ==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 1.0.15</title>
             <sparkle:version>1.0.15</sparkle:version>
             <sparkle:shortVersionString>1.0.15</sparkle:shortVersionString>
@@ -29,8 +50,6 @@
                 type="application/octet-stream"
                 sparkle:edSignature="PvmJ0716lPUWeYn7R9ytPNvsxkeWT57BiggsngfaGxLYhHk4rfARtdVWlKKCYOnBS6m7OvPUpm98nV2W3Rq3Ag==" />
         </item>
-
-        <!-- Previous Releases -->
         <item>
             <title>Version 1.0.14</title>
             <sparkle:version>1.0.14</sparkle:version>
