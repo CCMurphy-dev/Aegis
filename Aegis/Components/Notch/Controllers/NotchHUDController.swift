@@ -340,7 +340,7 @@ class NotchHUDController: ObservableObject {
         deviceWindow.isReleasedWhenClosed = false
         deviceWindow.contentView = hostingView
         deviceWindow.alphaValue = 0
-        deviceWindow.orderOut(nil)
+        deviceWindow.orderFront(nil)
 
         print("🎧 prepareDeviceWindow: Device HUD window prepared")
     }
@@ -392,7 +392,7 @@ class NotchHUDController: ObservableObject {
         focusWindow.isReleasedWhenClosed = false
         focusWindow.contentView = hostingView
         focusWindow.alphaValue = 0
-        focusWindow.orderOut(nil)
+        focusWindow.orderFront(nil)
 
         print("🎯 prepareFocusWindow: Focus HUD window prepared")
     }
@@ -466,11 +466,12 @@ class NotchHUDController: ObservableObject {
 
         // CRITICAL: Ensure window is completely invisible and non-blocking when not showing
         // 1. Set alpha to 0
-        // 2. Order out of window server
-        // 3. Move off-screen as extra safety (in case orderOut fails for some reason)
+        // 2. Ignore mouse events to prevent invisible click interception
+        // 3. Move off-screen as extra safety
+        // Don't use orderOut() - it breaks .canJoinAllSpaces behavior after fullscreen transitions
         notificationWindow.alphaValue = 0
         notificationWindow.ignoresMouseEvents = true
-        notificationWindow.orderOut(nil)
+        notificationWindow.orderFront(nil)
         notificationWindow.setFrameOrigin(NSPoint(x: -10000, y: -10000))
 
         print("🔔 prepareNotificationWindow: Notification HUD window prepared with size \(windowFrame.size)")
@@ -697,6 +698,12 @@ class NotchHUDController: ObservableObject {
             return
         }
 
+        // Suppress notifications while Focus HUD is showing (Focus change already displayed)
+        guard !focusViewModel.isVisible else {
+            print("🔔 NotchHUDController: Suppressing notification during Focus HUD display")
+            return
+        }
+
         print("🔔 NotchHUDController.showNotification: \(appName) - \(title)")
 
         // Update view model
@@ -861,7 +868,8 @@ class NotchHUDController: ObservableObject {
             if !self.notificationViewModel.isVisible {
                 print("🔔 hideNotificationHUD: Animation complete, hiding window")
                 self.notificationWindow.alphaValue = 0
-                self.notificationWindow.orderOut(nil)
+                self.notificationWindow.ignoresMouseEvents = true
+                // Don't use orderOut() - it breaks .canJoinAllSpaces behavior after fullscreen transitions
                 // Move off-screen as extra safety to ensure no mouse blocking
                 self.notificationWindow.setFrameOrigin(NSPoint(x: -10000, y: -10000))
             }
@@ -922,7 +930,7 @@ class NotchHUDController: ObservableObject {
             if !self.deviceViewModel.isVisible {
                 print("🎧 hideDeviceHUD: Animation complete, hiding window")
                 self.deviceWindow.alphaValue = 0
-                self.deviceWindow.orderOut(nil)
+                // Don't use orderOut() - it breaks .canJoinAllSpaces behavior after fullscreen transitions
             }
         }
     }
@@ -981,7 +989,7 @@ class NotchHUDController: ObservableObject {
             if !self.focusViewModel.isVisible {
                 print("🎯 hideFocusHUD: Animation complete, hiding window")
                 self.focusWindow.alphaValue = 0
-                self.focusWindow.orderOut(nil)
+                // Don't use orderOut() - it breaks .canJoinAllSpaces behavior after fullscreen transitions
             }
         }
     }
@@ -1149,7 +1157,7 @@ class NotchHUDController: ObservableObject {
             // Only hide if still supposed to be hidden
             if !self.overlayViewModel.isVisible {
                 self.overlayWindow.alphaValue = 0
-                self.overlayWindow.orderOut(nil)
+                // Don't use orderOut() - it breaks .canJoinAllSpaces behavior after fullscreen transitions
 
                 // Stop the display link to save CPU when HUD is hidden
                 self.overlayViewModel.progressAnimator.stop()
