@@ -46,6 +46,8 @@ class MenuBarWindowController: ObservableObject {
         configureWindow()
 
         let hostingView = NSHostingView(rootView: content)
+        hostingView.wantsLayer = true
+        hostingView.layer?.backgroundColor = NSColor.clear.cgColor
         menuBarWindow?.contentView = hostingView
         menuBarWindow?.makeKeyAndOrderFront(nil)
     }

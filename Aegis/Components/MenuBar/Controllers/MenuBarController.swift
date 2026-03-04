@@ -57,6 +57,7 @@ struct MenuBarView: View {
     let onSpaceDestroy: (Int) -> Void
     let onSpaceCreate: () -> Void
     let onWindowDrop: (Int, Int, Int?, Bool) -> Void
+    let onSpaceMove: (Int, Int) -> Void
     let onRotateLayout: (Int) -> Void
     let onFlipLayout: (String) -> Void
     let onBalanceLayout: () -> Void
@@ -129,6 +130,7 @@ struct MenuBarView: View {
         onSpaceDestroy: @escaping (Int) -> Void,
         onSpaceCreate: @escaping () -> Void,
         onWindowDrop: @escaping (Int, Int, Int?, Bool) -> Void,
+        onSpaceMove: @escaping (Int, Int) -> Void,
         onRotateLayout: @escaping (Int) -> Void,
         onFlipLayout: @escaping (String) -> Void,
         onBalanceLayout: @escaping () -> Void,
@@ -144,6 +146,7 @@ struct MenuBarView: View {
         self.onSpaceDestroy = onSpaceDestroy
         self.onSpaceCreate = onSpaceCreate
         self.onWindowDrop = onWindowDrop
+        self.onSpaceMove = onSpaceMove
         self.onRotateLayout = onRotateLayout
         self.onFlipLayout = onFlipLayout
         self.onBalanceLayout = onBalanceLayout
@@ -189,7 +192,9 @@ struct MenuBarView: View {
                                                             onSpaceClick(spaceVM.space.index)
                                                         },
                                                         onSpaceDestroy: onSpaceDestroy,
-                                                        onWindowDrop: onWindowDrop
+                                                        onWindowDrop: onWindowDrop,
+                                                        onSpaceMove: onSpaceMove,
+                                                        spaceIds: spaceStore.spaceIds
                                                     )
                                                     // Insertion: slide in from left
                                                     // Removal: handled by SwipeableSpaceContainer's own animation (fade + move up)

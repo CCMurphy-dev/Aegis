@@ -18,6 +18,8 @@ struct SpaceIndicatorViewContainer: View {
     let onSpaceClick: () -> Void
     let onSpaceDestroy: (Int) -> Void
     let onWindowDrop: (Int, Int, Int?, Bool) -> Void
+    let onSpaceMove: (Int, Int) -> Void
+    let spaceIds: [Int]
 
     /// Compute entry edge based on previous focused space
     private var dotEntryEdge: Edge {
@@ -37,8 +39,13 @@ struct SpaceIndicatorViewContainer: View {
             onSpaceClick: onSpaceClick,
             onSpaceDestroy: onSpaceDestroy,
             onWindowDrop: onWindowDrop,
+            onSpaceMove: onSpaceMove,
+            spaceIds: spaceIds,
             draggedWindowId: $sharedState.draggedWindowId,
-            expandedWindowId: $sharedState.expandedWindowId
+            expandedWindowId: $sharedState.expandedWindowId,
+            draggedSpaceIndex: $sharedState.draggedSpaceIndex,
+            dropTargetSpaceIndex: $sharedState.dropTargetSpaceIndex,
+            draggedSpaceWidth: $sharedState.draggedSpaceWidth
         )
         .id(spaceViewModel.spaceId)
         .onChange(of: spaceViewModel.isActive) { isActive in

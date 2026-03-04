@@ -61,6 +61,24 @@ final class SpaceViewModelStore: ObservableObject {
         }
     }
 
+    /// Optimistically reorder a space (called before yabai confirms the move)
+    /// Prevents visual snap-back by updating the ForEach order immediately
+    func reorderSpace(fromDisplayIndex: Int, toDisplayIndex: Int) {
+        let fromArrayIndex = fromDisplayIndex - 1
+        let toArrayIndex = toDisplayIndex - 1
+        guard fromArrayIndex >= 0, fromArrayIndex < spaceIds.count,
+              toArrayIndex >= 0, toArrayIndex < spaceIds.count else { return }
+        var reordered = spaceIds
+        let movedId = reordered.remove(at: fromArrayIndex)
+        reordered.insert(movedId, at: toArrayIndex)
+        spaceIds = reordered
+
+        // Update display indices to match new positions
+        for (arrayIndex, spaceId) in reordered.enumerated() {
+            viewModels[spaceId]?.updateDisplayIndex(arrayIndex + 1)
+        }
+    }
+
     /// Update the title of a specific window (called when AX title change is observed)
     func updateWindowTitle(windowId: Int, newTitle: String) {
         // Find which space has this window and update it

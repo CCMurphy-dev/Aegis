@@ -38,6 +38,13 @@ final class SpaceViewModel: ObservableObject, Identifiable {
         if self.isActive != isActive { self.isActive = isActive }
     }
 
+    /// Update the display index (called during optimistic reorder)
+    func updateDisplayIndex(_ newIndex: Int) {
+        if space.index != newIndex {
+            space.index = newIndex
+        }
+    }
+
     /// Update the title of a specific window (from AX title change notification)
     /// Returns true if the window was found and updated
     func updateWindowTitle(windowId: Int, newTitle: String) -> Bool {

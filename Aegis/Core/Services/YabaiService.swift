@@ -662,6 +662,18 @@ final class YabaiService {
         }
     }
 
+    func moveSpace(_ fromIndex: Int, toIndex: Int) {
+        Task {
+            do {
+                let output = try await command.run(["-m", "space", "\(fromIndex)", "--move", "\(toIndex)"])
+                print("✅ Move space succeeded: \(output)")
+                await refreshSpaces()
+            } catch {
+                print("❌ Move space failed: \(error)")
+            }
+        }
+    }
+
     func rotateLayout(_ degrees: Int) {
         print("🔄 Rotating layout: \(degrees)°")
         Task {

@@ -22,6 +22,9 @@ class MenuBarCoordinator {
     /// Space filter mode for this coordinator
     private let spaceFilterMode: MenuBarViewModel.SpaceFilterMode
 
+    /// Suppress window reorder after drag-initiated space moves (prevents flash from orderFront)
+    private var suppressReorderUntil: Date = .distantPast
+
     init(yabaiService: YabaiService,
          eventRouter: EventRouter,
          displayIndex: Int? = nil,
@@ -75,6 +78,15 @@ class MenuBarCoordinator {
                         self.yabaiService.focusSpace(targetSpaceIndex)
                     }
                 }
+            },
+            onSpaceMove: { [weak self] fromIndex, toIndex in
+                // Optimistically reorder spaceIds + update display indices
+                // (caller wraps in animation-disabled transaction)
+                self?.viewModel?.spaceStore.reorderSpace(fromDisplayIndex: fromIndex, toDisplayIndex: toIndex)
+                // Suppress orderFront during the yabai-triggered space refresh
+                self?.suppressReorderUntil = Date().addingTimeInterval(1.0)
+                // Then tell yabai to actually move the space
+                self?.yabaiService.moveSpace(fromIndex, toIndex: toIndex)
             },
             onRotateLayout: { [weak self] degrees in
                 self?.yabaiService.rotateLayout(degrees)
@@ -135,8 +147,10 @@ class MenuBarCoordinator {
         checkAndUpdateFullscreenStatus()
 
         // Re-order window to ensure visibility during space transitions
-        // This helps prevent the native menu bar from briefly appearing
-        windowController.reorderWindowForSpaceTransition()
+        // Skip during drag-initiated space moves (orderFront causes white flash)
+        if Date() >= suppressReorderUntil {
+            windowController.reorderWindowForSpaceTransition()
+        }
     }
 
     func updateWindows() {

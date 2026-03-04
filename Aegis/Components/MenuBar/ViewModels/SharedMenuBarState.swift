@@ -27,6 +27,15 @@ final class SharedMenuBarState: ObservableObject {
     /// Whether a launcher-configured app currently has focus
     @Published var launcherAppFocused: Bool = false
 
+    /// Space index currently being dragged (nil when not dragging)
+    @Published var draggedSpaceIndex: Int?
+
+    /// Proposed insertion index during drag (where the space would land)
+    @Published var dropTargetSpaceIndex: Int?
+
+    /// Width of the space indicator being dragged (used by other spaces to compute shift amount)
+    @Published var draggedSpaceWidth: CGFloat = 0
+
     /// Index of the space that previously had focus (for directional dot animation)
     var previousFocusedSpaceIndex: Int?
 

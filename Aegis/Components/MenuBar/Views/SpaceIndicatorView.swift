@@ -16,12 +16,19 @@ struct SpaceIndicatorView: View {
     let onSpaceClick: (() -> Void)?
     let onSpaceDestroy: ((Int) -> Void)?
     let onWindowDrop: ((Int, Int, Int?, Bool) -> Void)?  // (windowId, targetSpaceIndex, insertBeforeWindowId, shouldStack)
+    let onSpaceMove: ((Int, Int) -> Void)?  // (fromIndex, toIndex)
+    let spaceIds: [Int]  // Ordered array of space IDs for position computation
     @Binding var draggedWindowId: Int?  // Shared: ID of window currently being dragged
     @Binding var expandedWindowId: Int?  // Shared: ID of currently expanded window icon (persists across updates)
+    @Binding var draggedSpaceIndex: Int?  // Shared: space index being dragged for reorder
+    @Binding var dropTargetSpaceIndex: Int?  // Shared: target position during space drag
+    @Binding var draggedSpaceWidth: CGFloat  // Shared: width of dragged space for shift calculation
 
     @State private var isOverflowExpanded = false  // True when showing all icons (overflow expanded)
     @State private var autoCollapseTask: Task<Void, Never>?
     @State private var isDraggingOver = false  // True when actively dragging over this space
+    @State private var spaceDragOffset: CGFloat = 0  // Horizontal offset during space drag
+    @State private var measuredWidth: CGFloat = 0  // Measured width of this space indicator
 
     private let config = AegisConfig.shared
 
@@ -234,10 +241,39 @@ struct SpaceIndicatorView: View {
             .animation(.easeOut(duration: 0.2), value: focusedIndex != nil)
             .shadow(color: isActive ? ThemeColors.foreground.opacity(0.12) : .clear, radius: 6)
             .animation(.easeOut(duration: 0.12), value: isActive)
+        // Measure width for drag position computation
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { measuredWidth = geo.size.width }
+                    .onChange(of: geo.size.width) { measuredWidth = $0 }
+            }
+        )
+        // Space drag-to-reorder: offset and visual feedback
+        .offset(x: computeSpaceOffset())
+        // Animate non-dragged spaces shifting; dragged space follows cursor (no animation)
+        .animation(
+            draggedSpaceIndex != nil && draggedSpaceIndex != space.index
+                ? .spring(response: 0.3, dampingFraction: 0.8)
+                : nil,
+            value: dropTargetSpaceIndex
+        )
+        .opacity(draggedSpaceIndex == space.index ? 0.8 : 1.0)
+        .scaleEffect(draggedSpaceIndex == space.index ? 1.03 : 1.0)
+        .zIndex(draggedSpaceIndex == space.index ? 1 : 0)
         // Add invisible padding to expand drop zone
         // Use asymmetric padding: no top padding to maintain alignment, bottom padding for drop zone
         .padding(.horizontal, 4)
         .contentShape(Rectangle())  // Make the entire padded area droppable
+        .gesture(
+            DragGesture(minimumDistance: 5)
+                .onChanged { value in
+                    handleSpaceDragChanged(value)
+                }
+                .onEnded { _ in
+                    handleSpaceDragEnded()
+                }
+        )
         .onDrop(of: [.text], delegate: WindowDropDelegate(
             onDragEntered: {
                 isDraggingOver = true
@@ -274,6 +310,74 @@ struct SpaceIndicatorView: View {
         }
 
         return true
+    }
+
+    // MARK: - Space Drag-to-Reorder
+
+    private func computeSpaceOffset() -> CGFloat {
+        // If this space is being dragged, use the drag offset
+        if draggedSpaceIndex == space.index {
+            return spaceDragOffset
+        }
+
+        // If no drag in progress, no offset
+        guard let draggedPos = draggedSpaceIndex,
+              let targetPos = dropTargetSpaceIndex else {
+            return 0
+        }
+
+        // Use display positions directly (space.index is 1-based display position)
+        let myPos = space.index
+        let shiftAmount = draggedSpaceWidth + config.spaceIndicatorSpacing
+
+        if draggedPos < targetPos {
+            // Dragging right: spaces between dragged+1 and target shift left
+            if myPos > draggedPos && myPos <= targetPos {
+                return -shiftAmount
+            }
+        } else if draggedPos > targetPos {
+            // Dragging left: spaces between target and dragged-1 shift right
+            if myPos >= targetPos && myPos < draggedPos {
+                return shiftAmount
+            }
+        }
+
+        return 0
+    }
+
+    private func handleSpaceDragChanged(_ value: DragGesture.Value) {
+        // Dragged space follows cursor directly (no animation)
+        spaceDragOffset = value.translation.width
+
+        // Set dragged space and store width on first drag event
+        if draggedSpaceIndex == nil {
+            draggedSpaceIndex = space.index
+            draggedSpaceWidth = max(measuredWidth, 30)  // Floor to prevent zero-width shifts
+        }
+
+        // Compute target display position based on how far we've dragged
+        let stepSize = max(measuredWidth + config.spaceIndicatorSpacing, 40)
+        let positionDelta = Int(round(value.translation.width / stepSize))
+        let targetDisplayPos = max(1, min(spaceIds.count, space.index + positionDelta))
+
+        if targetDisplayPos != dropTargetSpaceIndex {
+            dropTargetSpaceIndex = targetDisplayPos
+        }
+    }
+
+    private func handleSpaceDragEnded() {
+        // Wrap everything in a single no-animation transaction to prevent flash
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            if let targetIdx = dropTargetSpaceIndex, targetIdx != space.index {
+                onSpaceMove?(space.index, targetIdx)
+            }
+            // Always reset drag state — optimistic reorder in coordinator prevents snap-back
+            spaceDragOffset = 0
+            draggedSpaceIndex = nil
+            dropTargetSpaceIndex = nil
+        }
     }
 
     // MARK: - Expansion Logic
