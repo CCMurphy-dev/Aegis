@@ -23,6 +23,7 @@ struct SpaceIndicatorView: View {
     @Binding var draggedSpaceIndex: Int?  // Shared: space index being dragged for reorder
     @Binding var dropTargetSpaceIndex: Int?  // Shared: target position during space drag
     @Binding var draggedSpaceWidth: CGFloat  // Shared: width of dragged space for shift calculation
+    let spaceWidths: [Int: CGFloat]  // Measured widths of all space indicators for drag computation
 
     @State private var isOverflowExpanded = false  // True when showing all icons (overflow expanded)
     @State private var autoCollapseTask: Task<Void, Never>?
@@ -118,8 +119,9 @@ struct SpaceIndicatorView: View {
                                     stackIndex: windowIcon.stackIndex
                                 )
                             }
-                            .frame(width: 22, height: 22)
+                            .frame(width: draggedWindowId == windowIcon.id ? 0 : 22, height: 22)
                             .opacity(draggedWindowId == windowIcon.id ? 0.0 : 1.0)
+                            .clipped()
 
                             // Expandable title area (dynamic width)
                             VStack(alignment: .leading, spacing: 2) {
@@ -136,12 +138,12 @@ struct SpaceIndicatorView: View {
                                 }
                             }
                             .frame(
-                                width: expandedWindowId == windowIcon.id
-                                    ? windowIcon.expandedWidth  // Use pre-computed width
-                                    : 0,
+                                width: draggedWindowId == windowIcon.id
+                                    ? 0
+                                    : (expandedWindowId == windowIcon.id ? windowIcon.expandedWidth : 0),
                                 alignment: .leading
                             )
-                            .opacity(expandedWindowId == windowIcon.id ? 1 : 0)
+                            .opacity(draggedWindowId == windowIcon.id ? 0 : (expandedWindowId == windowIcon.id ? 1 : 0))
                             .clipped()
                             .animation(
                                 .spring(response: 0.35, dampingFraction: 0.75),
@@ -157,6 +159,7 @@ struct SpaceIndicatorView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: isOverflowExpanded)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: draggedWindowId)
     }
 
     private var overflowToggleButton: some View {
@@ -223,6 +226,16 @@ struct SpaceIndicatorView: View {
                 RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(isActive ? ThemeColors.border(opacity: 0.18) : .clear, lineWidth: 1)
             )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(
+                        isDraggingOver && draggedWindowId != nil
+                            ? ThemeColors.foreground.opacity(0.35)
+                            : .clear,
+                        lineWidth: 1.5
+                    )
+            )
+            .animation(.easeInOut(duration: 0.15), value: isDraggingOver)
             .overlay(alignment: .bottomLeading) {
                 // Focus indicator dot at bottom edge with directional entry
                 if focusedIndex != nil {
@@ -355,13 +368,43 @@ struct SpaceIndicatorView: View {
             draggedSpaceWidth = max(measuredWidth, 30)  // Floor to prevent zero-width shifts
         }
 
-        // Compute target display position based on how far we've dragged
-        let stepSize = max(measuredWidth + config.spaceIndicatorSpacing, 40)
-        let positionDelta = Int(round(value.translation.width / stepSize))
-        let targetDisplayPos = max(1, min(spaceIds.count, space.index + positionDelta))
+        // Compute target using actual space widths (center-to-center distances)
+        let draggedPos = space.index
+        let myWidth = spaceWidths[draggedPos] ?? measuredWidth
+        let translation = value.translation.width
 
-        if targetDisplayPos != dropTargetSpaceIndex {
-            dropTargetSpaceIndex = targetDisplayPos
+        var targetPos = draggedPos
+
+        if translation > 0 {
+            // Dragging right: accumulate center-to-center distances
+            var cumulative: CGFloat = myWidth / 2
+            for pos in (draggedPos + 1)...spaceIds.count {
+                let w = spaceWidths[pos] ?? measuredWidth
+                cumulative += config.spaceIndicatorSpacing + w / 2
+                if translation >= cumulative {
+                    targetPos = pos
+                    cumulative += w / 2  // Past center, advance to far edge
+                } else {
+                    break
+                }
+            }
+        } else if translation < 0 {
+            // Dragging left: same logic in reverse
+            var cumulative: CGFloat = myWidth / 2
+            for pos in stride(from: draggedPos - 1, through: 1, by: -1) {
+                let w = spaceWidths[pos] ?? measuredWidth
+                cumulative += config.spaceIndicatorSpacing + w / 2
+                if abs(translation) >= cumulative {
+                    targetPos = pos
+                    cumulative += w / 2
+                } else {
+                    break
+                }
+            }
+        }
+
+        if targetPos != dropTargetSpaceIndex {
+            dropTargetSpaceIndex = targetPos
         }
     }
 

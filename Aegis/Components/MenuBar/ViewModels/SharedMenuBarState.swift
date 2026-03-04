@@ -36,6 +36,9 @@ final class SharedMenuBarState: ObservableObject {
     /// Width of the space indicator being dragged (used by other spaces to compute shift amount)
     @Published var draggedSpaceWidth: CGFloat = 0
 
+    /// Measured widths of space indicators (non-published, used only for drag computation)
+    var measuredSpaceWidths: [Int: CGFloat] = [:]
+
     /// Index of the space that previously had focus (for directional dot animation)
     var previousFocusedSpaceIndex: Int?
 

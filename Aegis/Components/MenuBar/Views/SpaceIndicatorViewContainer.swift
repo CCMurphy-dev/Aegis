@@ -45,9 +45,21 @@ struct SpaceIndicatorViewContainer: View {
             expandedWindowId: $sharedState.expandedWindowId,
             draggedSpaceIndex: $sharedState.draggedSpaceIndex,
             dropTargetSpaceIndex: $sharedState.dropTargetSpaceIndex,
-            draggedSpaceWidth: $sharedState.draggedSpaceWidth
+            draggedSpaceWidth: $sharedState.draggedSpaceWidth,
+            spaceWidths: sharedState.measuredSpaceWidths
         )
         .id(spaceViewModel.spaceId)
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear {
+                        sharedState.measuredSpaceWidths[spaceViewModel.space.index] = geo.size.width
+                    }
+                    .onChange(of: geo.size.width) {
+                        sharedState.measuredSpaceWidths[spaceViewModel.space.index] = $0
+                    }
+            }
+        )
         .onChange(of: spaceViewModel.isActive) { isActive in
             if isActive {
                 sharedState.previousFocusedSpaceIndex = sharedState.currentFocusedSpaceIndex
