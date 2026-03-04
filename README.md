@@ -14,7 +14,7 @@ A macOS menu bar replacement for [Yabai](https://github.com/koekeishiya/yabai) w
 
 ### Menu Bar
 
-**Space indicators** - Visual workspace display with app icons, click to switch, scroll to navigate
+**Space indicators** - Visual workspace display with app icons, click to switch, scroll to navigate, drag to reorder
 
 https://github.com/user-attachments/assets/d01ef29e-56db-4fe4-b824-def183cf2cdb
 
