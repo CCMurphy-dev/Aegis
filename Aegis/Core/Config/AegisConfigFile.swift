@@ -99,6 +99,7 @@ struct AegisConfigData: Codable {
 
     // Behavior Flags
     var showAppNameInExpansion: Bool?
+    var autoExpandFocusedWindow: Bool?
     var useSwipeToDestroySpace: Bool?
     var enableLayoutActionHaptics: Bool?
     var expandContextButtonOnScroll: Bool?
@@ -366,6 +367,7 @@ extension AegisConfig {
 
         // Behavior Flags
         if let v = data.showAppNameInExpansion { showAppNameInExpansion = v }
+        if let v = data.autoExpandFocusedWindow { autoExpandFocusedWindow = v }
         if let v = data.useSwipeToDestroySpace { useSwipeToDestroySpace = v }
         if let v = data.enableLayoutActionHaptics { enableLayoutActionHaptics = v }
         if let v = data.expandContextButtonOnScroll { expandContextButtonOnScroll = v }
@@ -599,6 +601,7 @@ extension AegisConfig {
 
             // Behavior Flags
             showAppNameInExpansion: showAppNameInExpansion,
+            autoExpandFocusedWindow: autoExpandFocusedWindow,
             useSwipeToDestroySpace: useSwipeToDestroySpace,
             enableLayoutActionHaptics: enableLayoutActionHaptics,
             expandContextButtonOnScroll: expandContextButtonOnScroll,
@@ -858,6 +861,7 @@ You can add bundle identifiers (e.g., `"com.apple.mail"`) or partial app name ma
 | `maxAppIconsPerSpace` | int | `3` | Max window icons per space before overflow menu |
 | `excludedApps` | [string] | `["Finder", "Aegis"]` | Base apps to hide from space indicators (launcher apps are automatically excluded) |
 | `showAppNameInExpansion` | bool | `false` | Show app name below window title when expanded |
+| `autoExpandFocusedWindow` | bool | `true` | Automatically expand the focused window's title |
 | `useSwipeToDestroySpace` | bool | `true` | Enable swipe-up gesture to destroy spaces |
 
 ---

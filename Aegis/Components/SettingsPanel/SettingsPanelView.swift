@@ -363,6 +363,12 @@ struct SettingsPanelView: View {
                     )
 
                     SettingsToggle(
+                        label: "Auto-Expand Focused Window",
+                        description: "Always show the focused window's title",
+                        isOn: $config.autoExpandFocusedWindow
+                    )
+
+                    SettingsToggle(
                         label: "Swipe to Destroy Space",
                         description: "Enable swipe-up gesture to destroy spaces",
                         isOn: $config.useSwipeToDestroySpace

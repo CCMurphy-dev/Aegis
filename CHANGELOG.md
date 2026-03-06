@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.18] - 2026-03-06
+
+### Added
+- **Auto-expand focused window title** - Focused window's title is always displayed in the space indicator, animating smoothly as focus changes between windows
+  - Enabled by default, configurable via Settings or `autoExpandFocusedWindow` config option
+- **Live window title updates** - Expanded title now updates in real-time when browser tabs change or window titles update
+  - Uses macOS Accessibility API (`kAXTitleChangedNotification`) to observe the focused window
+
 ## [1.0.17] - 2026-03-06
 
 ### Added

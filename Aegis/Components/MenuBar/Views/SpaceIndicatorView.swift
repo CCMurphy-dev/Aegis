@@ -148,7 +148,7 @@ struct SpaceIndicatorView: View {
                             .clipped()
                             .animation(
                                 .spring(response: 0.35, dampingFraction: 0.75),
-                                value: expandedWindowId
+                                value: "\(expandedWindowId ?? -1)_\(windowIcon.title)"
                             )
                         }
                         .id(windowIcon.id)  // Stable ID prevents re-creation when windows reorder

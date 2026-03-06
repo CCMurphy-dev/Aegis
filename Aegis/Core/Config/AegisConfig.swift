@@ -295,6 +295,9 @@ class AegisConfig: ObservableObject {
     /// Show app names under window titles when expanded
     @Published var showAppNameInExpansion: Bool = false
 
+    /// Automatically expand the focused window's title
+    @Published var autoExpandFocusedWindow: Bool = true
+
     /// Enable swipe-up gesture to destroy spaces
     @Published var useSwipeToDestroySpace: Bool = true
 
@@ -841,6 +844,7 @@ class AegisConfig: ObservableObject {
 
         // Behavior Flags
         UserDefaults.standard.set(showAppNameInExpansion, forKey: "showAppNameInExpansion")
+        UserDefaults.standard.set(autoExpandFocusedWindow, forKey: "autoExpandFocusedWindow")
         UserDefaults.standard.set(useSwipeToDestroySpace, forKey: "useSwipeToDestroySpace")
         UserDefaults.standard.set(enableLayoutActionHaptics, forKey: "enableLayoutActionHaptics")
         UserDefaults.standard.set(expandContextButtonOnScroll, forKey: "expandContextButtonOnScroll")
@@ -1120,6 +1124,9 @@ class AegisConfig: ObservableObject {
         // Behavior Flags
         if let val = UserDefaults.standard.object(forKey: "showAppNameInExpansion") as? Bool {
             showAppNameInExpansion = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "autoExpandFocusedWindow") as? Bool {
+            autoExpandFocusedWindow = val
         }
         if let val = UserDefaults.standard.object(forKey: "useSwipeToDestroySpace") as? Bool {
             useSwipeToDestroySpace = val
@@ -1456,6 +1463,7 @@ class AegisConfig: ObservableObject {
         systemStatusShadowRadius = 1
 
         showAppNameInExpansion = false
+        autoExpandFocusedWindow = true
         useSwipeToDestroySpace = true
         enableLayoutActionHaptics = true
         expandContextButtonOnScroll = true

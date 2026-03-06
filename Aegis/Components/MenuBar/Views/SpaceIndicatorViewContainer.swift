@@ -68,5 +68,28 @@ struct SpaceIndicatorViewContainer: View {
                 sharedState.currentFocusedSpaceIndex = spaceViewModel.space.index
             }
         }
+        .onChange(of: spaceViewModel.focusedIndex) { newFocusedIndex in
+            guard AegisConfig.shared.autoExpandFocusedWindow else { return }
+            if let idx = newFocusedIndex, idx < spaceViewModel.windowIcons.count {
+                let focusedWindowId = spaceViewModel.windowIcons[idx].id
+                if sharedState.expandedWindowId != focusedWindowId {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        sharedState.expandedWindowId = nil
+                    }
+                    DispatchQueue.main.async {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            sharedState.expandedWindowId = focusedWindowId
+                        }
+                    }
+                }
+            } else if newFocusedIndex == nil {
+                if let expandedId = sharedState.expandedWindowId,
+                   spaceViewModel.windowIcons.contains(where: { $0.id == expandedId }) {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        sharedState.expandedWindowId = nil
+                    }
+                }
+            }
+        }
     }
 }

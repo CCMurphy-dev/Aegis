@@ -8,6 +8,26 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.18</title>
+            <sparkle:version>1.0.18</sparkle:version>
+            <sparkle:shortVersionString>1.0.18</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Thu, 06 Mar 2026 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.18</h2>
+                <ul>
+                    <li><strong>Auto-Expand Focused Window</strong> - Focused window's title is always displayed in the space indicator, animating smoothly as focus changes</li>
+                    <li><strong>Live Title Updates</strong> - Expanded title updates in real-time when browser tabs change or window titles update</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.18/Aegis.app.zip"
+                length="2410526"
+                type="application/octet-stream"
+                sparkle:edSignature="NXy4ds+zhyFAZ2rPHd+2zFlWRTYR2MkgCrOMMteDn1d8RZE67oZL5wbQIjj8uuL02TG1jUHONvGlTG1Iy4KsAQ==" />
+        </item>
+
+        <item>
             <title>Version 1.0.17</title>
             <sparkle:version>1.0.17</sparkle:version>
             <sparkle:shortVersionString>1.0.17</sparkle:shortVersionString>

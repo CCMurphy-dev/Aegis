@@ -50,6 +50,7 @@ class MenuBarViewModel: ObservableObject {
     let yabaiService: YabaiService  // Made public for context menu
     private var updateTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
+    private let titleObserver = WindowTitleObserver()
 
     // Coalesce rapid updates to prevent double flash
     private var pendingUpdateWorkItem: DispatchWorkItem?
@@ -155,6 +156,13 @@ class MenuBarViewModel: ObservableObject {
         let launcherFocused = focusedWindow.map { launcherAppNames.contains($0.app) } ?? false
         if sharedState.launcherAppFocused != launcherFocused {
             sharedState.launcherAppFocused = launcherFocused
+        }
+
+        // Observe title changes on the focused window (for tab switches, etc.)
+        if let fw = focusedWindow, titleObserver.currentWindowId != fw.id {
+            titleObserver.startObserving(windowId: fw.id, pid: fw.pid) { [weak self] windowId, newTitle in
+                self?.spaceStore.updateWindowTitle(windowId: windowId, newTitle: newTitle)
+            }
         }
 
         // Update the space store - this is the key to the split state architecture
