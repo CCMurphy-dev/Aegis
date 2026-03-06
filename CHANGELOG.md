@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.17] - 2026-03-06
+
+### Added
+- **Space drag-to-reorder** - Drag space indicators to rearrange workspaces with smooth spring animations and optimistic UI updates
+- **Window drag animations** - Source space icon collapses when dragging a window to another space; target space shows border glow on hover
+
+### Fixed
+- Space drag drop zones now use actual measured widths for accurate geometry when spaces have different sizes
+- Space drag-to-reorder now works correctly on secondary displays (multi-monitor support)
+- Space numbers update correctly after reorder on all displays
+
 ## [1.0.16] - 2026-03-02
 
 ### Fixed

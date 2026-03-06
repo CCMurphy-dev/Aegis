@@ -8,6 +8,29 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.17</title>
+            <sparkle:version>1.0.17</sparkle:version>
+            <sparkle:shortVersionString>1.0.17</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Thu, 06 Mar 2026 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.17</h2>
+                <ul>
+                    <li><strong>Space Drag-to-Reorder</strong> - Drag space indicators to rearrange workspaces with smooth spring animations</li>
+                    <li><strong>Window Drag Animations</strong> - Source icon collapses and target space glows when dragging windows between spaces</li>
+                    <li><strong>Multi-Monitor Fix</strong> - Space drag-to-reorder now works correctly on secondary displays</li>
+                    <li><strong>Accurate Drop Zones</strong> - Drop zone geometry uses actual measured widths for spaces of different sizes</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.17/Aegis.app.zip"
+                length="2402653"
+                type="application/octet-stream"
+                sparkle:edSignature="qsfQXZNTZjXvr9b8IonVJSNePR/kBKgiEM4xVCH/dvmom2ns+UT6sGWdWJxa5My1niETWCs9FsTXZWVcnvBCAw==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 1.0.16</title>
             <sparkle:version>1.0.16</sparkle:version>
             <sparkle:shortVersionString>1.0.16</sparkle:shortVersionString>
@@ -26,8 +49,6 @@
                 type="application/octet-stream"
                 sparkle:edSignature="ArYaBKruKjAfeM4IkClPRu3If+6GDe8bMHDvRgZ/ZU/7K7dnS7YkKWKCnVM0DGslnO1RaEWNCI7dPT4lGghXCQ==" />
         </item>
-
-        <!-- Previous Releases -->
         <item>
             <title>Version 1.0.15</title>
             <sparkle:version>1.0.15</sparkle:version>
