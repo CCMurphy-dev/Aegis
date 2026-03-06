@@ -64,18 +64,21 @@ final class SpaceViewModelStore: ObservableObject {
     /// Optimistically reorder a space (called before yabai confirms the move)
     /// Prevents visual snap-back by updating the ForEach order immediately
     func reorderSpace(fromDisplayIndex: Int, toDisplayIndex: Int) {
-        let fromArrayIndex = fromDisplayIndex - 1
-        let toArrayIndex = toDisplayIndex - 1
-        guard fromArrayIndex >= 0, fromArrayIndex < spaceIds.count,
-              toArrayIndex >= 0, toArrayIndex < spaceIds.count else { return }
+        // Find array positions by matching global display index (works across all displays)
+        guard let fromArrayIndex = spaceIds.firstIndex(where: { viewModels[$0]?.space.index == fromDisplayIndex }),
+              let toArrayIndex = spaceIds.firstIndex(where: { viewModels[$0]?.space.index == toDisplayIndex }) else { return }
+
+        // Compute base index before modifying (e.g., 5 for display 2 with spaces 5,6,7)
+        let baseIndex = spaceIds.compactMap { viewModels[$0]?.space.index }.min() ?? 1
+
         var reordered = spaceIds
         let movedId = reordered.remove(at: fromArrayIndex)
         reordered.insert(movedId, at: toArrayIndex)
         spaceIds = reordered
 
         // Update display indices to match new positions
-        for (arrayIndex, spaceId) in reordered.enumerated() {
-            viewModels[spaceId]?.updateDisplayIndex(arrayIndex + 1)
+        for (offset, spaceId) in reordered.enumerated() {
+            viewModels[spaceId]?.updateDisplayIndex(baseIndex + offset)
         }
     }
 

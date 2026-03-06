@@ -182,6 +182,7 @@ struct MenuBarView: View {
                                             // Split State Architecture: ForEach over space IDs
                                             // Each SpaceIndicatorViewContainer observes only its own SpaceViewModel
                                             // This prevents re-renders of all spaces when only one changes
+                                            let spaceDisplayIndices = spaceStore.spaceIds.compactMap { spaceStore.viewModel(for: $0)?.space.index }
                                             ForEach(spaceStore.spaceIds, id: \.self) { spaceId in
                                                 if let spaceVM = spaceStore.viewModel(for: spaceId) {
                                                     SpaceIndicatorViewContainer(
@@ -194,7 +195,8 @@ struct MenuBarView: View {
                                                         onSpaceDestroy: onSpaceDestroy,
                                                         onWindowDrop: onWindowDrop,
                                                         onSpaceMove: onSpaceMove,
-                                                        spaceIds: spaceStore.spaceIds
+                                                        spaceIds: spaceStore.spaceIds,
+                                                        spaceDisplayIndices: spaceDisplayIndices
                                                     )
                                                     // Insertion: slide in from left
                                                     // Removal: handled by SwipeableSpaceContainer's own animation (fade + move up)

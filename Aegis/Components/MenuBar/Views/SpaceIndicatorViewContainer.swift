@@ -20,6 +20,7 @@ struct SpaceIndicatorViewContainer: View {
     let onWindowDrop: (Int, Int, Int?, Bool) -> Void
     let onSpaceMove: (Int, Int) -> Void
     let spaceIds: [Int]
+    let spaceDisplayIndices: [Int]  // Ordered global indices of spaces on this display
 
     /// Compute entry edge based on previous focused space
     private var dotEntryEdge: Edge {
@@ -46,7 +47,8 @@ struct SpaceIndicatorViewContainer: View {
             draggedSpaceIndex: $sharedState.draggedSpaceIndex,
             dropTargetSpaceIndex: $sharedState.dropTargetSpaceIndex,
             draggedSpaceWidth: $sharedState.draggedSpaceWidth,
-            spaceWidths: sharedState.measuredSpaceWidths
+            spaceWidths: sharedState.measuredSpaceWidths,
+            spaceDisplayIndices: spaceDisplayIndices
         )
         .id(spaceViewModel.spaceId)
         .background(

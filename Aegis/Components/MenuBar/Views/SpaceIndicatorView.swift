@@ -24,6 +24,7 @@ struct SpaceIndicatorView: View {
     @Binding var dropTargetSpaceIndex: Int?  // Shared: target position during space drag
     @Binding var draggedSpaceWidth: CGFloat  // Shared: width of dragged space for shift calculation
     let spaceWidths: [Int: CGFloat]  // Measured widths of all space indicators for drag computation
+    let spaceDisplayIndices: [Int]  // Ordered global indices of spaces on this display
 
     @State private var isOverflowExpanded = false  // True when showing all icons (overflow expanded)
     @State private var autoCollapseTask: Task<Void, Never>?
@@ -369,20 +370,25 @@ struct SpaceIndicatorView: View {
         }
 
         // Compute target using actual space widths (center-to-center distances)
-        let draggedPos = space.index
+        // Uses spaceDisplayIndices (ordered global indices for this display) to iterate
+        // over actual neighbors, avoiding global vs local index mismatch on multi-monitor
+        let draggedPos = space.index  // global index
         let myWidth = spaceWidths[draggedPos] ?? measuredWidth
         let translation = value.translation.width
+
+        guard let localPos = spaceDisplayIndices.firstIndex(of: draggedPos) else { return }
 
         var targetPos = draggedPos
 
         if translation > 0 {
             // Dragging right: accumulate center-to-center distances
             var cumulative: CGFloat = myWidth / 2
-            for pos in (draggedPos + 1)...spaceIds.count {
-                let w = spaceWidths[pos] ?? measuredWidth
+            for i in (localPos + 1)..<spaceDisplayIndices.count {
+                let globalIdx = spaceDisplayIndices[i]
+                let w = spaceWidths[globalIdx] ?? measuredWidth
                 cumulative += config.spaceIndicatorSpacing + w / 2
                 if translation >= cumulative {
-                    targetPos = pos
+                    targetPos = globalIdx
                     cumulative += w / 2  // Past center, advance to far edge
                 } else {
                     break
@@ -391,11 +397,12 @@ struct SpaceIndicatorView: View {
         } else if translation < 0 {
             // Dragging left: same logic in reverse
             var cumulative: CGFloat = myWidth / 2
-            for pos in stride(from: draggedPos - 1, through: 1, by: -1) {
-                let w = spaceWidths[pos] ?? measuredWidth
+            for i in stride(from: localPos - 1, through: 0, by: -1) {
+                let globalIdx = spaceDisplayIndices[i]
+                let w = spaceWidths[globalIdx] ?? measuredWidth
                 cumulative += config.spaceIndicatorSpacing + w / 2
                 if abs(translation) >= cumulative {
-                    targetPos = pos
+                    targetPos = globalIdx
                     cumulative += w / 2
                 } else {
                     break
