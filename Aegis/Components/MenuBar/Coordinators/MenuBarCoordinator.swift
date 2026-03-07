@@ -25,8 +25,6 @@ class MenuBarCoordinator {
     /// Suppress window reorder after drag-initiated space moves (prevents flash from orderFront)
     private var suppressReorderUntil: Date = .distantPast
 
-    /// Track last fullscreen state to avoid redundant updateVisibilityForSpace calls
-    private var lastFullscreenState: Bool?
 
     init(yabaiService: YabaiService,
          eventRouter: EventRouter,
@@ -114,6 +112,11 @@ class MenuBarCoordinator {
         // Create window with content on the target screen
         windowController.createWindow(with: contentView, for: targetScreen)
 
+        // Wire up fullscreen state callback (fires after performUpdate completes)
+        vm.onFullscreenStateChanged = { [weak self] isFullscreen in
+            self?.windowController.updateVisibilityForSpace(isFullscreen: isFullscreen)
+        }
+
         // Trigger initial update to compute fullscreen state
         updateSpaces()
 
@@ -133,12 +136,6 @@ class MenuBarCoordinator {
 
     func updateSpaces() {
         viewModel?.updateSpaces()
-
-        // Use pre-computed fullscreen state from performUpdate (avoids duplicate getCurrentSpaces call)
-        if let isFullscreen = viewModel?.isFocusedSpaceFullscreen, isFullscreen != lastFullscreenState {
-            lastFullscreenState = isFullscreen
-            windowController.updateVisibilityForSpace(isFullscreen: isFullscreen)
-        }
 
         // Re-order window to ensure visibility during space transitions
         // Skip during drag-initiated space moves (orderFront causes white flash)

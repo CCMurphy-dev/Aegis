@@ -36,6 +36,9 @@ class MenuBarViewModel: ObservableObject {
     /// Whether the focused space is fullscreen (pre-computed during performUpdate)
     private(set) var isFocusedSpaceFullscreen: Bool = false
 
+    /// Called by performUpdate when fullscreen state changes
+    var onFullscreenStateChanged: ((Bool) -> Void)?
+
     /// Raw spaces data from YabaiService
     private var spaces: [Space] = []
 
@@ -117,9 +120,13 @@ class MenuBarViewModel: ObservableObject {
 
         spaces = allSpaces
 
-        // Pre-compute fullscreen state (used by coordinator to avoid duplicate getCurrentSpaces call)
+        // Pre-compute fullscreen state and notify coordinator on change
         if let focusedSpace = spaces.first(where: { $0.focused }) {
+            let wasFullscreen = isFocusedSpaceFullscreen
             isFocusedSpaceFullscreen = focusedSpace.isNativeFullscreen || focusedSpace.type == "fullscreen"
+            if isFocusedSpaceFullscreen != wasFullscreen {
+                onFullscreenStateChanged?(isFocusedSpaceFullscreen)
+            }
         }
 
         // Fetch all windows once — reused for focused window check, launcher detection, and title observer

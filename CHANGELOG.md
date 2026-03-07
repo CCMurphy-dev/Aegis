@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.20] - 2026-03-07
+
+### Fixed
+- **Fullscreen visibility** - Menu bar now correctly hides when entering native fullscreen and reappears when leaving
+  - Fullscreen state callback fires after data refresh completes, fixing race condition where coordinator read stale state
+  - Space change detection now compares `type` and `isNativeFullscreen` fields, not just `focused` state
+
 ## [1.0.19] - 2026-03-07
 
 ### Added

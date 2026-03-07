@@ -281,9 +281,12 @@ final class YabaiService {
                     return true
                 }
 
-                // Deeper check: compare focused state
+                // Deeper check: compare focused state, type, and fullscreen
                 for space in decoded {
-                    if let oldSpace = self.spaces[space.id], oldSpace.focused != space.focused {
+                    if let oldSpace = self.spaces[space.id],
+                       oldSpace.focused != space.focused ||
+                       oldSpace.type != space.type ||
+                       oldSpace.isNativeFullscreen != space.isNativeFullscreen {
                         return true
                     }
                 }

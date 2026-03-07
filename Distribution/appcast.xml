@@ -8,6 +8,25 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.20</title>
+            <sparkle:version>1.0.20</sparkle:version>
+            <sparkle:shortVersionString>1.0.20</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Sat, 07 Mar 2026 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.20</h2>
+                <ul>
+                    <li><strong>Fullscreen Fix</strong> - Menu bar now correctly hides in native fullscreen and reappears when leaving</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.20/Aegis.app.zip"
+                length="2463336"
+                type="application/octet-stream"
+                sparkle:edSignature="7a+/b/qQHFwnqlUxe6uyXUXx/dVe6YXmIyYsA0t8A00Mh0Ox/JB2kGMk2BfShuUXEuZdmUrHNBYRDYQ7tazEDA==" />
+        </item>
+
+        <item>
             <title>Version 1.0.19</title>
             <sparkle:version>1.0.19</sparkle:version>
             <sparkle:shortVersionString>1.0.19</sparkle:shortVersionString>
