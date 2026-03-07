@@ -30,7 +30,12 @@ struct SpaceIndicatorView: View {
     @State private var autoCollapseTask: Task<Void, Never>?
     @State private var isDraggingOver = false  // True when actively dragging over this space
     @State private var spaceDragOffset: CGFloat = 0  // Horizontal offset during space drag
-    @State private var measuredWidth: CGFloat = 0  // Measured width of this space indicator
+
+    // Non-reactive width storage for drag calculations only.
+    // Using a class ref instead of @State avoids triggering body re-evaluations
+    // when the width changes during expand/collapse animation (~42 times per animation).
+    private final class WidthRef { var value: CGFloat = 50 }
+    @State private var widthRef = WidthRef()
 
     private let config = AegisConfig.shared
 
@@ -91,67 +96,18 @@ struct SpaceIndicatorView: View {
     private var windowIconsContent: some View {
         HStack(alignment: .center, spacing: 6) {
                     ForEach(Array(displayedIcons.enumerated()), id: \.element.id) { index, windowIcon in
-                        HStack(alignment: .center, spacing: 6) {
-                            ZStack(alignment: .bottomTrailing) {
-                                RightClickableIcon(
-                                    windowId: windowIcon.id,
-                                    icon: windowIcon.icon ?? NSImage(),
-                                    isMinimized: windowIcon.isMinimized,
-                                    isHidden: windowIcon.isHidden,
-                                    onLeftClick: {
-                                        // Left-click just focuses the window, doesn't affect expansion state
-                                        onWindowClick?(windowIcon.id)
-                                    },
-                                    onRightClick: {
-                                        toggleExpansion(for: windowIcon)
-                                    },
-                                    onDragStarted: {
-                                        draggedWindowId = windowIcon.id
-                                    },
-                                    onDragEnded: {
-                                        draggedWindowId = nil
-                                    }
-                                )
-
-                                // Status indicator badge
-                                WindowStatusBadge(
-                                    isMinimized: windowIcon.isMinimized,
-                                    isHidden: windowIcon.isHidden,
-                                    stackIndex: windowIcon.stackIndex
-                                )
-                            }
-                            .frame(width: draggedWindowId == windowIcon.id ? 0 : 22, height: 22)
-                            .opacity(draggedWindowId == windowIcon.id ? 0.0 : 1.0)
-                            .clipped()
-
-                            // Expandable title area (dynamic width)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(windowIcon.title)
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundColor(ThemeColors.secondaryText())
-                                    .lineLimit(1)
-
-                                if config.showAppNameInExpansion {
-                                    Text(windowIcon.appName)
-                                        .font(.system(size: 9))
-                                        .foregroundColor(ThemeColors.tertiaryText())
-                                        .lineLimit(1)
-                                }
-                            }
-                            .frame(
-                                width: draggedWindowId == windowIcon.id
-                                    ? 0
-                                    : (expandedWindowId == windowIcon.id ? windowIcon.expandedWidth : 0),
-                                alignment: .leading
-                            )
-                            .opacity(draggedWindowId == windowIcon.id ? 0 : (expandedWindowId == windowIcon.id ? 1 : 0))
-                            .clipped()
-                            .animation(
-                                .spring(response: 0.35, dampingFraction: 0.75),
-                                value: "\(expandedWindowId ?? -1)_\(windowIcon.title)"
-                            )
-                        }
-                        .id(windowIcon.id)  // Stable ID prevents re-creation when windows reorder
+                        ExpandableWindowIcon(
+                            windowIcon: windowIcon,
+                            isExpanded: expandedWindowId == windowIcon.id,
+                            isDragged: draggedWindowId == windowIcon.id,
+                            showAppName: config.showAppNameInExpansion,
+                            onLeftClick: { onWindowClick?(windowIcon.id) },
+                            onRightClick: { toggleExpansion(for: windowIcon) },
+                            onDragStarted: { draggedWindowId = windowIcon.id },
+                            onDragEnded: { draggedWindowId = nil }
+                        )
+                        .equatable()
+                        .id(windowIcon.id)
                     }
 
             // Overflow toggle button - shows "+N" when collapsed, "-" when expanded
@@ -248,19 +204,19 @@ struct SpaceIndicatorView: View {
                             insertion: .move(edge: dotEntryEdge).combined(with: .opacity),
                             removal: .opacity
                         ))
-                        .animation(.easeOut(duration: 0.2), value: dotXPosition)
                         .allowsHitTesting(false)
                 }
             }
             .animation(.easeOut(duration: 0.2), value: focusedIndex != nil)
             .shadow(color: isActive ? ThemeColors.foreground.opacity(0.12) : .clear, radius: 6)
             .animation(.easeOut(duration: 0.12), value: isActive)
-        // Measure width for drag position computation
+        // Measure width for drag calculations — writes to class ref (not @State)
+        // so no SwiftUI re-renders are triggered during animation
         .background(
             GeometryReader { geo in
                 Color.clear
-                    .onAppear { measuredWidth = geo.size.width }
-                    .onChange(of: geo.size.width) { measuredWidth = $0 }
+                    .onAppear { widthRef.value = geo.size.width }
+                    .onChange(of: geo.size.width) { widthRef.value = $0 }
             }
         )
         // Space drag-to-reorder: offset and visual feedback
@@ -366,14 +322,14 @@ struct SpaceIndicatorView: View {
         // Set dragged space and store width on first drag event
         if draggedSpaceIndex == nil {
             draggedSpaceIndex = space.index
-            draggedSpaceWidth = max(measuredWidth, 30)  // Floor to prevent zero-width shifts
+            draggedSpaceWidth = max(widthRef.value, 30)  // Floor to prevent zero-width shifts
         }
 
         // Compute target using actual space widths (center-to-center distances)
         // Uses spaceDisplayIndices (ordered global indices for this display) to iterate
         // over actual neighbors, avoiding global vs local index mismatch on multi-monitor
         let draggedPos = space.index  // global index
-        let myWidth = spaceWidths[draggedPos] ?? measuredWidth
+        let myWidth = spaceWidths[draggedPos] ?? widthRef.value
         let translation = value.translation.width
 
         guard let localPos = spaceDisplayIndices.firstIndex(of: draggedPos) else { return }
@@ -385,7 +341,7 @@ struct SpaceIndicatorView: View {
             var cumulative: CGFloat = myWidth / 2
             for i in (localPos + 1)..<spaceDisplayIndices.count {
                 let globalIdx = spaceDisplayIndices[i]
-                let w = spaceWidths[globalIdx] ?? measuredWidth
+                let w = spaceWidths[globalIdx] ?? widthRef.value
                 cumulative += config.spaceIndicatorSpacing + w / 2
                 if translation >= cumulative {
                     targetPos = globalIdx
@@ -399,7 +355,7 @@ struct SpaceIndicatorView: View {
             var cumulative: CGFloat = myWidth / 2
             for i in stride(from: localPos - 1, through: 0, by: -1) {
                 let globalIdx = spaceDisplayIndices[i]
-                let w = spaceWidths[globalIdx] ?? measuredWidth
+                let w = spaceWidths[globalIdx] ?? widthRef.value
                 cumulative += config.spaceIndicatorSpacing + w / 2
                 if abs(translation) >= cumulative {
                     targetPos = globalIdx
@@ -437,22 +393,15 @@ struct SpaceIndicatorView: View {
 
         // If clicking the same icon → just collapse (toggle off)
         if expandedWindowId == icon.id {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+            withAnimation(.easeOut(duration: 0.15)) {
                 expandedWindowId = nil
             }
             return
         }
 
-        // Step 1: force collapse the previous expanded icon
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-            expandedWindowId = nil
-        }
-
-        // Step 2: expand the new icon on the next run loop
-        DispatchQueue.main.async {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                expandedWindowId = icon.id
-            }
+        // Direct swap: one collapses while other expands
+        withAnimation(.easeOut(duration: 0.2)) {
+            expandedWindowId = icon.id
         }
 
         // No auto-collapse - expansion stays until user right-clicks again to toggle off
@@ -1072,6 +1021,78 @@ struct WindowDropDelegate: DropDelegate {
 
     func validateDrop(info: DropInfo) -> Bool {
         return info.hasItemsConforming(to: [.text])
+    }
+}
+
+// MARK: - Isolated Expandable Window Icon
+
+/// Isolates per-icon re-renders during expansion animation.
+/// Takes `isExpanded` and `isDragged` as plain Bool values so SwiftUI
+/// only re-evaluates icons whose state actually changed — not all icons
+/// on every animation frame.
+private struct ExpandableWindowIcon: View, Equatable {
+    let windowIcon: WindowIcon
+    let isExpanded: Bool
+    let isDragged: Bool
+    let showAppName: Bool
+    let onLeftClick: () -> Void
+    let onRightClick: () -> Void
+    let onDragStarted: () -> Void
+    let onDragEnded: () -> Void
+
+    static func == (lhs: ExpandableWindowIcon, rhs: ExpandableWindowIcon) -> Bool {
+        lhs.windowIcon == rhs.windowIcon &&
+        lhs.isExpanded == rhs.isExpanded &&
+        lhs.isDragged == rhs.isDragged &&
+        lhs.showAppName == rhs.showAppName
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 6) {
+            ZStack(alignment: .bottomTrailing) {
+                RightClickableIcon(
+                    windowId: windowIcon.id,
+                    icon: windowIcon.icon ?? NSImage(),
+                    isMinimized: windowIcon.isMinimized,
+                    isHidden: windowIcon.isHidden,
+                    onLeftClick: onLeftClick,
+                    onRightClick: onRightClick,
+                    onDragStarted: onDragStarted,
+                    onDragEnded: onDragEnded
+                )
+
+                WindowStatusBadge(
+                    isMinimized: windowIcon.isMinimized,
+                    isHidden: windowIcon.isHidden,
+                    stackIndex: windowIcon.stackIndex
+                )
+            }
+            .frame(width: isDragged ? 0 : 22, height: 22)
+            .opacity(isDragged ? 0.0 : 1.0)
+            .clipped()
+
+            // Expandable title area (dynamic width)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(windowIcon.title)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(ThemeColors.secondaryText())
+                    .lineLimit(1)
+
+                if showAppName {
+                    Text(windowIcon.appName)
+                        .font(.system(size: 9))
+                        .foregroundColor(ThemeColors.tertiaryText())
+                        .lineLimit(1)
+                }
+            }
+            .frame(width: windowIcon.expandedWidth, alignment: .leading)
+            .frame(
+                width: isDragged ? 0 : (isExpanded ? windowIcon.expandedWidth : 0),
+                alignment: .leading
+            )
+            .opacity(isDragged ? 0 : (isExpanded ? 1 : 0))
+            .clipped()
+        }
     }
 }
 

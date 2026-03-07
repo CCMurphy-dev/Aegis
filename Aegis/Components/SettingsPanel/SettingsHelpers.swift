@@ -522,3 +522,67 @@ struct SettingsHelpers_Previews: PreviewProvider {
     }
 }
 #endif
+
+/// Color picker with optional hex binding and reset button
+struct SettingsColorPicker: View {
+    let label: String
+    @Binding var hex: String?
+
+    @State private var hexText: String = ""
+
+    var body: some View {
+        HStack {
+            Text(label)
+                .frame(width: 100, alignment: .leading)
+
+            // Color preview swatch
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Color(hex: hexText) ?? .clear)
+                .frame(width: 24, height: 24)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                )
+
+            // Hex input field
+            TextField("#RRGGBB", text: $hexText)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 90)
+                .font(.system(size: 12, design: .monospaced))
+                .onSubmit {
+                    applyHex()
+                }
+
+            if hex != nil {
+                Button("Reset") {
+                    hex = nil
+                    hexText = ""
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.secondary)
+                .font(.system(size: 11))
+            }
+
+            Spacer()
+        }
+        .onAppear {
+            hexText = hex ?? ""
+        }
+        .onChange(of: hex) { newHex in
+            hexText = newHex ?? ""
+        }
+    }
+
+    private func applyHex() {
+        let cleaned = hexText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else {
+            hex = nil
+            return
+        }
+        let withHash = cleaned.hasPrefix("#") ? cleaned : "#\(cleaned)"
+        if Color(hex: withHash) != nil {
+            hexText = withHash
+            hex = withHash
+        }
+    }
+}

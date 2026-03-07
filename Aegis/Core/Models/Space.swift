@@ -124,6 +124,9 @@ struct WindowInfo: Identifiable, Codable {
 }
 
 struct WindowIcon: Identifiable, Equatable {
+    /// Cache for font measurements — same title+appName always produces same expandedWidth
+    private static var expandedWidthCache: [String: CGFloat] = [:]
+
     let id: Int
     let pid: pid_t
     let title: String
@@ -152,12 +155,19 @@ struct WindowIcon: Identifiable, Equatable {
         self.isMinimized = isMinimized
         self.isHidden = isHidden
 
-        // Pre-compute expanded width once during init
-        let titleFont = NSFont.systemFont(ofSize: 11, weight: .medium)
-        let titleWidth = title.width(using: titleFont)
-        let appFont = NSFont.systemFont(ofSize: 9)
-        let appWidth = appName.width(using: appFont)
-        self.expandedWidth = min(max(titleWidth, appWidth) + 8, 100)  // 100 = maxExpandedWidth
+        // Use cached font measurement if available — avoids expensive NSString.size() on every update
+        let cacheKey = "\(title)|\(appName)"
+        if let cached = Self.expandedWidthCache[cacheKey] {
+            self.expandedWidth = cached
+        } else {
+            let titleFont = NSFont.systemFont(ofSize: 11, weight: .medium)
+            let titleWidth = title.width(using: titleFont)
+            let appFont = NSFont.systemFont(ofSize: 9)
+            let appWidth = appName.width(using: appFont)
+            let width = min(max(titleWidth, appWidth) + 8, 100)  // 100 = maxExpandedWidth
+            Self.expandedWidthCache[cacheKey] = width
+            self.expandedWidth = width
+        }
     }
 
     /// Create a copy with updated title (used when title changes from AX observer)

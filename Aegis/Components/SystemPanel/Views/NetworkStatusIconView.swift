@@ -2,6 +2,7 @@ import SwiftUI
 
 struct NetworkStatusIconView: View {
     let status: NetworkStatus
+    @ObservedObject private var themeManager = ThemeManager.shared
     
     var body: some View {
         Image(systemName: iconName)

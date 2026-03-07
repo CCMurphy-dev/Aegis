@@ -51,7 +51,7 @@ class MenuBarController {
 struct MenuBarView: View {
     @ObservedObject var viewModel: MenuBarViewModel
     @ObservedObject var spaceStore: SpaceViewModelStore
-    @ObservedObject var sharedState: SharedMenuBarState
+    let sharedState: SharedMenuBarState
     let onSpaceClick: (Int) -> Void
     let onWindowClick: (Int) -> Void
     let onSpaceDestroy: (Int) -> Void
@@ -66,6 +66,7 @@ struct MenuBarView: View {
     let onToggleApp: (FloatingApp) -> Void
 
     @ObservedObject private var config = AegisConfig.shared
+    @State private var launcherAppFocused: Bool = false
     @State private var scrollOffset: CGFloat = 0
     @State private var isScrolled: Bool = false
     @State private var previousSpaceCount: Int = 0
@@ -323,7 +324,7 @@ struct MenuBarView: View {
                         }
 
                         if config.showAppLauncher {
-                            AppKitAppLauncherButtonWrapper(apps: FloatingApp.appsFromConfig(), onToggleApp: onToggleApp, isAppFocused: sharedState.launcherAppFocused)
+                            AppKitAppLauncherButtonWrapper(apps: FloatingApp.appsFromConfig(), onToggleApp: onToggleApp, isAppFocused: launcherAppFocused)
                                 .frame(width: 32, height: 26)
                         }
 
@@ -337,6 +338,9 @@ struct MenuBarView: View {
             .frame(height: config.menuBarHeight)
         }
         .frame(height: config.menuBarHeight)
+        .onReceive(sharedState.launcherAppFocusedSubject.removeDuplicates()) { focused in
+            launcherAppFocused = focused
+        }
     }
 }
 

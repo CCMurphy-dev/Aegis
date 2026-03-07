@@ -25,9 +25,20 @@ final class YabaiService {
 
     private let pipeQueue = DispatchQueue(label: "com.aegis.yabai.pipe")
 
-    // Debounce tracking to prevent multiple rapid refreshes
+    // Coalescing gate: collects events for a short window, then executes one optimally-scoped refresh
+    private enum RefreshScope: Int, Comparable {
+        case none = 0
+        case windowsOnly = 1       // 1 subprocess: --windows
+        case spacesAndWindows = 2  // 2 subprocesses: --spaces + --windows
+        case all = 3               // 3 subprocesses: --displays + --spaces + --windows
+        static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
+    }
+    private var coalesceTimer: DispatchWorkItem?
+    private var pendingScope: RefreshScope = .none
     private var lastRefreshTime: Date = .distantPast
-    private let refreshDebounceInterval: TimeInterval = 0.1  // 100ms debounce for normal refreshes
+    private let coalesceDelay: TimeInterval = 0.03   // 30ms coalesce window
+    private let debounceInterval: TimeInterval = 0.1 // 100ms post-refresh debounce
+    private var lastFIFOEventTime: Date = .distantPast // Skip NSWorkspace fallbacks when FIFO is active
 
     private lazy var pipePath: String = {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
@@ -41,7 +52,7 @@ final class YabaiService {
         logInfo("YabaiService initializing")
 
         Task {
-            await refreshAll()
+            await executeRefresh(scope: .all, source: "init")
         }
 
         setupFIFO()
@@ -124,80 +135,105 @@ final class YabaiService {
     }
 
     @objc private func activeSpaceChanged(_ notification: Notification) {
-        // Invalidate cache since we're switching spaces
         invalidateFocusedSpaceCache()
-        // Delay refresh to allow yabai to update its internal state
+        // Fallback only — skip if FIFO pipe handled this already
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-            Task { await self?.refreshAll(source: "activeSpaceChanged", forceRefresh: true) }
+            guard let self = self else { return }
+            guard Date().timeIntervalSince(self.lastFIFOEventTime) >= 0.5 else { return }
+            self.scheduleRefresh(scope: .spacesAndWindows, source: "activeSpaceChanged")
         }
     }
 
     @objc private func appChanged(_ notification: Notification) {
-        // App activation might indicate a space change (clicking window on another space)
         // Skip if Aegis itself is being activated (happens when clicking on Aegis UI)
         if let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
            app.bundleIdentifier == Bundle.main.bundleIdentifier {
             return
         }
 
-        // Delay refresh to allow yabai to update its internal state
-        // Without this delay, yabai returns stale focused space data
+        // Fallback only — skip if FIFO pipe handled this already
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-            Task { await self?.refreshAll(source: "appChanged") }
+            guard let self = self else { return }
+            guard Date().timeIntervalSince(self.lastFIFOEventTime) >= 0.5 else { return }
+            self.scheduleRefresh(scope: .windowsOnly, source: "appChanged")
         }
     }
 
     // MARK: - Events
 
     private func handleYabaiEvent(_ event: String) async {
+        lastFIFOEventTime = Date()
         switch event {
         case "space_changed":
-            // Space changes are critical for UI - always force refresh to update focus indicator
             invalidateFocusedSpaceCache()
-            await refreshAll(source: "FIFO:space_changed", forceRefresh: true)
+            scheduleRefresh(scope: .spacesAndWindows, source: "FIFO:space_changed")
         case "space_created", "space_destroyed":
             invalidateFocusedSpaceCache()
-            // Clean up stale window order cache entries for destroyed spaces
             cleanupWindowOrderCache()
-            await refreshAll(source: "FIFO:\(event)")
-        case "window_focused":
-            // Window focus may change the active space (e.g., clicking a window on another space)
+            scheduleRefresh(scope: .spacesAndWindows, source: "FIFO:\(event)")
+        case "window_focused", "application_front_switched":
             invalidateFocusedSpaceCache()
-            await refreshAll(source: "FIFO:window_focused", forceRefresh: true)
+            scheduleRefresh(scope: .windowsOnly, source: "FIFO:\(event)")
         case "window_created", "window_destroyed", "window_moved":
-            await refreshWindows()
+            scheduleRefresh(scope: .windowsOnly, source: "FIFO:\(event)")
         case "window_minimized", "window_deminimized":
-            // Brief delay to ensure yabai state is updated before we query
-            try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
-            await refreshWindows()
+            // Brief delay for yabai state update, then coalesce
+            try? await Task.sleep(nanoseconds: 50_000_000)
+            scheduleRefresh(scope: .windowsOnly, source: "FIFO:\(event)")
         case "application_launched", "application_terminated":
-            // App launched/quit - refresh all to update spaces and windows
-            await refreshAll(source: "FIFO:\(event)")
+            scheduleRefresh(scope: .spacesAndWindows, source: "FIFO:\(event)")
         case "application_hidden", "application_visible":
-            // App visibility changed - refresh windows to update all app's windows
-            await refreshWindows()
+            scheduleRefresh(scope: .windowsOnly, source: "FIFO:\(event)")
         default:
             invalidateFocusedSpaceCache()
-            await refreshAll(source: "FIFO:default(\(event))")
+            scheduleRefresh(scope: .spacesAndWindows, source: "FIFO:\(event)")
         }
     }
 
-    // MARK: - Refresh
+    // MARK: - Coalescing Refresh Gate
 
-    private func refreshAll(source: String = "unknown", forceRefresh: Bool = false) async {
-        // Debounce: skip if we refreshed very recently (unless forced)
+    /// Schedule a refresh with the given scope. Multiple calls within the coalesce window
+    /// are merged into a single refresh at the highest requested scope.
+    private func scheduleRefresh(scope: RefreshScope, source: String = "unknown") {
+        // Upgrade pending scope (windowsOnly → spacesAndWindows → all)
+        pendingScope = max(pendingScope, scope)
+
+        // Cancel any pending timer, start a new one
+        coalesceTimer?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            let finalScope = self.pendingScope
+            self.pendingScope = .none
+            Task { await self.executeRefresh(scope: finalScope, source: source) }
+        }
+        coalesceTimer = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + coalesceDelay, execute: work)
+    }
+
+    /// Execute a refresh at the given scope, respecting post-refresh debounce.
+    private func executeRefresh(scope: RefreshScope, source: String = "unknown") async {
+        // Post-refresh debounce: skip if we just refreshed
         let now = Date()
         let timeSinceLast = now.timeIntervalSince(lastRefreshTime)
-        if !forceRefresh && timeSinceLast < refreshDebounceInterval {
-            return
-        }
+        if timeSinceLast < debounceInterval { return }
         lastRefreshTime = now
 
-        // Run all queries in parallel for better performance
-        async let displaysTask: () = refreshDisplays()
-        async let spacesTask: () = refreshSpaces()
-        async let windowsTask: () = refreshWindows()
-        _ = await (displaysTask, spacesTask, windowsTask)
+        switch scope {
+        case .none:
+            return
+        case .windowsOnly:
+            await refreshWindows()
+        case .spacesAndWindows:
+            async let s: () = refreshSpaces()
+            async let w: () = refreshWindows()
+            _ = await (s, w)
+        case .all:
+            async let d: () = refreshDisplays()
+            async let s: () = refreshSpaces()
+            async let w: () = refreshWindows()
+            _ = await (d, s, w)
+        }
+
     }
 
     private func refreshDisplays() async {

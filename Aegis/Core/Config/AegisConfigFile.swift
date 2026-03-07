@@ -14,6 +14,10 @@ import Foundation
 struct AegisConfigData: Codable {
     // Appearance
     var appTheme: String?
+    var customBackgroundColor: String?
+    var customTextColor: String?
+    var customBorderColor: String?
+    var colorPresets: [ColorPreset]?
 
     // Menu Bar Layout
     var menuBarHeight: Double?
@@ -67,11 +71,9 @@ struct AegisConfigData: Codable {
     var inactiveButtonBgOpacity: Double?
     var overflowMenuShowingBgOpacity: Double?
     var overflowButtonBgOpacity: Double?
-    var systemStatusBgOpacity: Double?
 
     // Colors - Border & Stroke Opacity
     var activeBorderOpacity: Double?
-    var systemStatusBorderOpacity: Double?
 
     // Colors - Text & Icon Opacity
     var primaryTextOpacity: Double?
@@ -283,6 +285,10 @@ extension AegisConfig {
         if let raw = data.appTheme, let theme = AppTheme(rawValue: raw) {
             appTheme = theme
         }
+        if let v = data.customBackgroundColor { customBackgroundColor = v }
+        if let v = data.customTextColor { customTextColor = v }
+        if let v = data.customBorderColor { customBorderColor = v }
+        if let v = data.colorPresets { colorPresets = v }
         // Menu Bar Layout
         if let v = data.menuBarHeight { menuBarHeight = CGFloat(v) }
         if let v = data.menuBarEdgePadding { menuBarEdgePadding = CGFloat(v) }
@@ -335,11 +341,9 @@ extension AegisConfig {
         if let v = data.inactiveButtonBgOpacity { inactiveButtonBgOpacity = v }
         if let v = data.overflowMenuShowingBgOpacity { overflowMenuShowingBgOpacity = v }
         if let v = data.overflowButtonBgOpacity { overflowButtonBgOpacity = v }
-        if let v = data.systemStatusBgOpacity { systemStatusBgOpacity = v }
 
         // Colors - Border & Stroke Opacity
         if let v = data.activeBorderOpacity { activeBorderOpacity = v }
-        if let v = data.systemStatusBorderOpacity { systemStatusBorderOpacity = v }
 
         // Colors - Text & Icon Opacity
         if let v = data.primaryTextOpacity { primaryTextOpacity = v }
@@ -517,6 +521,10 @@ extension AegisConfig {
         AegisConfigData(
             // Appearance
             appTheme: appTheme.rawValue,
+            customBackgroundColor: customBackgroundColor,
+            customTextColor: customTextColor,
+            customBorderColor: customBorderColor,
+            colorPresets: colorPresets.isEmpty ? nil : colorPresets,
             // Menu Bar Layout
             menuBarHeight: Double(menuBarHeight),
             menuBarEdgePadding: Double(menuBarEdgePadding),
@@ -569,11 +577,9 @@ extension AegisConfig {
             inactiveButtonBgOpacity: inactiveButtonBgOpacity,
             overflowMenuShowingBgOpacity: overflowMenuShowingBgOpacity,
             overflowButtonBgOpacity: overflowButtonBgOpacity,
-            systemStatusBgOpacity: systemStatusBgOpacity,
 
             // Colors - Border & Stroke Opacity
             activeBorderOpacity: activeBorderOpacity,
-            systemStatusBorderOpacity: systemStatusBorderOpacity,
 
             // Colors - Text & Icon Opacity
             primaryTextOpacity: primaryTextOpacity,
@@ -851,6 +857,18 @@ osascript -e 'id of app "AppName"'
 Notifications from these apps will be silently ignored. This prevents duplicate HUDs (e.g., Focus mode notifications are already shown by the Focus HUD).
 
 You can add bundle identifiers (e.g., `"com.apple.mail"`) or partial app name matches (e.g., `"Slack"`).
+
+---
+
+## Appearance
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `appTheme` | string | `"dark"` | Theme mode: `"dark"`, `"light"`, or `"system"` |
+| `customBackgroundColor` | string | `null` | Custom background color as hex (e.g. `"#1A1A2E"`) |
+| `customTextColor` | string | `null` | Custom text/icon color as hex (e.g. `"#E0E0FF"`) |
+| `customBorderColor` | string | `null` | Custom border color as hex (e.g. `"#4A4A6A"`) |
+| `colorPresets` | [object] | `[]` | Saved color presets with name, backgroundColor, textColor, borderColor |
 
 ---
 

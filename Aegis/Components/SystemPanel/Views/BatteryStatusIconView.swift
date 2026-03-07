@@ -5,6 +5,7 @@ struct BatteryStatusIconView: View {
     let isCharging: Bool
 
     @ObservedObject private var config = AegisConfig.shared
+    @ObservedObject private var themeManager = ThemeManager.shared
 
     private let pillWidth: CGFloat = 28
     private let pillHeight: CGFloat = 14
