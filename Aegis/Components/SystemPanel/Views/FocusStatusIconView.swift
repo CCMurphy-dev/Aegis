@@ -6,6 +6,7 @@ struct FocusStatusIconView: View {
     let focusStatus: FocusStatus
 
     @ObservedObject private var config = AegisConfig.shared
+    @ObservedObject private var themeManager = ThemeManager.shared
 
     var body: some View {
         HStack(spacing: 4) {

@@ -25,6 +25,9 @@ class MenuBarCoordinator {
     /// Suppress window reorder after drag-initiated space moves (prevents flash from orderFront)
     private var suppressReorderUntil: Date = .distantPast
 
+    /// Track last fullscreen state to avoid redundant updateVisibilityForSpace calls
+    private var lastFullscreenState: Bool?
+
     init(yabaiService: YabaiService,
          eventRouter: EventRouter,
          displayIndex: Int? = nil,
@@ -111,8 +114,8 @@ class MenuBarCoordinator {
         // Create window with content on the target screen
         windowController.createWindow(with: contentView, for: targetScreen)
 
-        // Check initial space fullscreen status
-        checkAndUpdateFullscreenStatus()
+        // Trigger initial update to compute fullscreen state
+        updateSpaces()
 
         // Start monitoring native menu bar only (not mouse position)
         interactionMonitor.startMonitoring { [weak self] nativeMenuActive in
@@ -126,25 +129,16 @@ class MenuBarCoordinator {
         viewModel = nil
     }
 
-    // MARK: - Space Change Handling
-
-    private func checkAndUpdateFullscreenStatus() {
-        let spaces = yabaiService.getCurrentSpaces()
-        if let focusedSpace = spaces.first(where: { $0.focused }) {
-            // Check both yabai's fullscreen type AND native macOS fullscreen
-            // yabai reports is-native-fullscreen on the Space when a window is in native fullscreen mode
-            let isFullscreen = focusedSpace.isNativeFullscreen || focusedSpace.type == "fullscreen"
-            windowController.updateVisibilityForSpace(isFullscreen: isFullscreen)
-        }
-    }
-
     // MARK: - Public update methods
 
     func updateSpaces() {
         viewModel?.updateSpaces()
 
-        // CRITICAL: Check fullscreen status whenever spaces change
-        checkAndUpdateFullscreenStatus()
+        // Use pre-computed fullscreen state from performUpdate (avoids duplicate getCurrentSpaces call)
+        if let isFullscreen = viewModel?.isFocusedSpaceFullscreen, isFullscreen != lastFullscreenState {
+            lastFullscreenState = isFullscreen
+            windowController.updateVisibilityForSpace(isFullscreen: isFullscreen)
+        }
 
         // Re-order window to ensure visibility during space transitions
         // Skip during drag-initiated space moves (orderFront causes white flash)

@@ -14,7 +14,7 @@ A macOS menu bar replacement for [Yabai](https://github.com/koekeishiya/yabai) w
 
 ### Menu Bar
 
-**Space indicators** - Visual workspace display with app icons, click to switch, scroll to navigate, drag to reorder
+**Space indicators** - Visual workspace display with app icons, click to switch, scroll to navigate, drag to reorder. Focused window title auto-expands with live updates
 
 https://github.com/user-attachments/assets/d01ef29e-56db-4fe4-b824-def183cf2cdb
 
@@ -88,9 +88,9 @@ https://github.com/user-attachments/assets/95c7d4cf-5b05-4b03-b176-f2a5e10938bd
 - **Cmd+scroll activation** - Optional gesture to open switcher (configurable)
 
 ### Other
-- **Customizable** - JSON config file with hot-reload, plus Settings panel
+- **Customizable** - JSON config file with hot-reload, plus Settings panel with custom theme color pickers and saveable presets
 - **Auto-updates** - Built-in update checking via Sparkle
-- **Energy efficient** - Animations auto-stop when idle, minimal CPU usage
+- **Energy efficient** - Coalescing event gate, fixed-duration animations, and non-reactive view isolation for minimal CPU usage
 
 ## Quick Start
 

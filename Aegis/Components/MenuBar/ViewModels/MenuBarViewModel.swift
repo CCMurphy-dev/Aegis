@@ -33,6 +33,9 @@ class MenuBarViewModel: ObservableObject {
 
     // MARK: - Internal State (not directly observed by views)
 
+    /// Whether the focused space is fullscreen (pre-computed during performUpdate)
+    private(set) var isFocusedSpaceFullscreen: Bool = false
+
     /// Raw spaces data from YabaiService
     private var spaces: [Space] = []
 
@@ -114,6 +117,25 @@ class MenuBarViewModel: ObservableObject {
 
         spaces = allSpaces
 
+        // Pre-compute fullscreen state (used by coordinator to avoid duplicate getCurrentSpaces call)
+        if let focusedSpace = spaces.first(where: { $0.focused }) {
+            isFocusedSpaceFullscreen = focusedSpace.isNativeFullscreen || focusedSpace.type == "fullscreen"
+        }
+
+        // Fetch all windows once — reused for focused window check, launcher detection, and title observer
+        let allWindows = yabaiService.getAllWindows()
+        let focusedWindow = allWindows.first { $0.hasFocus }
+
+        // Pre-compute which space has the focused window (replaces per-space spaceHasFocusedWindow scan)
+        // Uses same filtering as spaceHasFocusedWindow: excludes base apps, requires AXWindow role
+        let baseExcludedApps = AegisConfig.shared.baseExcludedApps
+        let focusedSpaceIndex: Int? = focusedWindow.flatMap { fw in
+            guard !baseExcludedApps.contains(fw.app),
+                  fw.role == "AXWindow",
+                  fw.subrole == "AXStandardWindow" || fw.isMinimized else { return nil }
+            return fw.space
+        }
+
         // Build window icons and focused indices
         var newIconsBySpace: [Int: [WindowIcon]] = [:]
         var newAllIconsBySpace: [Int: [WindowIcon]] = [:]
@@ -134,9 +156,8 @@ class MenuBarViewModel: ObservableObject {
                 newFocusedIndexBySpace[space.index] = focusedIdx
             }
 
-            // Check if this space has any focused window (including excluded apps)
-            let spaceHasFocus = yabaiService.spaceHasFocusedWindow(space.index)
-            if spaceHasFocus || space.focused {
+            // O(1) check: is this space active? (replaces O(N) spaceHasFocusedWindow per space)
+            if focusedSpaceIndex == space.index || space.focused {
                 activeSpaceIndices.insert(space.index)
             }
 
@@ -152,7 +173,6 @@ class MenuBarViewModel: ObservableObject {
 
         // Check if focused window belongs to a launcher app
         let launcherAppNames = Set(FloatingApp.appsFromConfig().map { $0.name })
-        let focusedWindow = yabaiService.getAllWindows().first { $0.hasFocus }
         let launcherFocused = focusedWindow.map { launcherAppNames.contains($0.app) } ?? false
         if sharedState.launcherAppFocused != launcherFocused {
             sharedState.launcherAppFocused = launcherFocused
@@ -177,6 +197,7 @@ class MenuBarViewModel: ObservableObject {
 
         // Clear expanded window if it no longer exists
         sharedState.cleanupExpandedWindowIfNeeded(allWindowIds: allWindowIds)
+
     }
 
     /// Schedule a coalesced update - multiple calls within the coalesce window
@@ -241,6 +262,9 @@ class MenuBarViewModel: ObservableObject {
             mediaVisible || overlayVisible
         }
         .receive(on: DispatchQueue.main)
-        .assign(to: &sharedState.$isHUDVisible)
+        .sink { [weak self] visible in
+            self?.sharedState.isHUDVisible = visible
+        }
+        .store(in: &cancellables)
     }
 }

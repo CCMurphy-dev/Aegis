@@ -3,6 +3,7 @@ import SwiftUI
 struct SystemStatusView: View {
     @ObservedObject private var statusMonitor = SystemStatusMonitor.shared
     @ObservedObject private var config = AegisConfig.shared
+    @ObservedObject private var themeManager = ThemeManager.shared
 
     var body: some View {
         HStack(spacing: 0) {
@@ -63,11 +64,11 @@ struct SystemStatusView: View {
         .frame(height: 20)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(ThemeColors.background.opacity(config.systemStatusBgOpacity))
+                .fill(ThemeColors.background.opacity(config.inactiveSpaceBgOpacity))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(ThemeColors.foreground.opacity(config.systemStatusBorderOpacity), lineWidth: 1)
+                .stroke(ThemeColors.border(opacity: config.activeBorderOpacity), lineWidth: 1)
         )
         .shadow(color: ThemeColors.shadow(), radius: 1, x: 0, y: 1)
     }

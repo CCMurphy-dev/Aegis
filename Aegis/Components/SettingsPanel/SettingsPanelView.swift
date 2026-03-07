@@ -7,6 +7,7 @@ struct SettingsPanelView: View {
     @ObservedObject var updater = UpdaterService.shared
     @Environment(\.presentationMode) var presentationMode
     @State private var selectedTab: SettingsTab = .features
+    @State private var presetName: String = ""
 
     enum SettingsTab: String, CaseIterable {
         case features = "Features"
@@ -222,6 +223,84 @@ struct SettingsPanelView: View {
                 label: "Theme",
                 selection: $config.appTheme
             )
+
+            Divider().background(Color.white.opacity(0.1))
+
+            if config.appTheme == .custom {
+                SettingsSubsection(title: "Custom Colors") {
+                    SettingsColorPicker(
+                        label: "Background",
+                        hex: $config.customBackgroundColor
+                    )
+                    SettingsColorPicker(
+                        label: "Text & Icons",
+                        hex: $config.customTextColor
+                    )
+                    SettingsColorPicker(
+                        label: "Borders",
+                        hex: $config.customBorderColor
+                    )
+
+                    Divider().background(Color.white.opacity(0.1))
+
+                    // Save current colors as preset
+                    HStack {
+                        TextField("Preset name", text: $presetName)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 160)
+                        Button("Save") {
+                            let preset = ColorPreset(
+                                id: UUID(),
+                                name: presetName,
+                                backgroundColor: config.customBackgroundColor,
+                                textColor: config.customTextColor,
+                                borderColor: config.customBorderColor
+                            )
+                            config.colorPresets.append(preset)
+                            presetName = ""
+                        }
+                        .disabled(presetName.isEmpty)
+                        Spacer()
+                    }
+
+                    // Saved presets
+                    if !config.colorPresets.isEmpty {
+                        ForEach(config.colorPresets) { preset in
+                            HStack(spacing: 6) {
+                                Circle()
+                                    .fill(Color(hex: preset.backgroundColor ?? "") ?? .black)
+                                    .frame(width: 10, height: 10)
+                                Circle()
+                                    .fill(Color(hex: preset.textColor ?? "") ?? .white)
+                                    .frame(width: 10, height: 10)
+                                Circle()
+                                    .fill(Color(hex: preset.borderColor ?? "") ?? .gray)
+                                    .frame(width: 10, height: 10)
+
+                                Text(preset.name)
+                                    .font(.system(size: 12))
+
+                                Spacer()
+
+                                Button("Apply") {
+                                    config.customBackgroundColor = preset.backgroundColor
+                                    config.customTextColor = preset.textColor
+                                    config.customBorderColor = preset.borderColor
+                                }
+                                .buttonStyle(.plain)
+                                .font(.system(size: 11))
+
+                                Button("Delete") {
+                                    config.colorPresets.removeAll { $0.id == preset.id }
+                                }
+                                .buttonStyle(.plain)
+                                .foregroundColor(.red.opacity(0.7))
+                                .font(.system(size: 11))
+                            }
+                        }
+                    }
+                }
+            }
 
             Divider().background(Color.white.opacity(0.1))
 

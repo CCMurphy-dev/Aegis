@@ -6,12 +6,21 @@ final class ThemeManager: ObservableObject {
     static let shared = ThemeManager()
 
     @Published private(set) var isDarkMode: Bool = true
+    @Published private(set) var themeRevision: Int = 0
 
     private var cancellables = Set<AnyCancellable>()
     private var appearanceObserver: NSObjectProtocol?
 
     private init() {
-        updateEffectiveAppearance()
+        // Set initial state directly — don't post notification during init
+        // to avoid reentrancy deadlock (observers access ThemeManager.shared
+        // which is still being constructed)
+        switch AegisConfig.shared.appTheme {
+        case .dark: isDarkMode = true
+        case .light: isDarkMode = false
+        case .system: isDarkMode = isSystemInDarkMode()
+        case .custom: isDarkMode = true
+        }
 
         DistributedNotificationCenter.default().addObserver(
             forName: NSNotification.Name("AppleInterfaceThemeChangedNotification"),
@@ -36,6 +45,37 @@ final class ThemeManager: ObservableObject {
                 self?.updateEffectiveAppearance()
             }
             .store(in: &cancellables)
+
+        // Post theme change when custom colors change (even if isDarkMode doesn't)
+        // Debounce custom color changes to avoid CPU spikes from color picker drag
+        let colorDebounce: RunLoop.SchedulerTimeType.Stride = .milliseconds(100)
+
+        AegisConfig.shared.$customBackgroundColor
+            .dropFirst()
+            .debounce(for: colorDebounce, scheduler: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.themeRevision += 1
+                NotificationCenter.default.post(name: .themeDidChange, object: nil)
+            }
+            .store(in: &cancellables)
+
+        AegisConfig.shared.$customTextColor
+            .dropFirst()
+            .debounce(for: colorDebounce, scheduler: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.themeRevision += 1
+                NotificationCenter.default.post(name: .themeDidChange, object: nil)
+            }
+            .store(in: &cancellables)
+
+        AegisConfig.shared.$customBorderColor
+            .dropFirst()
+            .debounce(for: colorDebounce, scheduler: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.themeRevision += 1
+                NotificationCenter.default.post(name: .themeDidChange, object: nil)
+            }
+            .store(in: &cancellables)
     }
 
     deinit {
@@ -54,12 +94,15 @@ final class ThemeManager: ObservableObject {
             newIsDarkMode = false
         case .system:
             newIsDarkMode = isSystemInDarkMode()
+        case .custom:
+            newIsDarkMode = true  // Custom uses dark as base
         }
 
         if newIsDarkMode != isDarkMode {
             isDarkMode = newIsDarkMode
-            NotificationCenter.default.post(name: .themeDidChange, object: nil)
         }
+        themeRevision += 1
+        NotificationCenter.default.post(name: .themeDidChange, object: nil)
     }
 
     private func isSystemInDarkMode() -> Bool {

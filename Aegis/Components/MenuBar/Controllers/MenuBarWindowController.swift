@@ -75,12 +75,10 @@ class MenuBarWindowController: ObservableObject {
         if isFullscreen {
             // Hide in fullscreen by setting alpha to 0 and ignoring mouse events
             // This is better than orderOut() which doesn't work well with .canJoinAllSpaces
-            print("🔒 Space is fullscreen - hiding Aegis menu bar")
             menuBarWindow?.alphaValue = 0
             menuBarWindow?.ignoresMouseEvents = true
         } else {
             // Show in normal spaces
-            print("🌐 Space is normal - showing Aegis menu bar")
             menuBarWindow?.alphaValue = 1
             menuBarWindow?.ignoresMouseEvents = false
         }

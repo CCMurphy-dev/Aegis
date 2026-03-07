@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.19] - 2026-03-07
+
+### Added
+- **Custom theme** - New "Custom" theme option with hex color pickers for background, text/icons, and borders
+  - Save and load color presets for quick switching between custom color schemes
+- **Fullscreen dedup** - Pre-compute fullscreen state in `performUpdate`, eliminating a redundant `getCurrentSpaces()` call per space change
+
+### Changed
+- **Coalescing event gate** - Replaced per-event immediate refresh with a 30ms coalescing gate that merges overlapping events and determines the minimum refresh scope needed
+  - `window_focused` and `application_front_switched` now trigger `windowsOnly` refresh (1 subprocess) instead of full `refreshAll` (3 subprocesses)
+  - `application_front_switched` handled explicitly instead of falling through to default case
+  - NSWorkspace fallback handlers (`activeSpaceChanged`, `appChanged`) skip when FIFO pipe events were received within 500ms
+  - Result: space switch drops from 7-13 subprocesses to exactly 2
+- **SharedMenuBarState** - Replaced all `@Published` properties with `CurrentValueSubject` to prevent cross-space re-render cascades
+- **Expand/collapse animations** - Switched from spring animations (700ms+ asymptotic tail) to `easeOut` with fixed durations (0.15-0.2s), eliminating continuous 120fps rendering between space switches
+- **Rapid switch detection** - Switches faster than 300ms skip animation entirely to prevent overlapping animation CPU spikes
+- **Font measurement caching** - `WindowIcon.expandedWidth` now cached by title+appName key, avoiding expensive `NSString.size()` on every update
+- **Non-reactive GeometryReader** - Width measurement for drag calculations uses a class ref instead of `@State`, preventing ~42 unnecessary body re-evaluations per animation
+- **Equatable icon isolation** - Extracted `ExpandableWindowIcon` with `.equatable()` so only affected icons re-render during expand/collapse animation
+
+### Fixed
+- Removed stale debug print statements from fullscreen visibility toggle
+
 ## [1.0.18] - 2026-03-06
 
 ### Added

@@ -8,6 +8,26 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.19</title>
+            <sparkle:version>1.0.19</sparkle:version>
+            <sparkle:shortVersionString>1.0.19</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Sat, 07 Mar 2026 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.19</h2>
+                <ul>
+                    <li><strong>Custom Theme</strong> - New "Custom" theme option with hex color pickers for background, text/icons, and borders, plus saveable presets</li>
+                    <li><strong>CPU Optimization</strong> - Coalescing event gate reduces yabai subprocess calls from 7-13 to 2 per space switch; easeOut animations eliminate continuous 120fps rendering; non-reactive GeometryReader and Equatable icon isolation prevent unnecessary SwiftUI re-renders</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.19/Aegis.app.zip"
+                length="2462758"
+                type="application/octet-stream"
+                sparkle:edSignature="Gjo89NIERTqUClA2RTr879L80GTTVsnjHT/rXzh1yOtvwLLxNB72mfD1IoypsUxD1/l+o4d0ICrP623bUtrNCA==" />
+        </item>
+
+        <item>
             <title>Version 1.0.18</title>
             <sparkle:version>1.0.18</sparkle:version>
             <sparkle:shortVersionString>1.0.18</sparkle:shortVersionString>

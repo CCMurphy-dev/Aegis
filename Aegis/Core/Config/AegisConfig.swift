@@ -6,14 +6,24 @@ enum AppTheme: String, CaseIterable, Codable {
     case dark = "dark"
     case light = "light"
     case system = "system"
+    case custom = "custom"
 
     var displayName: String {
         switch self {
         case .dark: return "Dark"
         case .light: return "Light"
         case .system: return "System"
+        case .custom: return "Custom"
         }
     }
+}
+
+struct ColorPreset: Codable, Identifiable, Equatable {
+    let id: UUID
+    var name: String
+    var backgroundColor: String?
+    var textColor: String?
+    var borderColor: String?
 }
 
 /// Centralized configuration for all Aegis UI elements, behaviors, and visual parameters
@@ -26,6 +36,18 @@ class AegisConfig: ObservableObject {
 
     /// App theme mode: dark, light, or system
     @Published var appTheme: AppTheme = .dark
+
+    /// Custom background color (hex "#RRGGBB"), nil = theme default
+    @Published var customBackgroundColor: String? = nil
+
+    /// Custom text/icon color (hex "#RRGGBB"), nil = theme default
+    @Published var customTextColor: String? = nil
+
+    /// Custom border color (hex "#RRGGBB"), nil = theme default
+    @Published var customBorderColor: String? = nil
+
+    /// Saved color presets
+    @Published var colorPresets: [ColorPreset] = []
 
     // MARK: - Menu Bar Layout
 
@@ -163,16 +185,10 @@ class AegisConfig: ObservableObject {
     /// Background opacity for overflow button default
     @Published var overflowButtonBgOpacity: Double = 0.12
 
-    /// Background opacity for system status container
-    @Published var systemStatusBgOpacity: Double = 0.12
-
     // MARK: - Colors - Border & Stroke Opacity
 
     /// Border opacity for active state
     @Published var activeBorderOpacity: Double = 0.18
-
-    /// Border opacity for system status
-    @Published var systemStatusBorderOpacity: Double = 0.2
 
     // MARK: - Colors - Text & Icon Opacity
 
@@ -777,6 +793,24 @@ class AegisConfig: ObservableObject {
     func savePreferences() {
         // Appearance
         UserDefaults.standard.set(appTheme.rawValue, forKey: "appTheme")
+        if let hex = customBackgroundColor {
+            UserDefaults.standard.set(hex, forKey: "customBackgroundColor")
+        } else {
+            UserDefaults.standard.removeObject(forKey: "customBackgroundColor")
+        }
+        if let hex = customTextColor {
+            UserDefaults.standard.set(hex, forKey: "customTextColor")
+        } else {
+            UserDefaults.standard.removeObject(forKey: "customTextColor")
+        }
+        if let hex = customBorderColor {
+            UserDefaults.standard.set(hex, forKey: "customBorderColor")
+        } else {
+            UserDefaults.standard.removeObject(forKey: "customBorderColor")
+        }
+        if let data = try? JSONEncoder().encode(colorPresets) {
+            UserDefaults.standard.set(data, forKey: "colorPresets")
+        }
         // Menu Bar Layout
         UserDefaults.standard.set(menuBarHeight, forKey: "menuBarHeight")
         UserDefaults.standard.set(menuBarEdgePadding, forKey: "menuBarEdgePadding")
@@ -829,9 +863,7 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(inactiveButtonBgOpacity, forKey: "inactiveButtonBgOpacity")
         UserDefaults.standard.set(overflowMenuShowingBgOpacity, forKey: "overflowMenuShowingBgOpacity")
         UserDefaults.standard.set(overflowButtonBgOpacity, forKey: "overflowButtonBgOpacity")
-        UserDefaults.standard.set(systemStatusBgOpacity, forKey: "systemStatusBgOpacity")
         UserDefaults.standard.set(activeBorderOpacity, forKey: "activeBorderOpacity")
-        UserDefaults.standard.set(systemStatusBorderOpacity, forKey: "systemStatusBorderOpacity")
         UserDefaults.standard.set(primaryTextOpacity, forKey: "primaryTextOpacity")
         UserDefaults.standard.set(secondaryTextOpacity, forKey: "secondaryTextOpacity")
         UserDefaults.standard.set(tertiaryTextOpacity, forKey: "tertiaryTextOpacity")
@@ -949,6 +981,13 @@ class AegisConfig: ObservableObject {
         if let raw = UserDefaults.standard.string(forKey: "appTheme"),
            let theme = AppTheme(rawValue: raw) {
             appTheme = theme
+        }
+        customBackgroundColor = UserDefaults.standard.string(forKey: "customBackgroundColor")
+        customTextColor = UserDefaults.standard.string(forKey: "customTextColor")
+        customBorderColor = UserDefaults.standard.string(forKey: "customBorderColor")
+        if let data = UserDefaults.standard.data(forKey: "colorPresets"),
+           let presets = try? JSONDecoder().decode([ColorPreset].self, from: data) {
+            colorPresets = presets
         }
         // Menu Bar Layout
         if let val = UserDefaults.standard.object(forKey: "menuBarHeight") as? Double {
@@ -1084,14 +1123,8 @@ class AegisConfig: ObservableObject {
         if let val = UserDefaults.standard.object(forKey: "overflowButtonBgOpacity") as? Double {
             overflowButtonBgOpacity = val
         }
-        if let val = UserDefaults.standard.object(forKey: "systemStatusBgOpacity") as? Double {
-            systemStatusBgOpacity = val
-        }
         if let val = UserDefaults.standard.object(forKey: "activeBorderOpacity") as? Double {
             activeBorderOpacity = val
-        }
-        if let val = UserDefaults.standard.object(forKey: "systemStatusBorderOpacity") as? Double {
-            systemStatusBorderOpacity = val
         }
         if let val = UserDefaults.standard.object(forKey: "primaryTextOpacity") as? Double {
             primaryTextOpacity = val
@@ -1403,6 +1436,10 @@ class AegisConfig: ObservableObject {
     func resetToDefaults() {
         // Reset all values to their default state
         appTheme = .dark
+        customBackgroundColor = nil
+        customTextColor = nil
+        customBorderColor = nil
+        colorPresets = []
         menuBarHeight = NSScreen.main?.safeAreaInsets.top ?? 37
         menuBarEdgePadding = 50
         spaceIndicatorSpacing = 8
@@ -1449,9 +1486,7 @@ class AegisConfig: ObservableObject {
         inactiveButtonBgOpacity = 0.12
         overflowMenuShowingBgOpacity = 0.25
         overflowButtonBgOpacity = 0.12
-        systemStatusBgOpacity = 0.12
         activeBorderOpacity = 0.18
-        systemStatusBorderOpacity = 0.2
         primaryTextOpacity = 1.0
         secondaryTextOpacity = 0.9
         tertiaryTextOpacity = 0.6
