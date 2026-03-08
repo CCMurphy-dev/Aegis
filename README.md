@@ -16,7 +16,7 @@ A macOS menu bar replacement for [Yabai](https://github.com/koekeishiya/yabai) w
 
 **Space indicators** - Visual workspace display with app icons, click to switch, scroll to navigate, drag to reorder. Focused window title auto-expands with live updates
 
-https://github.com/user-attachments/assets/3a02ec56-9989-473c-a468-c46f97b0ce74
+![Space indicators](https://github.com/user-attachments/assets/3a02ec56-9989-473c-a468-c46f97b0ce74)
 
 **App launcher** - Quick-access floating apps button with configurable app list (e.g. finder, iTerm, passwords etc)
 
