@@ -20,8 +20,6 @@ A macOS menu bar replacement for [Yabai](https://github.com/koekeishiya/yabai) w
 
 **App launcher** - Quick-access floating apps button with configurable app list (e.g. finder, iTerm, passwords etc)
 
-https://github.com/user-attachments/assets/3d41c1ed-b028-4801-bfcb-bbda3952af8b
-
 https://github.com/user-attachments/assets/9291ffb2-c68c-4b17-8cf9-52b5d76a1c27
 
 **Context button** - a scroll-able button to cycle through yabai commands. Right click menu for expanded commands (stack windows, move to/destroy space, access settings etc)
