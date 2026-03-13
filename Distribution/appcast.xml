@@ -8,6 +8,26 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.21</title>
+            <sparkle:version>1.0.21</sparkle:version>
+            <sparkle:shortVersionString>1.0.21</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Thu, 13 Mar 2026 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.21</h2>
+                <ul>
+                    <li><strong>HUD Border</strong> - Configurable border outline on notch HUD panels (Settings > Notch HUD)</li>
+                    <li><strong>HUD Theme Colors</strong> - Custom theme colors now apply to HUD text, icons, and progress bars</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.21/Aegis.app.zip"
+                length="2476716"
+                type="application/octet-stream"
+                sparkle:edSignature="gLCVQMB3oIiphbgckK0yR3nLFlCFAJEZavZO9XyeX4pjBQjklW+zYZcOykpxz/8WrJmk7eGf8PCSlEclI7RaCg==" />
+        </item>
+
+        <item>
             <title>Version 1.0.20</title>
             <sparkle:version>1.0.20</sparkle:version>
             <sparkle:shortVersionString>1.0.20</sparkle:shortVersionString>

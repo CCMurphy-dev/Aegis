@@ -117,6 +117,12 @@ struct MediaHUDView: View {
                     Spacer(minLength: 0)
                     HUDLeftPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
                         .fill(Color.black)
+                        .overlay(
+                            config.notchHUDShowBorder
+                                ? HUDLeftPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
+                                    .stroke(ThemeColors.border(opacity: 0.18), lineWidth: 1)
+                                : nil
+                        )
                         .frame(width: notchDimensions.height + notchGapFill, height: notchDimensions.height)
                 }
                 .frame(width: sideMaxWidth + notchGapFill, alignment: .trailing)
@@ -132,6 +138,12 @@ struct MediaHUDView: View {
                 HStack(spacing: 0) {
                     HUDRightPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
                         .fill(Color.black)
+                        .overlay(
+                            config.notchHUDShowBorder
+                                ? HUDRightPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
+                                    .stroke(ThemeColors.border(opacity: 0.18), lineWidth: 1)
+                                : nil
+                        )
                         .frame(width: rightPanelWidth + notchGapFill, height: notchDimensions.height)
                     Spacer(minLength: 0)
                 }
@@ -448,7 +460,7 @@ private struct VisualizerBar: View {
                 .frame(width: 2, height: height)
         } else {
             Capsule()
-                .fill(Color.white.opacity(0.9))
+                .fill(ThemeColors.hudSecondaryText())
                 .frame(width: 2, height: height)
         }
     }
@@ -515,7 +527,7 @@ struct TrackInfoView: View {
             MarqueeTextRow(
                 text: info.title,
                 font: trackTitleFont,
-                textColor: .white.opacity(0.9),
+                textColor: ThemeColors.hudSecondaryText(),
                 textWidth: titleTextWidth,
                 scrollOffset: titleOverflows ? scrollController.offset : 0,
                 isScrolling: scrollController.isScrolling && titleOverflows,
@@ -528,7 +540,7 @@ struct TrackInfoView: View {
             MarqueeTextRow(
                 text: info.artist,
                 font: trackArtistFont,
-                textColor: .white.opacity(0.6),
+                textColor: ThemeColors.hudTertiaryText(),
                 textWidth: artistTextWidth,
                 scrollOffset: artistOverflows ? scrollController.offset : 0,
                 isScrolling: scrollController.isScrolling && artistOverflows,

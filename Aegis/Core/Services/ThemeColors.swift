@@ -57,6 +57,27 @@ struct ThemeColors {
         Color.black.opacity(opacity)
     }
 
+    // MARK: - HUD Colors (always light text on dark HUD background)
+
+    static var hudForeground: Color {
+        if isCustom, let hex = config.customTextColor, let color = Color(hex: hex) {
+            return color
+        }
+        return .white  // HUD panels always have black background
+    }
+
+    static func hudPrimaryText(opacity: Double = 1.0) -> Color {
+        hudForeground.opacity(opacity)
+    }
+
+    static func hudSecondaryText(opacity: Double = 0.9) -> Color {
+        hudForeground.opacity(opacity)
+    }
+
+    static func hudTertiaryText(opacity: Double = 0.6) -> Color {
+        hudForeground.opacity(opacity)
+    }
+
     // MARK: - CGColor Accessors
 
     static func foregroundCGColor(alpha: CGFloat) -> CGColor {

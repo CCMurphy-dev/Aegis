@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.21] - 2026-03-13
+
+### Added
+- **HUD border** - Configurable border outline on notch HUD panels, with toggle in Settings > Notch HUD
+- **HUD theme colors** - Custom theme colors now apply to notch HUD text, icons, and progress bars (previously hardcoded white)
+
 ## [1.0.20] - 2026-03-07
 
 ### Fixed

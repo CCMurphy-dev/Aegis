@@ -53,6 +53,12 @@ struct NotificationHUDView: View {
                     Spacer(minLength: 0)
                     HUDLeftPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
                         .fill(Color.black)
+                        .overlay(
+                            config.notchHUDShowBorder
+                                ? HUDLeftPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
+                                    .stroke(ThemeColors.border(opacity: 0.18), lineWidth: 1)
+                                : nil
+                        )
                         .frame(width: leftPanelWidth + notchGapFill, height: notchDimensions.height)
                 }
                 .frame(width: panelWidth + notchGapFill, alignment: .trailing)
@@ -67,6 +73,12 @@ struct NotificationHUDView: View {
                 HStack(spacing: 0) {
                     HUDRightPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
                         .fill(Color.black)
+                        .overlay(
+                            config.notchHUDShowBorder
+                                ? HUDRightPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
+                                    .stroke(ThemeColors.border(opacity: 0.18), lineWidth: 1)
+                                : nil
+                        )
                         .frame(width: calculatedRightPanelWidth + notchGapFill, height: notchDimensions.height)
                     Spacer(minLength: 0)
                 }
@@ -91,7 +103,7 @@ struct NotificationHUDView: View {
                     } else {
                         Image(systemName: "app.fill")
                             .font(.system(size: config.notchHUDIconSize, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(ThemeColors.hudPrimaryText())
                     }
                 }
                 .frame(width: panelWidth, height: notchDimensions.height)
@@ -107,13 +119,13 @@ struct NotificationHUDView: View {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(viewModel.title)
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(ThemeColors.hudPrimaryText())
                             .lineLimit(1)
 
                         if !viewModel.body.isEmpty {
                             Text(viewModel.body)
                                 .font(.system(size: 8, weight: .medium))
-                                .foregroundColor(.gray)
+                                .foregroundColor(ThemeColors.hudTertiaryText())
                                 .lineLimit(1)
                         }
                     }

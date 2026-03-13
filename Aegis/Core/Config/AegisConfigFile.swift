@@ -204,6 +204,7 @@ struct AegisConfigData: Codable {
     var notchHUDValueFontSize: Double?
     var notchHUDInnerPadding: Double?
     var notchHUDShowBackground: Bool?
+    var notchHUDShowBorder: Bool?
     var notchHUDUseProgressBar: Bool?
     var notchHUDProgressBarWidth: Double?
     var notchHUDProgressBarHeight: Double?
@@ -477,6 +478,7 @@ extension AegisConfig {
         if let v = data.notchHUDValueFontSize { notchHUDValueFontSize = CGFloat(v) }
         if let v = data.notchHUDInnerPadding { notchHUDInnerPadding = CGFloat(v) }
         if let v = data.notchHUDShowBackground { notchHUDShowBackground = v }
+        if let v = data.notchHUDShowBorder { notchHUDShowBorder = v }
         if let v = data.notchHUDUseProgressBar { notchHUDUseProgressBar = v }
         if let v = data.notchHUDProgressBarWidth { notchHUDProgressBarWidth = CGFloat(v) }
         if let v = data.notchHUDProgressBarHeight { notchHUDProgressBarHeight = CGFloat(v) }
@@ -709,6 +711,7 @@ extension AegisConfig {
             notchHUDValueFontSize: Double(notchHUDValueFontSize),
             notchHUDInnerPadding: Double(notchHUDInnerPadding),
             notchHUDShowBackground: notchHUDShowBackground,
+            notchHUDShowBorder: notchHUDShowBorder,
             notchHUDUseProgressBar: notchHUDUseProgressBar,
             notchHUDProgressBarWidth: Double(notchHUDProgressBarWidth),
             notchHUDProgressBarHeight: Double(notchHUDProgressBarHeight),

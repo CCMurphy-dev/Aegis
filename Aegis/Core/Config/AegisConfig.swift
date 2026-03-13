@@ -567,6 +567,9 @@ class AegisConfig: ObservableObject {
     /// Show background for HUD sides
     @Published var notchHUDShowBackground: Bool = false
 
+    /// Show border outline on HUD panels (matches space indicator border style)
+    @Published var notchHUDShowBorder: Bool = true
+
     /// Use progress bar instead of numeric value for volume/brightness
     @Published var notchHUDUseProgressBar: Bool = false
 
@@ -954,6 +957,7 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(notchHUDValueFontSize, forKey: "notchHUDValueFontSize")
         UserDefaults.standard.set(notchHUDInnerPadding, forKey: "notchHUDInnerPadding")
         UserDefaults.standard.set(notchHUDShowBackground, forKey: "notchHUDShowBackground")
+        UserDefaults.standard.set(notchHUDShowBorder, forKey: "notchHUDShowBorder")
         UserDefaults.standard.set(notchHUDUseProgressBar, forKey: "notchHUDUseProgressBar")
         UserDefaults.standard.set(notchHUDProgressBarWidth, forKey: "notchHUDProgressBarWidth")
         UserDefaults.standard.set(notchHUDProgressBarHeight, forKey: "notchHUDProgressBarHeight")
@@ -1373,6 +1377,9 @@ class AegisConfig: ObservableObject {
         if let val = UserDefaults.standard.object(forKey: "notchHUDShowBackground") as? Bool {
             notchHUDShowBackground = val
         }
+        if let val = UserDefaults.standard.object(forKey: "notchHUDShowBorder") as? Bool {
+            notchHUDShowBorder = val
+        }
         if let val = UserDefaults.standard.object(forKey: "notchHUDUseProgressBar") as? Bool {
             notchHUDUseProgressBar = val
         }
@@ -1573,6 +1580,7 @@ class AegisConfig: ObservableObject {
         notchHUDValueFontSize = 13
         notchHUDInnerPadding = 8
         notchHUDShowBackground = false
+        notchHUDShowBorder = true
         notchHUDUseProgressBar = false
         notchHUDProgressBarWidth = 60
         notchHUDProgressBarHeight = 4

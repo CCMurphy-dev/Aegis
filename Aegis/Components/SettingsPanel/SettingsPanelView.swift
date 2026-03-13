@@ -345,6 +345,16 @@ struct SettingsPanelView: View {
 
             Divider().background(Color.white.opacity(0.1))
 
+            SettingsSubsection(title: "Notch HUD") {
+                SettingsToggle(
+                    label: "Show Border",
+                    description: "Display border outline around HUD panels",
+                    isOn: $config.notchHUDShowBorder
+                )
+            }
+
+            Divider().background(Color.white.opacity(0.1))
+
             SettingsSubsection(title: "Animation Timings") {
                 SettingsDoubleSlider(
                     label: "State Transition",

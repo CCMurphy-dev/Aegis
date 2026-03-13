@@ -56,6 +56,12 @@ struct MinimalHUDWrapper: View {
                     Spacer(minLength: 0)
                     HUDLeftPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
                         .fill(Color.black)
+                        .overlay(
+                            config.notchHUDShowBorder
+                                ? HUDLeftPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
+                                    .stroke(ThemeColors.border(opacity: 0.18), lineWidth: 1)
+                                : nil
+                        )
                         .frame(width: leftPanelWidth + notchGapFill, height: notchDimensions.height)
                 }
                 .frame(width: maxSideWidth + notchGapFill, alignment: .trailing)
@@ -70,6 +76,12 @@ struct MinimalHUDWrapper: View {
                 HStack(spacing: 0) {
                     HUDRightPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
                         .fill(Color.black)
+                        .overlay(
+                            config.notchHUDShowBorder
+                                ? HUDRightPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
+                                    .stroke(ThemeColors.border(opacity: 0.18), lineWidth: 1)
+                                : nil
+                        )
                         .frame(width: rightPanelWidth + notchGapFill, height: notchDimensions.height)
                     Spacer(minLength: 0)
                 }
@@ -88,7 +100,7 @@ struct MinimalHUDWrapper: View {
                     // Icon explicitly centered within leftPanelWidth frame
                     Image(systemName: viewModel.iconName)
                         .font(.system(size: config.notchHUDIconSize, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(ThemeColors.hudPrimaryText())
                         .frame(width: leftPanelWidth, height: notchDimensions.height, alignment: .center)
                 }
                 .frame(width: maxSideWidth)
@@ -107,7 +119,7 @@ struct MinimalHUDWrapper: View {
                         } else {
                             Text("\(Int(viewModel.isMuted ? 0 : viewModel.level * 100))")
                                 .font(.system(size: config.notchHUDValueFontSize, weight: .bold))
-                                .foregroundColor(.white)
+                                .foregroundColor(ThemeColors.hudPrimaryText())
                                 .fixedSize(horizontal: true, vertical: false)
                         }
                     }
@@ -146,12 +158,12 @@ struct HUDProgressBar: View {
         return ZStack(alignment: .leading) {
             // Background track
             RoundedRectangle(cornerRadius: config.notchHUDProgressBarHeight / 2)
-                .fill(Color.white.opacity(0.3))
+                .fill(ThemeColors.hudPrimaryText(opacity: 0.3))
                 .frame(width: config.notchHUDProgressBarWidth, height: config.notchHUDProgressBarHeight)
 
             // Filled portion - uses frame-locked animator's displayed value
             RoundedRectangle(cornerRadius: config.notchHUDProgressBarHeight / 2)
-                .fill(Color.white)
+                .fill(ThemeColors.hudPrimaryText())
                 .frame(width: width, height: config.notchHUDProgressBarHeight)
         }
         .frame(width: config.notchHUDProgressBarWidth, height: config.notchHUDProgressBarHeight)

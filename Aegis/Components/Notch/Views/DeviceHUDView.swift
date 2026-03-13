@@ -71,6 +71,12 @@ struct DeviceHUDView: View {
                     Spacer(minLength: 0)
                     HUDLeftPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
                         .fill(Color.black)
+                        .overlay(
+                            config.notchHUDShowBorder
+                                ? HUDLeftPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
+                                    .stroke(ThemeColors.border(opacity: 0.18), lineWidth: 1)
+                                : nil
+                        )
                         .frame(width: leftPanelWidth + notchGapFill, height: notchDimensions.height)
                 }
                 .frame(width: panelWidth + notchGapFill, alignment: .trailing)
@@ -85,6 +91,12 @@ struct DeviceHUDView: View {
                 HStack(spacing: 0) {
                     HUDRightPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
                         .fill(Color.black)
+                        .overlay(
+                            config.notchHUDShowBorder
+                                ? HUDRightPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
+                                    .stroke(ThemeColors.border(opacity: 0.18), lineWidth: 1)
+                                : nil
+                        )
                         .frame(width: calculatedRightPanelWidth + notchGapFill, height: notchDimensions.height)
                     Spacer(minLength: 0)
                 }
@@ -103,7 +115,7 @@ struct DeviceHUDView: View {
                     if let device = viewModel.deviceInfo {
                         Image(systemName: device.deviceType.iconName)
                             .font(.system(size: config.notchHUDIconSize, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(ThemeColors.hudPrimaryText())
                     }
                 }
                 .frame(width: panelWidth, height: notchDimensions.height)
@@ -121,7 +133,7 @@ struct DeviceHUDView: View {
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(device.deviceType.displayName)
                                     .font(.system(size: 10, weight: .semibold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(ThemeColors.hudPrimaryText())
 
                                 Text(viewModel.isConnecting ? "Connected" : "Disconnected")
                                     .font(.system(size: 8, weight: .medium))
@@ -173,7 +185,7 @@ struct BatteryRingView: View {
         ZStack {
             // Background ring (unfilled)
             Circle()
-                .stroke(Color.white.opacity(0.2), lineWidth: 2.5)
+                .stroke(ThemeColors.hudPrimaryText(opacity: 0.2), lineWidth: 2.5)
 
             // Foreground ring (filled based on battery level)
             Circle()

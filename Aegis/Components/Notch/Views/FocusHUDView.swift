@@ -72,6 +72,12 @@ struct FocusHUDView: View {
                     Spacer(minLength: 0)
                     HUDLeftPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
                         .fill(Color.black)
+                        .overlay(
+                            config.notchHUDShowBorder
+                                ? HUDLeftPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
+                                    .stroke(ThemeColors.border(opacity: 0.18), lineWidth: 1)
+                                : nil
+                        )
                         .frame(width: leftPanelWidth + notchGapFill, height: notchDimensions.height)
                 }
                 .frame(width: panelWidth + notchGapFill, alignment: .trailing)
@@ -86,6 +92,12 @@ struct FocusHUDView: View {
                 HStack(spacing: 0) {
                     HUDRightPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
                         .fill(Color.black)
+                        .overlay(
+                            config.notchHUDShowBorder
+                                ? HUDRightPanelShape(cornerRadius: 10, topCornerRadius: 6, innerCornerRadius: 8)
+                                    .stroke(ThemeColors.border(opacity: 0.18), lineWidth: 1)
+                                : nil
+                        )
                         .frame(width: rightPanelWidth + notchGapFill, height: notchDimensions.height)
                     Spacer(minLength: 0)
                 }
@@ -103,7 +115,7 @@ struct FocusHUDView: View {
                     Spacer(minLength: 0)
                     Image(systemName: iconName)
                         .font(.system(size: config.notchHUDIconSize, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(ThemeColors.hudPrimaryText())
                         .frame(width: leftPanelWidth, height: notchDimensions.height)
                 }
                 .frame(width: panelWidth, height: notchDimensions.height)
@@ -119,7 +131,7 @@ struct FocusHUDView: View {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(focusName)
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(ThemeColors.hudPrimaryText())
                             .lineLimit(1)
 
                         Text(statusText)
