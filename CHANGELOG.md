@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.22] - 2026-03-16
+
+### Fixed
+- **Wake with external monitor** - Menu bar windows now rebuild correctly after waking from sleep when an external monitor is connected
+  - Previously, window positions were stale because existing coordinators were not repositioned after wake
+  - On wake and screen unlock, all menu bar windows now tear down and recreate against the current `NSScreen` frames
+
 ## [1.0.21] - 2026-03-13
 
 ### Added

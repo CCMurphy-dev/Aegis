@@ -183,7 +183,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func handleScreenWake(_ notification: Notification) {
-        logInfo("Screen woke from sleep - checking media HUD state")
+        logInfo("Screen woke from sleep - rebuilding menu bars and checking media HUD state")
+        // Rebuild menu bar windows so positions match the (potentially shifted) NSScreen frames
+        displayMenuBarManager?.rebuildAllMenuBars()
         // Small delay to let system fully wake before restoring HUD
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.notchHUDController?.handleScreenWake()
@@ -191,7 +193,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func handleScreenUnlock(_ notification: Notification) {
-        logInfo("Screen unlocked - reinitializing HUD windows")
+        logInfo("Screen unlocked - rebuilding menu bars and reinitializing HUD windows")
+        // Rebuild menu bar windows in case screen layout changed while locked
+        displayMenuBarManager?.rebuildAllMenuBars()
         // Longer delay for unlock as system is still initializing after login
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             self?.notchHUDController?.handleScreenUnlock()

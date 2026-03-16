@@ -313,6 +313,30 @@ final class DisplayMenuBarManager {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: workItem)
     }
 
+    // MARK: - Wake / Reconnect Rebuild
+
+    /// Force full teardown and rebuild of all menu bar windows.
+    /// Called on screen wake or unlock, where NSScreen frames may have shifted
+    /// but existing coordinators still hold stale window positions.
+    func rebuildAllMenuBars() {
+        for (_, coordinator) in coordinatorsByDisplay {
+            coordinator.hide()
+        }
+        coordinatorsByDisplay.removeAll()
+        activeDisplayIndices.removeAll()
+        // Reset so the yabai-data-loaded path fires again on first sync
+        hasValidYabaiDisplayData = false
+
+        // Sync immediately, then again after the display has fully settled
+        syncMenuBarsWithDisplays()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.syncMenuBarsWithDisplays()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            self?.syncMenuBarsWithDisplays()
+        }
+    }
+
     // MARK: - Updates
 
     func updateSpaces() {

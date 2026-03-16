@@ -8,6 +8,25 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.22</title>
+            <sparkle:version>1.0.22</sparkle:version>
+            <sparkle:shortVersionString>1.0.22</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Sun, 16 Mar 2026 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.22</h2>
+                <ul>
+                    <li><strong>Wake with external monitor</strong> - Menu bar windows now correctly reposition after waking from sleep with an external monitor connected</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.22/Aegis.app.zip"
+                length="2478752"
+                type="application/octet-stream"
+                sparkle:edSignature="TGKqodwI4y+upjhP4iDjfUBF0Mf8F54fv3/o+srhMejwfcyBnNGx7/X4gzQ7zfMSYtQKHt81jhXtqegmFCuFAQ==" />
+        </item>
+
+        <item>
             <title>Version 1.0.21</title>
             <sparkle:version>1.0.21</sparkle:version>
             <sparkle:shortVersionString>1.0.21</sparkle:shortVersionString>
