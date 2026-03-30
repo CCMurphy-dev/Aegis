@@ -133,7 +133,7 @@ brew install --cask nikitabobko/tap/aerospace
 ```
 See [AeroSpace docs](https://nikitabobko.github.io/AeroSpace/guide) for configuration.
 
-**Rift:** Download from [rift-app.com](https://rift-app.com) or your preferred source.
+**Rift:** Download from [Rift](https://github.com/acsandmann/rift) or your preferred source.
 
 ### 2. Install Aegis
 
@@ -184,7 +184,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 - [Yabai](https://github.com/koekeishiya/yabai) - Tiling window manager
 - [AeroSpace](https://github.com/nikitabobko/AeroSpace) - i3-inspired tiling window manager
-- [Rift](https://rift-app.com) - Modern macOS tiling window manager
+- [Rift](https://github.com/acsandmann/rift) - Modern macOS tiling window manager
 - [skhd](https://github.com/koekeishiya/skhd) - Hotkey daemon
 - [Sparkle](https://github.com/sparkle-project/Sparkle) - Auto-update framework
 - [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) - Media integration (Now Playing)
