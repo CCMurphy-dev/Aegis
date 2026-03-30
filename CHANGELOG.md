@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.23] - 2026-03-30
+
+### Added
+- **AeroSpace integration** - Full workspace switching and window management via AeroSpace CLI with FIFO pipe event system for instant updates (no polling)
+- **Rift integration** - Window management via Rift Mach subscription API, auto-connects on launch
+- **Multi-WM abstraction** - Aegis now auto-detects your running window manager (Yabai, AeroSpace, or Rift) at startup
+- **App switcher by workspace** - Cmd+Tab replacement now groups windows by virtual workspace for AeroSpace and Rift
+- **WM-aware settings** - Advanced tab shows correct integration info and setup button for the active window manager
+- **AeroSpace setup prompt** - First-launch setup wizard configures FIFO pipe hook in `.aerospace.toml`
+
 ## [1.0.22] - 2026-03-16
 
 ### Fixed

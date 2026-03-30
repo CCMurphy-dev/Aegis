@@ -8,6 +8,29 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.23</title>
+            <sparkle:version>1.0.23</sparkle:version>
+            <sparkle:shortVersionString>1.0.23</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Sun, 30 Mar 2026 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.23</h2>
+                <ul>
+                    <li><strong>AeroSpace Integration</strong> - Full workspace switching and window management via AeroSpace with instant FIFO pipe events (no polling)</li>
+                    <li><strong>Rift Integration</strong> - Window management via Rift Mach subscription API, auto-connects on launch</li>
+                    <li><strong>Multi-WM Auto-Detection</strong> - Aegis detects Yabai, AeroSpace, or Rift at startup — no configuration required</li>
+                    <li><strong>App Switcher by Workspace</strong> - Cmd+Tab replacement groups windows by virtual workspace for AeroSpace and Rift</li>
+                    <li><strong>WM-Aware Settings</strong> - Advanced tab shows correct integration info for the active window manager</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.23/Aegis.app.zip"
+                length="2794366"
+                type="application/octet-stream"
+                sparkle:edSignature="fw5oIi1+Mi1u6aT7nH8IcA8TcJc6Gsd5nYynqywSMQxBb5rtgbvjGvDOtlebGCKY05gL3iIw/M580HrCllRgAw==" />
+        </item>
+
+        <item>
             <title>Version 1.0.22</title>
             <sparkle:version>1.0.22</sparkle:version>
             <sparkle:shortVersionString>1.0.22</sparkle:shortVersionString>

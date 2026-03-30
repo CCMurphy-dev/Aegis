@@ -1,14 +1,41 @@
 # Aegis
 
-A macOS menu bar replacement for [Yabai](https://github.com/koekeishiya/yabai) window manager. Transforms your menu bar and notch into a control center for spaces, windows, and system status.
+A macOS menu bar replacement for tiling window managers. Transforms your menu bar and notch into a control center for spaces, windows, and system status. Supports **Yabai**, **AeroSpace**, and **Rift** — auto-detected at launch.
 
 ![macOS 14.0+](https://img.shields.io/badge/macOS-14.0+-blue)
 ![Swift](https://img.shields.io/badge/Swift-5.9-orange)
-[![Yabai](https://img.shields.io/badge/Yabai-Required-green)](https://github.com/asmvik/yabai)
 [![GitHub release](https://img.shields.io/github/v/release/CCMurphy-Dev/Aegis)](https://github.com/CCMurphy-Dev/Aegis/releases)
 [![Downloads](https://img.shields.io/github/downloads/CCMurphy-Dev/Aegis/total)](https://github.com/CCMurphy-Dev/Aegis/releases)
 
 <img width="1800" height="40" alt="image" src="https://github.com/user-attachments/assets/3e694fd5-1e14-4e96-a39e-e35979bd3603" />
+
+## Window Manager Support
+
+Aegis auto-detects your window manager at launch. No configuration required.
+
+| Feature | Yabai | AeroSpace | Rift |
+|---|:---:|:---:|:---:|
+| **Workspace display** | macOS native spaces | Virtual (1–9) | Virtual |
+| **Click to switch workspace** | ✓ | ✓ | ✓ |
+| **Window icons per workspace** | ✓ | ✓ | ✓ (cached) |
+| **Drag reorder workspaces** | ✓ | — | — |
+| **Create workspace** | ✓ | ✓ | ✓ |
+| **Destroy workspace** | ✓ | — | — |
+| **Send window to workspace** | ✓ | ✓ | ✓ |
+| **Focus window (click)** | ✓ | ✓ | ✓ |
+| **Drag window between workspaces** | ✓ | — | ✓ |
+| **Float / unfloat window** | ✓ | ✓ | ✓ |
+| **Toggle fullscreen** | ✓ | ✓ | ✓ |
+| **Stack windows** | ✓ | — | — |
+| **BSP / tiling layout toggle** | ✓ | ✓ | ✓ |
+| **Close / minimize window** | — | ✓ | — |
+| **Resize window** | — | ✓ | — |
+| **Multi-monitor focus/move** | — | ✓ | — |
+| **App switcher (Cmd+Tab) by workspace** | ✓ | ✓ | ✓ |
+| **Event system** | FIFO pipe | FIFO pipe | Mach subscription |
+| **Setup prompt** | ✓ | ✓ | Auto |
+
+> Full feature matrix in [WINDOW_MANAGERS.md](WINDOW_MANAGERS.md)
 
 ## Features
 
@@ -92,13 +119,21 @@ https://github.com/user-attachments/assets/95c7d4cf-5b05-4b03-b176-f2a5e10938bd
 
 ## Quick Start
 
-### 1. Install Yabai
+### 1. Install a supported window manager
 
+**Yabai:**
 ```bash
 brew install koekeishiya/formulae/yabai
 ```
+See the [Yabai wiki](https://github.com/koekeishiya/yabai/wiki) for SIP and scripting addition setup.
 
-See the [Yabai wiki](https://github.com/koekeishiya/yabai/wiki) for setup (SIP configuration, scripting addition).
+**AeroSpace:**
+```bash
+brew install --cask nikitabobko/tap/aerospace
+```
+See [AeroSpace docs](https://nikitabobko.github.io/AeroSpace/guide) for configuration.
+
+**Rift:** Download from [rift-app.com](https://rift-app.com) or your preferred source.
 
 ### 2. Install Aegis
 
@@ -110,15 +145,19 @@ cd Aegis
 open Aegis.xcodeproj
 ```
 
-### 3. Run Setup (Optional)
+### 3. Launch — Aegis auto-detects your WM
 
-On first launch, Aegis will prompt you to run the setup if needed. Alternatively, run manually:
+On first launch, Aegis detects your running window manager and prompts for any required setup (FIFO pipe integration for Yabai/AeroSpace). You can also run setup manually:
 
 ```bash
+# Yabai
 ~/.config/aegis/setup-aegis-yabai.sh
+
+# AeroSpace
+~/.config/aegis/setup-aegis-aerospace.sh
 ```
 
-This configures the FIFO pipe integration for instant space/window updates.
+Rift connects automatically via its Mach subscription API — no setup needed.
 
 ### 4. Grant Permissions
 
@@ -128,7 +167,7 @@ This configures the FIFO pipe integration for instant space/window updates.
 
 - macOS 14.0+ (Sonoma)
 - Apple Silicon Mac with notch (recommended)
-- Yabai window manager
+- One of: Yabai, AeroSpace, or Rift
 
 ## Documentation
 
@@ -144,6 +183,8 @@ MIT License - see [LICENSE](LICENSE) for details.
 ## Acknowledgments
 
 - [Yabai](https://github.com/koekeishiya/yabai) - Tiling window manager
+- [AeroSpace](https://github.com/nikitabobko/AeroSpace) - i3-inspired tiling window manager
+- [Rift](https://rift-app.com) - Modern macOS tiling window manager
 - [skhd](https://github.com/koekeishiya/skhd) - Hotkey daemon
 - [Sparkle](https://github.com/sparkle-project/Sparkle) - Auto-update framework
 - [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) - Media integration (Now Playing)
