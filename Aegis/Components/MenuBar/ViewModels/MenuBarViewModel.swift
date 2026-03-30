@@ -39,8 +39,8 @@ class MenuBarViewModel: ObservableObject {
     /// Called by performUpdate when fullscreen state changes
     var onFullscreenStateChanged: ((Bool) -> Void)?
 
-    /// Raw spaces data from YabaiService
-    private var spaces: [Space] = []
+    /// Raw spaces data from window manager
+    private var spaces: [WMSpace] = []
 
     /// Window icons keyed by space index
     private var windowIconsBySpace: [Int: [WindowIcon]] = [:]
@@ -53,7 +53,7 @@ class MenuBarViewModel: ObservableObject {
 
     // MARK: - Services & Timers
 
-    let yabaiService: YabaiService  // Made public for context menu
+    let windowManager: WindowManagerProtocol  // Made public for context menu
     private var updateTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
     private let titleObserver = WindowTitleObserver()
@@ -62,8 +62,8 @@ class MenuBarViewModel: ObservableObject {
     private var pendingUpdateWorkItem: DispatchWorkItem?
     private let updateCoalesceDelay: TimeInterval = 0.05  // 50ms coalesce window
 
-    init(yabaiService: YabaiService, targetScreen: NSScreen? = nil) {
-        self.yabaiService = yabaiService
+    init(windowManager: WindowManagerProtocol, targetScreen: NSScreen? = nil) {
+        self.windowManager = windowManager
         self.targetScreen = targetScreen
         self.spaceStore = SpaceViewModelStore()
         self.sharedState = SharedMenuBarState()
@@ -110,8 +110,8 @@ class MenuBarViewModel: ObservableObject {
 
     /// Internal method that performs the actual update
     private func performUpdate() {
-        // Fetch data from YabaiService
-        var allSpaces = yabaiService.getCurrentSpaces()
+        // Fetch data from window manager
+        var allSpaces = windowManager.getCurrentSpaces()
 
         // Apply display filtering if in perMonitor mode
         if spaceFilterMode == .perMonitor, let displayIdx = displayIndex {
@@ -121,25 +121,25 @@ class MenuBarViewModel: ObservableObject {
         spaces = allSpaces
 
         // Pre-compute fullscreen state and notify coordinator on change
-        if let focusedSpace = spaces.first(where: { $0.focused }) {
+        if let focusedSpace = spaces.first(where: { $0.isFocused }) {
             let wasFullscreen = isFocusedSpaceFullscreen
-            isFocusedSpaceFullscreen = focusedSpace.isNativeFullscreen || focusedSpace.type == "fullscreen"
+            isFocusedSpaceFullscreen = focusedSpace.isFullscreen || focusedSpace.layoutType == .fullscreen
             if isFocusedSpaceFullscreen != wasFullscreen {
                 onFullscreenStateChanged?(isFocusedSpaceFullscreen)
             }
         }
 
         // Fetch all windows once — reused for focused window check, launcher detection, and title observer
-        let allWindows = yabaiService.getAllWindows()
+        let allWindows = windowManager.getAllWindows()
         let focusedWindow = allWindows.first { $0.hasFocus }
 
         // Pre-compute which space has the focused window (replaces per-space spaceHasFocusedWindow scan)
-        // Uses same filtering as spaceHasFocusedWindow: excludes base apps, requires AXWindow role
+        // Excludes base apps (Finder, Aegis); adapter handles WM-specific filtering (e.g. AXWindow role)
         let baseExcludedApps = AegisConfig.shared.baseExcludedApps
         let focusedSpaceIndex: Int? = focusedWindow.flatMap { fw in
             guard !baseExcludedApps.contains(fw.app),
-                  fw.role == "AXWindow",
-                  fw.subrole == "AXStandardWindow" || fw.isMinimized else { return nil }
+                  fw.isVisible,
+                  !fw.isHidden else { return nil }
             return fw.space
         }
 
@@ -153,7 +153,7 @@ class MenuBarViewModel: ObservableObject {
         let maxIcons = AegisConfig.shared.maxAppIconsPerSpace
 
         for space in spaces {
-            let icons = yabaiService.getWindowIconsForSpace(space.index)
+            let icons = windowManager.getWindowIconsForSpace(space.index)
             // Apply the maxAppIconsPerSpace limit - visible icons are capped, allIcons keeps everything
             newIconsBySpace[space.index] = Array(icons.prefix(maxIcons))
             newAllIconsBySpace[space.index] = icons
@@ -164,7 +164,7 @@ class MenuBarViewModel: ObservableObject {
             }
 
             // O(1) check: is this space active? (replaces O(N) spaceHasFocusedWindow per space)
-            if focusedSpaceIndex == space.index || space.focused {
+            if focusedSpaceIndex == space.index || space.isFocused {
                 activeSpaceIndices.insert(space.index)
             }
 
@@ -230,15 +230,15 @@ class MenuBarViewModel: ObservableObject {
     // MARK: - Public accessors for MenuBarView compatibility
 
     /// Get all spaces (for ForEach in legacy code path)
-    func getSpaces() -> [Space] {
+    func getSpaces() -> [WMSpace] {
         return spaces
     }
 
-    func getWindowIcons(for space: Space) -> [WindowIcon] {
+    func getWindowIcons(for space: WMSpace) -> [WindowIcon] {
         return windowIconsBySpace[space.index] ?? []
     }
 
-    func getAllWindowIcons(for space: Space) -> [WindowIcon] {
+    func getAllWindowIcons(for space: WMSpace) -> [WindowIcon] {
         return allWindowIconsBySpace[space.index] ?? []
     }
 
@@ -246,13 +246,13 @@ class MenuBarViewModel: ObservableObject {
         return focusedIndexBySpace[spaceIndex]
     }
 
-    func getAppIcons(for space: Space) -> [NSImage] {
-        return yabaiService.getAppIconsForSpace(space.index)
+    func getAppIcons(for space: WMSpace) -> [NSImage] {
+        return windowManager.getAppIconsForSpace(space.index)
     }
 
     /// Check if any window on this space has focus (including excluded apps)
     func spaceHasFocusedWindow(_ spaceIndex: Int) -> Bool {
-        return yabaiService.spaceHasFocusedWindow(spaceIndex)
+        return windowManager.spaceHasFocusedWindow(spaceIndex)
     }
 
     // MARK: - Notch HUD Integration

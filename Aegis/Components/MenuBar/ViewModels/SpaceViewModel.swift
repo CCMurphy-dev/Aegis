@@ -13,7 +13,7 @@ import Combine
 final class SpaceViewModel: ObservableObject, Identifiable {
     let spaceId: Int
 
-    @Published private(set) var space: Space
+    @Published private(set) var space: WMSpace
     @Published private(set) var windowIcons: [WindowIcon] = []
     @Published private(set) var allWindowIcons: [WindowIcon] = []
     @Published private(set) var focusedIndex: Int?
@@ -21,13 +21,13 @@ final class SpaceViewModel: ObservableObject, Identifiable {
 
     var id: Int { spaceId }
 
-    init(space: Space) {
+    init(space: WMSpace) {
         self.spaceId = space.id
         self.space = space
     }
 
     /// Update from parent - only publishes if data actually changed
-    func update(space: Space, windowIcons: [WindowIcon], allWindowIcons: [WindowIcon],
+    func update(space: WMSpace, windowIcons: [WindowIcon], allWindowIcons: [WindowIcon],
                 focusedIndex: Int?, isActive: Bool) {
         // Only trigger @Published updates when values actually change
         // This is the key optimization - unchanged properties don't trigger view rebuilds

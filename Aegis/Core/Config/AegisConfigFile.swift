@@ -199,6 +199,9 @@ struct AegisConfigData: Codable {
     var notificationHUDAutoHideDelay: Double?
     var notificationExcludedApps: [String]?
 
+    // Window Manager
+    var windowManagerType: String?   // "auto", "yabai", "rift", "aerospace"
+
     // Notch HUD Icon & Text Settings
     var notchHUDIconSize: Double?
     var notchHUDValueFontSize: Double?
@@ -494,6 +497,11 @@ extension AegisConfig {
         if let v = data.dateFormat, let format = DateFormat(rawValue: v) {
             dateFormat = format
         }
+
+        // Window Manager
+        if let raw = data.windowManagerType, let type = WindowManagerType(rawValue: raw) {
+            windowManagerType = type
+        }
     }
 
     /// Export current config to JSON file
@@ -703,6 +711,9 @@ extension AegisConfig {
             notificationHUDAutoHide: notificationHUDAutoHide,
             notificationHUDAutoHideDelay: notificationHUDAutoHideDelay,
             notificationExcludedApps: notificationExcludedApps,
+
+            // Window Manager
+            windowManagerType: windowManagerType.rawValue,
 
             // Notch HUD Icon & Text Settings
             notchHUDIconSize: Double(notchHUDIconSize),

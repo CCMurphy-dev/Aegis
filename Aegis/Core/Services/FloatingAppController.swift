@@ -51,10 +51,10 @@ struct FloatingApp: Equatable {
 // Manages toggling floating utility apps - reuses existing window or opens new one
 
 class FloatingAppController {
-    private let yabaiService: YabaiService
+    private let windowManager: WindowManagerProtocol
 
-    init(yabaiService: YabaiService) {
-        self.yabaiService = yabaiService
+    init(windowManager: WindowManagerProtocol) {
+        self.windowManager = windowManager
     }
 
     /// Toggle app: focus existing window (moving to current space) or open/activate
@@ -68,7 +68,7 @@ class FloatingAppController {
 
     /// Find an existing window ID for the app
     private func findExistingWindow(for app: FloatingApp) -> Int? {
-        let windows = yabaiService.getAllWindows()
+        let windows = windowManager.getAllWindows()
 
         // Find first window for this app
         // For Finder: exclude empty titles and progress dialogs
@@ -92,14 +92,14 @@ class FloatingAppController {
 
     /// Focus window, move it to current space, and ensure it floats
     private func focusAndMoveToCurrentSpace(windowId: Int) {
-        let spaces = yabaiService.getCurrentSpaces()
-        guard let currentSpace = spaces.first(where: { $0.focused }) else {
-            yabaiService.focusWindow(windowId)
+        let spaces = windowManager.getCurrentSpaces()
+        guard let currentSpace = spaces.first(where: { $0.isFocused }) else {
+            windowManager.focusWindow(windowId)
             return
         }
 
         // Move to current space as floating window
-        yabaiService.moveWindowToSpaceFloatAndFocus(windowId, spaceIndex: currentSpace.index)
+        windowManager.moveWindowToSpaceFloatAndFocus(windowId, spaceIndex: currentSpace.index)
     }
 
     /// Open/activate the app, then float and center its window
@@ -134,7 +134,7 @@ class FloatingAppController {
         func checkForWindow() {
             attempts += 1
             if let windowId = findExistingWindow(for: app) {
-                yabaiService.floatAndCenterWindow(windowId)
+                windowManager.floatAndCenterWindow(windowId)
             } else if attempts < maxAttempts {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     checkForWindow()

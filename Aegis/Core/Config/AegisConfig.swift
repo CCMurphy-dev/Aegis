@@ -659,6 +659,12 @@ class AegisConfig: ObservableObject {
         }
     }
 
+    /// Which window manager to use (auto-detects by default)
+    @Published var windowManagerType: WindowManagerType = .auto
+
+    /// The resolved name of the active window manager (set by AppDelegate after init)
+    @Published var activeWindowManagerName: String = "Yabai"
+
     /// How to display menu bars across multiple monitors
     @Published var multiMonitorMode: MultiMonitorMode = .auto
 
@@ -973,6 +979,7 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(showAppLauncher, forKey: "showAppLauncher")
         UserDefaults.standard.set(showContextButton, forKey: "showContextButton")
         UserDefaults.standard.set(dateFormat.rawValue, forKey: "dateFormat")
+        UserDefaults.standard.set(windowManagerType.rawValue, forKey: "windowManagerType")
         UserDefaults.standard.set(multiMonitorMode.rawValue, forKey: "multiMonitorMode")
     }
 
@@ -1427,6 +1434,10 @@ class AegisConfig: ObservableObject {
            let format = DateFormat(rawValue: val) {
             dateFormat = format
         }
+        if let val = UserDefaults.standard.string(forKey: "windowManagerType"),
+           let type = WindowManagerType(rawValue: val) {
+            windowManagerType = type
+        }
         if let val = UserDefaults.standard.string(forKey: "multiMonitorMode"),
            let mode = MultiMonitorMode(rawValue: val) {
             multiMonitorMode = mode
@@ -1590,6 +1601,7 @@ class AegisConfig: ObservableObject {
         showAppLauncher = true
         showContextButton = true
         dateFormat = .long
+        windowManagerType = .auto
         multiMonitorMode = .auto
 
         savePreferences()

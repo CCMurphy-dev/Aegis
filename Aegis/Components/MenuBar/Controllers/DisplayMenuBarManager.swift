@@ -13,7 +13,7 @@ import CoreGraphics
 
 /// Manages menu bars across multiple displays based on configuration
 final class DisplayMenuBarManager {
-    private let yabaiService: YabaiService
+    private let windowManager: WindowManagerProtocol
     private let eventRouter: EventRouter
     private let config = AegisConfig.shared
 
@@ -41,8 +41,8 @@ final class DisplayMenuBarManager {
     /// Debounce timer for display changes (avoid duplicate handling from multiple callbacks)
     private var displayChangeDebounceWorkItem: DispatchWorkItem?
 
-    init(yabaiService: YabaiService, eventRouter: EventRouter) {
-        self.yabaiService = yabaiService
+    init(windowManager: WindowManagerProtocol, eventRouter: EventRouter) {
+        self.windowManager = windowManager
         self.eventRouter = eventRouter
 
         // Observe display changes via NSNotification (high-level)
@@ -98,7 +98,7 @@ final class DisplayMenuBarManager {
 
     /// Synchronize menu bars with current displays based on config mode
     private func syncMenuBarsWithDisplays() {
-        let displays = yabaiService.getCurrentDisplays()
+        let displays = windowManager.getCurrentDisplays()
         let screens = NSScreen.screens
         let displayCount = max(displays.count, screens.count)
 
@@ -197,7 +197,7 @@ final class DisplayMenuBarManager {
     /// Create a MenuBarCoordinator for a specific display
     private func createCoordinator(for displayIndex: Int, mode: AegisConfig.MultiMonitorMode) -> MenuBarCoordinator {
         // Find the NSScreen for this display using DisplayScreenMatcher
-        let displays = yabaiService.getCurrentDisplays()
+        let displays = windowManager.getCurrentDisplays()
         let targetScreen: NSScreen?
 
         if let display = displays.first(where: { $0.index == displayIndex }) {
@@ -235,7 +235,7 @@ final class DisplayMenuBarManager {
         let spaceFilterMode: MenuBarViewModel.SpaceFilterMode = mode == .perMonitor ? .perMonitor : .all
 
         let coordinator = MenuBarCoordinator(
-            yabaiService: yabaiService,
+            windowManager: windowManager,
             eventRouter: eventRouter,
             displayIndex: displayIndex,
             targetScreen: targetScreen,

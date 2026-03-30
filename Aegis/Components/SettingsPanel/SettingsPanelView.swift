@@ -391,6 +391,15 @@ struct SettingsPanelView: View {
 
             Divider().background(Color.white.opacity(0.1))
 
+            // Window Manager Selection
+            SettingsWindowManagerPicker(
+                label: "Window Manager",
+                description: "Which tiling window manager Aegis should connect to",
+                selection: $config.windowManagerType
+            )
+
+            Divider().background(Color.white.opacity(0.1))
+
             // Multi-Monitor Settings
             SettingsMultiMonitorPicker(
                 label: "Multi-Monitor Mode",
@@ -647,8 +656,15 @@ struct SettingsPanelView: View {
 
             Divider().background(Color.white.opacity(0.1))
 
-            // Yabai Setup button
-            SettingsYabaiSetupButton()
+            // WM Integration Setup button (only for WMs that need setup)
+            switch config.activeWindowManagerName {
+            case "AeroSpace":
+                SettingsAeroSpaceSetupButton()
+            case "Rift":
+                SettingsWMInfoRow(wmName: "Rift")
+            default:
+                SettingsYabaiSetupButton()
+            }
         }
     }
 

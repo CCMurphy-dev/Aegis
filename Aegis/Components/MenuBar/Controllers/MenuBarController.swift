@@ -9,9 +9,9 @@ import Combine
 class MenuBarController {
     private let coordinator: MenuBarCoordinator
 
-    init(yabaiService: YabaiService, eventRouter: EventRouter) {
+    init(windowManager: WindowManagerProtocol, eventRouter: EventRouter) {
         self.coordinator = MenuBarCoordinator(
-            yabaiService: yabaiService,
+            windowManager: windowManager,
             eventRouter: eventRouter
         )
     }
@@ -236,7 +236,7 @@ struct MenuBarView: View {
                                             previousSpaceCount = newCount
                                             // Find the focused space from the store
                                             if let focusedSpaceId = newSpaceIds.first(where: { spaceId in
-                                                spaceStore.viewModel(for: spaceId)?.space.focused ?? false
+                                                spaceStore.viewModel(for: spaceId)?.space.isFocused ?? false
                                             }) {
                                                 withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                                                     scrollProxy.scrollTo(focusedSpaceId, anchor: .leading)
@@ -702,18 +702,30 @@ struct LayoutActionsButton: View {
 
     private let config = AegisConfig.shared
 
-    // Define all available actions
-    let actions: [(label: String, icon: String, execute: (LayoutActionsButton) -> Void)] = [
-        ("Rotate 90°", "↻", { $0.onRotate(90) }),
-        ("Rotate 180°", "↻↻", { $0.onRotate(180) }),
-        ("Rotate 270°", "↺", { $0.onRotate(270) }),
-        ("Flip Horizontal", "↔", { $0.onFlip("x") }),
-        ("Flip Vertical", "↕", { $0.onFlip("y") }),
-        ("Balance", "⚖", { $0.onBalance() }),
-        ("Toggle Layout", "⇄", { $0.onToggleLayout() }),
-        ("Stack/Unstack", "⧉", { $0.onStackAllWindows() }),
-        ("New Space", "+", { $0.onSpaceCreate() })
-    ]
+    // Define available actions — filtered by window manager capabilities
+    typealias ActionTuple = (label: String, icon: String, execute: (LayoutActionsButton) -> Void)
+
+    var actions: [ActionTuple] {
+        var result: [ActionTuple] = []
+        if viewModel.windowManager.name == "Yabai" {
+            result.append(contentsOf: [
+                ("Rotate 90°", "↻", { (b: LayoutActionsButton) in b.onRotate(90) }),
+                ("Rotate 180°", "↻↻", { (b: LayoutActionsButton) in b.onRotate(180) }),
+                ("Rotate 270°", "↺", { (b: LayoutActionsButton) in b.onRotate(270) }),
+                ("Flip Horizontal", "↔", { (b: LayoutActionsButton) in b.onFlip("x") }),
+                ("Flip Vertical", "↕", { (b: LayoutActionsButton) in b.onFlip("y") }),
+                ("Balance", "⚖", { (b: LayoutActionsButton) in b.onBalance() }),
+            ] as [ActionTuple])
+        } else if viewModel.windowManager.name == "AeroSpace" {
+            result.append(("Balance", "⚖", { (b: LayoutActionsButton) in b.onBalance() }))
+        }
+        result.append(("Toggle Layout", "⇄", { (b: LayoutActionsButton) in b.onToggleLayout() }))
+        if viewModel.windowManager.capabilities.contains(.stackWindows) {
+            result.append(("Stack/Unstack", "⧉", { (b: LayoutActionsButton) in b.onStackAllWindows() }))
+        }
+        result.append(("New Space", "+", { (b: LayoutActionsButton) in b.onSpaceCreate() }))
+        return result
+    }
 
     // Computed properties to avoid array access in body
     private var currentIcon: String { actions[selectedActionIndex].icon }
@@ -789,20 +801,20 @@ struct LayoutActionsButton: View {
         let menu = NSMenu()
         menu.autoenablesItems = false
 
-        let yabaiService = viewModel.yabaiService
+        let windowManager = viewModel.windowManager
         // Get all spaces from cache
-        let spaces = yabaiService.getCurrentSpaces()
+        let spaces = windowManager.getCurrentSpaces()
 
-        // Query yabai directly (blocking) for accurate focused space
-        let focusedSpaceIndex = yabaiService.queryFocusedSpaceIndexSync()
+        // Query WM directly for accurate focused space
+        let focusedSpaceIndex = windowManager.getFocusedSpaceIndex()
         let focusedSpace = spaces.first(where: { $0.index == focusedSpaceIndex })
 
         // Get window count for current space
-        let windowCount = focusedSpace.map { yabaiService.getWindowIconsForSpace($0.index).count } ?? 0
+        let windowCount = focusedSpace.map { windowManager.getAppIconsForSpace($0.index).count } ?? 0
 
         // Create a menu target with captured callbacks
         let menuTarget = LayoutActionsMenuTarget(
-            yabaiService: yabaiService,
+            windowManager: windowManager,
             onRotate: onRotate,
             onFlip: onFlip,
             onBalance: onBalance,
@@ -813,20 +825,20 @@ struct LayoutActionsButton: View {
         )
 
         // MARK: - Layout Actions Section
-        let currentLayoutType = focusedSpace?.type ?? "bsp"
+        let currentLayoutType = focusedSpace?.layoutType.rawValue ?? "bsp"
 
-        for (index, action) in actions.enumerated() {
+        for action in actions {
             // Skip "Toggle Layout" - we'll add a submenu instead
-            if index == 6 {
+            if action.label == "Toggle Layout" {
                 continue
             }
 
-            let menuItem = NSMenuItem(title: "\(action.icon)  \(action.label)", action: #selector(LayoutActionsMenuTarget.executeAction(_:)), keyEquivalent: "")
+            let menuItem = NSMenuItem(title: "\(action.icon)  \(action.label)", action: #selector(LayoutActionsMenuTarget.executeActionByLabel(_:)), keyEquivalent: "")
             menuItem.target = menuTarget
-            menuItem.tag = index
+            menuItem.representedObject = action.label
 
             // Disable Stack/Unstack if only 0-1 windows
-            if index == 7 { // Stack/Unstack action
+            if action.label == "Stack/Unstack" {
                 menuItem.isEnabled = windowCount > 1
             } else {
                 menuItem.isEnabled = true
@@ -840,11 +852,28 @@ struct LayoutActionsButton: View {
         let layoutSubmenu = NSMenu()
         layoutSubmenu.autoenablesItems = false
 
-        let layoutTypes = [
-            ("BSP", "bsp", "Binary space partitioning - tiles windows automatically"),
-            ("Float", "float", "Floating windows - manual positioning"),
-            ("Stack", "stack", "All windows stacked on top of each other")
-        ]
+        let layoutTypes: [(String, String, String)]
+        if windowManager.name == "Rift" {
+            layoutTypes = [
+                ("Traditional", "traditional", "Standard macOS window management"),
+                ("BSP", "bsp", "Binary space partitioning - tiles windows automatically"),
+                ("Stack", "stack", "All windows stacked on top of each other"),
+                ("Master-Stack", "master_stack", "One master window with stack on the side"),
+                ("Scrolling", "scrolling", "Horizontally scrolling strip of windows")
+            ]
+        } else if windowManager.name == "AeroSpace" {
+            layoutTypes = [
+                ("Tiling", "tiling", "Tile windows using h/v splits"),
+                ("Accordion", "accordion", "Stack windows in accordion layout"),
+                ("Floating", "floating", "Floating windows - manual positioning")
+            ]
+        } else {
+            layoutTypes = [
+                ("BSP", "bsp", "Binary space partitioning - tiles windows automatically"),
+                ("Float", "float", "Floating windows - manual positioning"),
+                ("Stack", "stack", "All windows stacked on top of each other")
+            ]
+        }
 
         for (label, value, _) in layoutTypes {
             let item = NSMenuItem(title: label, action: #selector(LayoutActionsMenuTarget.setLayout(_:)), keyEquivalent: "")
@@ -871,6 +900,14 @@ struct LayoutActionsButton: View {
         menu.items.last?.target = menuTarget
         menu.items.last?.isEnabled = windowCount > 1
 
+        if windowManager.name == "AeroSpace" {
+            menu.addItem(NSMenuItem(title: "Focus Monitor Next", action: #selector(LayoutActionsMenuTarget.focusMonitorNext), keyEquivalent: ""))
+            menu.items.last?.target = menuTarget
+
+            menu.addItem(NSMenuItem(title: "Focus Monitor Prev", action: #selector(LayoutActionsMenuTarget.focusMonitorPrev), keyEquivalent: ""))
+            menu.items.last?.target = menuTarget
+        }
+
         menu.addItem(NSMenuItem(title: "Swap Left", action: #selector(LayoutActionsMenuTarget.swapLeft), keyEquivalent: ""))
         menu.items.last?.target = menuTarget
         menu.items.last?.isEnabled = windowCount > 1
@@ -886,6 +923,31 @@ struct LayoutActionsButton: View {
         menu.addItem(NSMenuItem(title: "Toggle Fullscreen", action: #selector(LayoutActionsMenuTarget.toggleFullscreen), keyEquivalent: ""))
         menu.items.last?.target = menuTarget
         menu.items.last?.isEnabled = windowCount > 0
+
+        if windowManager.name == "AeroSpace" {
+            menu.addItem(NSMenuItem(title: "Native Fullscreen", action: #selector(LayoutActionsMenuTarget.macosNativeFullscreen), keyEquivalent: ""))
+            menu.items.last?.target = menuTarget
+            menu.items.last?.isEnabled = windowCount > 0
+
+            menu.addItem(NSMenuItem(title: "Minimize", action: #selector(LayoutActionsMenuTarget.minimizeWindow), keyEquivalent: ""))
+            menu.items.last?.target = menuTarget
+            menu.items.last?.isEnabled = windowCount > 0
+
+            menu.addItem(NSMenuItem(title: "Close Window", action: #selector(LayoutActionsMenuTarget.closeWindow), keyEquivalent: ""))
+            menu.items.last?.target = menuTarget
+            menu.items.last?.isEnabled = windowCount > 0
+
+            menu.addItem(NSMenuItem(title: "Close All But Current", action: #selector(LayoutActionsMenuTarget.closeAllButCurrent), keyEquivalent: ""))
+            menu.items.last?.target = menuTarget
+            menu.items.last?.isEnabled = windowCount > 0
+
+            menu.addItem(NSMenuItem(title: "Toggle Orientation", action: #selector(LayoutActionsMenuTarget.toggleOrientation), keyEquivalent: ""))
+            menu.items.last?.target = menuTarget
+            menu.items.last?.isEnabled = windowCount > 0
+
+            menu.addItem(NSMenuItem(title: "Last Workspace", action: #selector(LayoutActionsMenuTarget.workspaceBackAndForth), keyEquivalent: ""))
+            menu.items.last?.target = menuTarget
+        }
 
         menu.addItem(NSMenuItem.separator())
 
@@ -910,6 +972,51 @@ struct LayoutActionsButton: View {
         moveSubmenu.items.last?.target = menuTarget
         moveSubmenu.items.last?.isEnabled = windowCount > 0
 
+        if windowManager.name == "AeroSpace" {
+            moveSubmenu.addItem(NSMenuItem.separator())
+
+            // Join With submenu
+            let joinItem = NSMenuItem(title: "Join With", action: nil, keyEquivalent: "")
+            let joinSubmenu = NSMenu()
+            joinSubmenu.autoenablesItems = false
+            for (label, dir) in [("Left", "left"), ("Down", "down"), ("Up", "up"), ("Right", "right")] {
+                let item = NSMenuItem(title: label, action: #selector(LayoutActionsMenuTarget.joinWith(_:)), keyEquivalent: "")
+                item.target = menuTarget
+                item.representedObject = dir
+                item.isEnabled = windowCount > 1
+                joinSubmenu.addItem(item)
+            }
+            joinItem.submenu = joinSubmenu
+            moveSubmenu.addItem(joinItem)
+
+            moveSubmenu.addItem(NSMenuItem.separator())
+
+            // Resize
+            let resizeItem = NSMenuItem(title: "Resize", action: nil, keyEquivalent: "")
+            let resizeSubmenu = NSMenu()
+            resizeSubmenu.autoenablesItems = false
+            for (label, amount) in [("Grow", "+50"), ("Shrink", "-50")] {
+                let item = NSMenuItem(title: label, action: #selector(LayoutActionsMenuTarget.resizeSmart(_:)), keyEquivalent: "")
+                item.target = menuTarget
+                item.representedObject = amount
+                item.isEnabled = windowCount > 0
+                resizeSubmenu.addItem(item)
+            }
+            resizeItem.submenu = resizeSubmenu
+            moveSubmenu.addItem(resizeItem)
+
+            moveSubmenu.addItem(NSMenuItem.separator())
+
+            // Monitor actions
+            moveSubmenu.addItem(NSMenuItem(title: "To Monitor Next", action: #selector(LayoutActionsMenuTarget.moveToMonitorNext), keyEquivalent: ""))
+            moveSubmenu.items.last?.target = menuTarget
+            moveSubmenu.items.last?.isEnabled = windowCount > 0
+
+            moveSubmenu.addItem(NSMenuItem(title: "To Monitor Prev", action: #selector(LayoutActionsMenuTarget.moveToMonitorPrev), keyEquivalent: ""))
+            moveSubmenu.items.last?.target = menuTarget
+            moveSubmenu.items.last?.isEnabled = windowCount > 0
+        }
+
         moveWindowItem.submenu = moveSubmenu
         menu.addItem(moveWindowItem)
 
@@ -918,32 +1025,52 @@ struct LayoutActionsButton: View {
         let spaceSubmenu = NSMenu()
         spaceSubmenu.autoenablesItems = false
 
-        // Show all spaces in the menu (including current space for convenience)
-        for space in spaces {
-            let spaceItem = NSMenuItem(title: "Space \(space.index)", action: #selector(LayoutActionsMenuTarget.sendToSpace(_:)), keyEquivalent: "")
-            spaceItem.target = menuTarget
-            spaceItem.representedObject = space.index
-            spaceItem.isEnabled = windowCount > 0
-            // Dim the current space to indicate it's where you already are
-            if space.index == focusedSpaceIndex {
-                spaceItem.attributedTitle = NSAttributedString(
-                    string: "Space \(space.index) (current)",
-                    attributes: [.foregroundColor: NSColor.gray]
-                )
+        if windowManager.name == "AeroSpace" {
+            // AeroSpace: show all workspaces 1-9, use workspace name as identifier
+            let focusedLabel = spaces.first(where: { $0.index == focusedSpaceIndex })?.label
+            for i in 1...9 {
+                let wsName = "\(i)"
+                let spaceItem = NSMenuItem(title: "Space \(wsName)", action: #selector(LayoutActionsMenuTarget.sendToSpace(_:)), keyEquivalent: "")
+                spaceItem.target = menuTarget
+                spaceItem.representedObject = wsName  // Pass workspace name string
+                spaceItem.isEnabled = windowCount > 0
+                if wsName == focusedLabel {
+                    spaceItem.attributedTitle = NSAttributedString(
+                        string: "Space \(wsName) (current)",
+                        attributes: [.foregroundColor: NSColor.gray]
+                    )
+                }
+                spaceSubmenu.addItem(spaceItem)
             }
-            spaceSubmenu.addItem(spaceItem)
+        } else {
+            // Yabai/Rift: show existing spaces with indices
+            for space in spaces {
+                let spaceLabel = space.label ?? "\(space.index)"
+                let spaceItem = NSMenuItem(title: "Space \(spaceLabel)", action: #selector(LayoutActionsMenuTarget.sendToSpace(_:)), keyEquivalent: "")
+                spaceItem.target = menuTarget
+                spaceItem.representedObject = space.index
+                spaceItem.isEnabled = windowCount > 0
+                if space.index == focusedSpaceIndex {
+                    spaceItem.attributedTitle = NSAttributedString(
+                        string: "Space \(spaceLabel) (current)",
+                        attributes: [.foregroundColor: NSColor.gray]
+                    )
+                }
+                spaceSubmenu.addItem(spaceItem)
+            }
         }
 
         sendToSpaceItem.submenu = spaceSubmenu
         menu.addItem(sendToSpaceItem)
 
-        // MARK: - Stack Windows Submenu
+        // MARK: - Stack Windows Submenu (only for WMs with stack capability)
+      if windowManager.capabilities.contains(.stackWindows) {
         let stackWindowsItem = NSMenuItem(title: "Stack Windows", action: nil, keyEquivalent: "")
         let stackSubmenu = NSMenu()
         stackSubmenu.autoenablesItems = false
 
-        // Query yabai fresh for accurate stack-index values
-        let freshWindows = yabaiService.queryWindowsForSpaceSync(focusedSpaceIndex)
+        // Query WM fresh for accurate stack-index values
+        let freshWindows = windowManager.getWindowsForSpace(focusedSpaceIndex)
         print("📋 Stack menu: focusedSpace=\(focusedSpaceIndex), freshWindows=\(freshWindows.count)")
 
         if freshWindows.count >= 2 {
@@ -951,7 +1078,7 @@ struct LayoutActionsButton: View {
             let iconSize = NSSize(width: 16, height: 16)
             var scaledIcons: [Int: NSImage] = [:]
             for window in freshWindows {
-                if let icon = yabaiService.getAppIcon(for: window.app) {
+                if let icon = windowManager.getAppIcon(for: window.app) {
                     let scaled = NSImage(size: iconSize)
                     scaled.lockFocus()
                     icon.draw(in: NSRect(origin: .zero, size: iconSize))
@@ -962,18 +1089,18 @@ struct LayoutActionsButton: View {
 
             // Group windows by stack using exact frame match
             // Stacked windows in yabai share the identical frame (x, y, w, h)
-            var stackGroups: [[WindowInfo]] = []
-            var unstackedWindows: [WindowInfo] = []
+            var stackGroups: [[WMWindow]] = []
+            var unstackedWindows: [WMWindow] = []
 
             let stacked = freshWindows.filter { $0.stackIndex > 0 }
             let notStacked = freshWindows.filter { $0.stackIndex == 0 }
 
             // Group stacked windows by their exact frame (rounded to avoid float precision issues)
-            let frameKey: (WindowInfo) -> String = { w in
+            let frameKey: (WMWindow) -> String = { w in
                 guard let f = w.frame else { return "nil-\(w.id)" }
                 return "\(Int(f.origin.x)),\(Int(f.origin.y)),\(Int(f.width)),\(Int(f.height))"
             }
-            var frameGroups: [String: [WindowInfo]] = [:]
+            var frameGroups: [String: [WMWindow]] = [:]
             for window in stacked {
                 let key = frameKey(window)
                 frameGroups[key, default: []].append(window)
@@ -984,7 +1111,7 @@ struct LayoutActionsButton: View {
             print("📋 Stack grouping: \(stackGroups.count) stacks, \(unstackedWindows.count) unstacked (stacked windows: \(stacked.count))")
 
             // Helper to get display title for a window
-            func windowTitle(_ w: WindowInfo) -> String {
+            func windowTitle(_ w: WMWindow) -> String {
                 w.title.isEmpty ? w.app : String(w.title.prefix(30))
             }
 
@@ -1086,14 +1213,17 @@ struct LayoutActionsButton: View {
 
         stackWindowsItem.submenu = stackSubmenu
         menu.addItem(stackWindowsItem)
+      }
 
         menu.addItem(NSMenuItem.separator())
 
-        // MARK: - Space Management Section
-        menu.addItem(NSMenuItem(title: "Destroy Space", action: #selector(LayoutActionsMenuTarget.destroyCurrentSpace(_:)), keyEquivalent: ""))
-        menu.items.last?.target = menuTarget
-        menu.items.last?.representedObject = focusedSpaceIndex
-        menu.items.last?.isEnabled = spaces.count > 1
+        // MARK: - Space Management Section (Yabai only — Rift/AeroSpace use fixed/virtual workspaces)
+        if windowManager.name == "Yabai" {
+            menu.addItem(NSMenuItem(title: "Destroy Space", action: #selector(LayoutActionsMenuTarget.destroyCurrentSpace(_:)), keyEquivalent: ""))
+            menu.items.last?.target = menuTarget
+            menu.items.last?.representedObject = focusedSpaceIndex
+            menu.items.last?.isEnabled = spaces.count > 1
+        }
 
         menu.addItem(NSMenuItem.separator())
 
@@ -1102,31 +1232,33 @@ struct LayoutActionsButton: View {
         statusItem.isEnabled = false
         menu.addItem(statusItem)
 
-        // Yabai Version
-        let yabaiVersion = yabaiService.getYabaiVersion()
-        let yabaiVersionItem = NSMenuItem(title: "  Yabai: v\(yabaiVersion)", action: nil, keyEquivalent: "")
-        yabaiVersionItem.isEnabled = false
-        menu.addItem(yabaiVersionItem)
+        // WM Version
+        let wmVersion = windowManager.getVersion()
+        let wmVersionItem = NSMenuItem(title: "  \(windowManager.name): v\(wmVersion)", action: nil, keyEquivalent: "")
+        wmVersionItem.isEnabled = false
+        menu.addItem(wmVersionItem)
 
-        // SA Status - check if scripting addition is loaded
-        let saStatus = YabaiSetupChecker.checkSA()
-        let saStatusItem: NSMenuItem
-        switch saStatus {
-        case .loaded:
-            saStatusItem = NSMenuItem(title: "  SA: Loaded", action: nil, keyEquivalent: "")
-            saStatusItem.isEnabled = false
-        case .notLoaded:
-            saStatusItem = NSMenuItem(title: "  SA: Not loaded (click to copy cmd)", action: #selector(LayoutActionsMenuTarget.loadSA), keyEquivalent: "")
-            saStatusItem.target = menuTarget
-            saStatusItem.isEnabled = true
-        case .notInstalled:
-            saStatusItem = NSMenuItem(title: "  SA: Not installed", action: nil, keyEquivalent: "")
-            saStatusItem.isEnabled = false
-        case .unknown:
-            saStatusItem = NSMenuItem(title: "  SA: Unknown", action: nil, keyEquivalent: "")
-            saStatusItem.isEnabled = false
+        // Yabai-specific: SA status
+        if windowManager.name == "Yabai" {
+            let saStatus = YabaiSetupChecker.checkSA()
+            let saStatusItem: NSMenuItem
+            switch saStatus {
+            case .loaded:
+                saStatusItem = NSMenuItem(title: "  SA: Loaded", action: nil, keyEquivalent: "")
+                saStatusItem.isEnabled = false
+            case .notLoaded:
+                saStatusItem = NSMenuItem(title: "  SA: Not loaded (click to copy cmd)", action: #selector(LayoutActionsMenuTarget.loadSA), keyEquivalent: "")
+                saStatusItem.target = menuTarget
+                saStatusItem.isEnabled = true
+            case .notInstalled:
+                saStatusItem = NSMenuItem(title: "  SA: Not installed", action: nil, keyEquivalent: "")
+                saStatusItem.isEnabled = false
+            case .unknown:
+                saStatusItem = NSMenuItem(title: "  SA: Unknown", action: nil, keyEquivalent: "")
+                saStatusItem.isEnabled = false
+            }
+            menu.addItem(saStatusItem)
         }
-        menu.addItem(saStatusItem)
 
         // Aegis Version
         let aegisVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
@@ -1134,22 +1266,24 @@ struct LayoutActionsButton: View {
         aegisVersionItem.isEnabled = false
         menu.addItem(aegisVersionItem)
 
-        // Link Status - check yabai-aegis integration
-        let linkStatus = YabaiSetupChecker.check()
-        let linkStatusText: String
-        switch linkStatus {
-        case .ready:
-            linkStatusText = "Active"
-        case .yabaiNotInstalled:
-            linkStatusText = "Inactive (Yabai not installed)"
-        case .signalsNotConfigured:
-            linkStatusText = "Not configured"
-        case .notifyScriptMissing:
-            linkStatusText = "Script missing"
+        // Yabai-specific: Link status
+        if windowManager.name == "Yabai" {
+            let linkStatus = YabaiSetupChecker.check()
+            let linkStatusText: String
+            switch linkStatus {
+            case .ready:
+                linkStatusText = "Active"
+            case .yabaiNotInstalled:
+                linkStatusText = "Inactive (Yabai not installed)"
+            case .signalsNotConfigured:
+                linkStatusText = "Not configured"
+            case .notifyScriptMissing:
+                linkStatusText = "Script missing"
+            }
+            let linkStatusItem = NSMenuItem(title: "  Link: \(linkStatusText)", action: nil, keyEquivalent: "")
+            linkStatusItem.isEnabled = false
+            menu.addItem(linkStatusItem)
         }
-        let linkStatusItem = NSMenuItem(title: "  Link: \(linkStatusText)", action: nil, keyEquivalent: "")
-        linkStatusItem.isEnabled = false
-        menu.addItem(linkStatusItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -1203,17 +1337,29 @@ struct LayoutActionsButton: View {
         menu.items.last?.target = menuTarget
         menu.items.last?.isEnabled = true
 
-        menu.addItem(NSMenuItem(title: "Reload yabai", action: #selector(LayoutActionsMenuTarget.restartYabai), keyEquivalent: ""))
-        menu.items.last?.target = menuTarget
-        menu.items.last?.isEnabled = true
+        if windowManager.name == "Yabai" {
+            menu.addItem(NSMenuItem(title: "Reload yabai", action: #selector(LayoutActionsMenuTarget.restartYabai), keyEquivalent: ""))
+            menu.items.last?.target = menuTarget
+            menu.items.last?.isEnabled = true
+        } else if windowManager.name == "Rift" {
+            menu.addItem(NSMenuItem(title: "Restart Rift", action: #selector(LayoutActionsMenuTarget.restartRift), keyEquivalent: ""))
+            menu.items.last?.target = menuTarget
+            menu.items.last?.isEnabled = true
+        } else if windowManager.name == "AeroSpace" {
+            menu.addItem(NSMenuItem(title: "Reload AeroSpace", action: #selector(LayoutActionsMenuTarget.reloadAeroSpace), keyEquivalent: ""))
+            menu.items.last?.target = menuTarget
+            menu.items.last?.isEnabled = true
+        }
 
         menu.addItem(NSMenuItem(title: "Restart Aegis", action: #selector(LayoutActionsMenuTarget.restartAegis), keyEquivalent: ""))
         menu.items.last?.target = menuTarget
         menu.items.last?.isEnabled = true
 
-        menu.addItem(NSMenuItem(title: "Restart skhd", action: #selector(LayoutActionsMenuTarget.restartSkhd), keyEquivalent: ""))
-        menu.items.last?.target = menuTarget
-        menu.items.last?.isEnabled = true
+        if windowManager.name == "Yabai" {
+            menu.addItem(NSMenuItem(title: "Restart skhd", action: #selector(LayoutActionsMenuTarget.restartSkhd), keyEquivalent: ""))
+            menu.items.last?.target = menuTarget
+            menu.items.last?.isEnabled = true
+        }
 
         menu.addItem(NSMenuItem.separator())
 
@@ -1240,7 +1386,7 @@ struct LayoutActionsButton: View {
 class LayoutActionsMenuTarget: NSObject {
     static let shared = LayoutActionsMenuTarget()
 
-    private let yabaiService: YabaiService?
+    private let windowManager: WindowManagerProtocol?
     private let onRotate: ((Int) -> Void)?
     private let onFlip: ((String) -> Void)?
     private let onBalance: (() -> Void)?
@@ -1249,7 +1395,7 @@ class LayoutActionsMenuTarget: NSObject {
     private let onSpaceCreate: (() -> Void)?
     private let onSpaceDestroy: ((Int) -> Void)?
 
-    init(yabaiService: YabaiService? = nil,
+    init(windowManager: WindowManagerProtocol? = nil,
          onRotate: ((Int) -> Void)? = nil,
          onFlip: ((String) -> Void)? = nil,
          onBalance: (() -> Void)? = nil,
@@ -1257,7 +1403,7 @@ class LayoutActionsMenuTarget: NSObject {
          onStackAllWindows: (() -> Void)? = nil,
          onSpaceCreate: (() -> Void)? = nil,
          onSpaceDestroy: ((Int) -> Void)? = nil) {
-        self.yabaiService = yabaiService
+        self.windowManager = windowManager
         self.onRotate = onRotate
         self.onFlip = onFlip
         self.onBalance = onBalance
@@ -1272,7 +1418,7 @@ class LayoutActionsMenuTarget: NSObject {
         let index = sender.tag
         print("📋 Menu action at index: \(index)")
 
-        // Execute based on index
+        // Execute based on index (used by AppKitActionButton's hardcoded tag values)
         switch index {
         case 0: onRotate?(90)
         case 1: onRotate?(180)
@@ -1285,6 +1431,25 @@ class LayoutActionsMenuTarget: NSObject {
         case 8: onSpaceCreate?()
         default:
             print("❌ Unknown action index: \(index)")
+        }
+    }
+
+    @objc func executeActionByLabel(_ sender: NSMenuItem) {
+        guard let label = sender.representedObject as? String else { return }
+        print("📋 Menu action: \(label)")
+
+        switch label {
+        case "Rotate 90°": onRotate?(90)
+        case "Rotate 180°": onRotate?(180)
+        case "Rotate 270°": onRotate?(270)
+        case "Flip Horizontal": onFlip?("x")
+        case "Flip Vertical": onFlip?("y")
+        case "Balance": onBalance?()
+        case "Toggle Layout": onToggleLayout?()
+        case "Stack/Unstack": onStackAllWindows?()
+        case "New Space": onSpaceCreate?()
+        default:
+            print("❌ Unknown action: \(label)")
         }
     }
 
@@ -1328,6 +1493,29 @@ class LayoutActionsMenuTarget: NSObject {
             print("✅ Yabai restart command sent")
         } catch {
             print("❌ Failed to restart yabai: \(error)")
+        }
+    }
+
+    @objc func restartRift() {
+        print("🔄 Restarting Rift...")
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/rift-cli")
+        task.arguments = ["service", "restart"]
+        do {
+            try task.run()
+            print("✅ Rift restart command sent")
+        } catch {
+            print("❌ Failed to restart Rift: \(error)")
+        }
+    }
+
+    @objc func reloadAeroSpace() {
+        print("🔄 Reloading AeroSpace config...")
+        windowManager?.executeRawCommand(args: ["reload-config"]) { result in
+            switch result {
+            case .success: print("✅ AeroSpace config reloaded")
+            case .failure(let error): print("❌ Failed to reload AeroSpace: \(error)")
+            }
         }
     }
 
@@ -1378,65 +1566,144 @@ class LayoutActionsMenuTarget: NSObject {
 
     // MARK: - Window Navigation Actions
 
+    private var isRift: Bool { windowManager?.name == "Rift" }
+    private var isAeroSpace: Bool { windowManager?.name == "AeroSpace" }
+
     @objc func focusNext() {
         print("➡️ Focusing next window...")
-        yabaiService?.executeYabai(args: ["-m", "window", "--focus", "next"]) { _ in }
+        if isRift {
+            windowManager?.executeRawCommand(args: ["execute", "window", "next"]) { _ in }
+        } else if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["focus", "right"]) { _ in }
+        } else {
+            windowManager?.executeRawCommand(args: ["-m", "window", "--focus", "next"]) { _ in }
+        }
     }
 
     @objc func focusPrevious() {
         print("⬅️ Focusing previous window...")
-        yabaiService?.executeYabai(args: ["-m", "window", "--focus", "prev"]) { _ in }
+        if isRift {
+            windowManager?.executeRawCommand(args: ["execute", "window", "prev"]) { _ in }
+        } else if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["focus", "left"]) { _ in }
+        } else {
+            windowManager?.executeRawCommand(args: ["-m", "window", "--focus", "prev"]) { _ in }
+        }
     }
 
     @objc func swapLeft() {
         print("⬅️ Swapping window left...")
-        yabaiService?.executeYabai(args: ["-m", "window", "--swap", "west"]) { _ in }
+        if isRift {
+            windowManager?.executeRawCommand(args: ["execute", "layout", "move-node", "left"]) { _ in }
+        } else if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["move", "left"]) { _ in }
+        } else {
+            windowManager?.executeRawCommand(args: ["-m", "window", "--swap", "west"]) { _ in }
+        }
     }
 
     @objc func swapRight() {
         print("➡️ Swapping window right...")
-        yabaiService?.executeYabai(args: ["-m", "window", "--swap", "east"]) { _ in }
+        if isRift {
+            windowManager?.executeRawCommand(args: ["execute", "layout", "move-node", "right"]) { _ in }
+        } else if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["move", "right"]) { _ in }
+        } else {
+            windowManager?.executeRawCommand(args: ["-m", "window", "--swap", "east"]) { _ in }
+        }
     }
 
     @objc func toggleFloat() {
         print("🎈 Toggling float...")
-        yabaiService?.executeYabai(args: ["-m", "window", "--toggle", "float"]) { _ in }
+        if isRift {
+            windowManager?.executeRawCommand(args: ["execute", "window", "toggle-float"]) { _ in }
+        } else if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["layout", "floating", "tiling"]) { _ in }
+        } else {
+            windowManager?.executeRawCommand(args: ["-m", "window", "--toggle", "float"]) { _ in }
+        }
     }
 
     @objc func toggleFullscreen() {
         print("🖥️ Toggling fullscreen...")
-        yabaiService?.executeYabai(args: ["-m", "window", "--toggle", "zoom-fullscreen"]) { _ in }
+        if isRift {
+            windowManager?.executeRawCommand(args: ["execute", "window", "toggle-fullscreen"]) { _ in }
+        } else if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["fullscreen"]) { _ in }
+        } else {
+            windowManager?.executeRawCommand(args: ["-m", "window", "--toggle", "zoom-fullscreen"]) { _ in }
+        }
     }
 
     // MARK: - Move Window Actions
 
     @objc func moveNorth() {
         print("⬆️ Moving window north...")
-        yabaiService?.executeYabai(args: ["-m", "window", "--warp", "north"]) { _ in }
+        if isRift {
+            windowManager?.executeRawCommand(args: ["execute", "layout", "move-node", "up"]) { _ in }
+        } else if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["move", "up"]) { _ in }
+        } else {
+            windowManager?.executeRawCommand(args: ["-m", "window", "--warp", "north"]) { _ in }
+        }
     }
 
     @objc func moveSouth() {
         print("⬇️ Moving window south...")
-        yabaiService?.executeYabai(args: ["-m", "window", "--warp", "south"]) { _ in }
+        if isRift {
+            windowManager?.executeRawCommand(args: ["execute", "layout", "move-node", "down"]) { _ in }
+        } else if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["move", "down"]) { _ in }
+        } else {
+            windowManager?.executeRawCommand(args: ["-m", "window", "--warp", "south"]) { _ in }
+        }
     }
 
     @objc func moveEast() {
         print("➡️ Moving window east...")
-        yabaiService?.executeYabai(args: ["-m", "window", "--warp", "east"]) { _ in }
+        if isRift {
+            windowManager?.executeRawCommand(args: ["execute", "layout", "move-node", "right"]) { _ in }
+        } else if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["move", "right"]) { _ in }
+        } else {
+            windowManager?.executeRawCommand(args: ["-m", "window", "--warp", "east"]) { _ in }
+        }
     }
 
     @objc func moveWest() {
         print("⬅️ Moving window west...")
-        yabaiService?.executeYabai(args: ["-m", "window", "--warp", "west"]) { _ in }
+        if isRift {
+            windowManager?.executeRawCommand(args: ["execute", "layout", "move-node", "left"]) { _ in }
+        } else if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["move", "left"]) { _ in }
+        } else {
+            windowManager?.executeRawCommand(args: ["-m", "window", "--warp", "west"]) { _ in }
+        }
     }
 
     @objc func sendToSpace(_ sender: NSMenuItem) {
+        if isAeroSpace {
+            // AeroSpace: representedObject is workspace name string
+            guard let wsName = sender.representedObject as? String else { return }
+            print("📦 Sending window to AeroSpace workspace \(wsName)...")
+            windowManager?.executeRawCommand(args: ["move-node-to-workspace", "--focus-follows-window", wsName]) { _ in }
+            return
+        }
         guard let spaceIndex = sender.representedObject as? Int else { return }
         print("📦 Sending window to space \(spaceIndex)...")
-        yabaiService?.executeYabai(args: ["-m", "window", "--space", "\(spaceIndex)"]) { [weak self] result in
-            // Follow focus to the new space after moving the window
-            if case .success = result {
-                self?.yabaiService?.executeYabai(args: ["-m", "space", "--focus", "\(spaceIndex)"]) { _ in }
+        if isRift {
+            // Rift uses 0-based workspace indices, spaceIndex is 1-based
+            let riftIndex = spaceIndex - 1
+            windowManager?.executeRawCommand(args: ["execute", "workspace", "move-window", "\(riftIndex)"]) { [weak self] result in
+                if case .success = result {
+                    self?.windowManager?.executeRawCommand(args: ["execute", "workspace", "switch", "\(riftIndex)"]) { _ in }
+                }
+            }
+        } else {
+            windowManager?.executeRawCommand(args: ["-m", "window", "--space", "\(spaceIndex)"]) { [weak self] result in
+                if case .success = result {
+                    self?.windowManager?.executeRawCommand(args: ["-m", "space", "--focus", "\(spaceIndex)"]) { _ in }
+                }
             }
         }
     }
@@ -1444,7 +1711,13 @@ class LayoutActionsMenuTarget: NSObject {
     @objc func setLayout(_ sender: NSMenuItem) {
         guard let layoutType = sender.representedObject as? String else { return }
         print("📐 Setting layout to \(layoutType)...")
-        yabaiService?.executeYabai(args: ["-m", "space", "--layout", layoutType]) { _ in }
+        if isRift {
+            windowManager?.executeRawCommand(args: ["execute", "workspace", "set-layout", layoutType]) { _ in }
+        } else if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["layout", layoutType]) { _ in }
+        } else {
+            windowManager?.executeRawCommand(args: ["-m", "space", "--layout", layoutType]) { _ in }
+        }
     }
 
     @objc func loadSA() {
@@ -1469,17 +1742,93 @@ class LayoutActionsMenuTarget: NSObject {
         guard let windowIds = sender.representedObject as? [String: Int],
               let sourceId = windowIds["source"],
               let targetId = windowIds["target"] else { return }
-        yabaiService?.stackWindow(sourceId, onto: targetId)
+        windowManager?.stackWindow(sourceId, onto: targetId)
     }
 
     @objc func stackAllOnto(_ sender: NSMenuItem) {
         guard let targetId = sender.representedObject as? Int else { return }
-        yabaiService?.stackAllWindowsOnto(targetId)
+        windowManager?.stackAllWindowsOnto(targetId)
     }
 
     @objc func unstackStack(_ sender: NSMenuItem) {
         guard let windowIds = sender.representedObject as? [Int] else { return }
-        yabaiService?.unstackWindows(windowIds)
+        windowManager?.unstackWindows(windowIds)
+    }
+
+    // MARK: - AeroSpace-specific Actions
+
+    @objc func closeWindow() {
+        if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["close"]) { _ in }
+        }
+    }
+
+    @objc func closeAllButCurrent() {
+        if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["close-all-windows-but-current"]) { _ in }
+        }
+    }
+
+    @objc func minimizeWindow() {
+        if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["macos-native-minimize"]) { _ in }
+        }
+    }
+
+    @objc func macosNativeFullscreen() {
+        if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["macos-native-fullscreen"]) { _ in }
+        }
+    }
+
+    @objc func workspaceBackAndForth() {
+        if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["workspace-back-and-forth"]) { _ in }
+        }
+    }
+
+    @objc func focusMonitorNext() {
+        if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["focus-monitor", "next"]) { _ in }
+        }
+    }
+
+    @objc func focusMonitorPrev() {
+        if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["focus-monitor", "prev"]) { _ in }
+        }
+    }
+
+    @objc func moveToMonitorNext() {
+        if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["move-node-to-monitor", "--focus-follows-window", "next"]) { _ in }
+        }
+    }
+
+    @objc func moveToMonitorPrev() {
+        if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["move-node-to-monitor", "--focus-follows-window", "prev"]) { _ in }
+        }
+    }
+
+    @objc func joinWith(_ sender: NSMenuItem) {
+        guard let direction = sender.representedObject as? String else { return }
+        if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["join-with", direction]) { _ in }
+        }
+    }
+
+    @objc func resizeSmart(_ sender: NSMenuItem) {
+        guard let amount = sender.representedObject as? String else { return }
+        if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["resize", "smart", amount]) { _ in }
+        }
+    }
+
+    @objc func toggleOrientation() {
+        if isAeroSpace {
+            windowManager?.executeRawCommand(args: ["layout", "horizontal", "vertical"]) { _ in }
+        }
     }
 }
 

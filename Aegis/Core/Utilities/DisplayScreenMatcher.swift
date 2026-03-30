@@ -9,10 +9,10 @@ import AppKit
 import CoreGraphics
 
 struct DisplayScreenMatcher {
-    /// Match a yabai Display to the corresponding NSScreen
+    /// Match a WM Display to the corresponding NSScreen
     /// Primary method: UUID matching (most reliable, works with any monitor arrangement)
     /// Fallback: frame size matching (reliable since different monitors have different resolutions)
-    static func matchScreen(for display: Display) -> NSScreen? {
+    static func matchScreen(for display: WMDisplay) -> NSScreen? {
         // Primary: Match by UUID (most reliable)
         if let screen = matchByUUID(display.uuid) {
             return screen
@@ -63,7 +63,7 @@ struct DisplayScreenMatcher {
     }
 
     /// Get the yabai display index for a given NSScreen
-    static func displayIndex(for screen: NSScreen, displays: [Display]) -> Int? {
+    static func displayIndex(for screen: NSScreen, displays: [WMDisplay]) -> Int? {
         for display in displays {
             if let matched = matchScreen(for: display), matched == screen {
                 return display.index

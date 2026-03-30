@@ -5,50 +5,59 @@ class StartupNotificationService: NSObject, UNUserNotificationCenterDelegate {
 
     private static let shared = StartupNotificationService()
 
-    static func showStartupNotification() {
-        // Get versions and status
+    static func showStartupNotification(windowManagerName: String = "Yabai") {
         let aegisVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
-        let status = YabaiSetupChecker.check()
-        let saStatus = YabaiSetupChecker.checkSA()
-
         let title = "Aegis v\(aegisVersion)"
         var lines: [String] = []
 
-        switch status {
-        case .ready:
-            let yabaiVersion = getYabaiVersion()
-            lines.append("Yabai: v\(yabaiVersion)")
-            // Add SA status
-            switch saStatus {
-            case .loaded:
-                lines.append("SA: Loaded ✓")
-            case .notLoaded:
-                lines.append("SA: Not loaded (run: sudo yabai --load-sa)")
-            case .notInstalled:
-                lines.append("SA: Not installed")
-            case .unknown:
-                lines.append("SA: Unknown")
+        switch windowManagerName {
+        case "Rift":
+            let running = RiftCommandActor.isRiftDaemonRunning()
+            lines.append("Rift: \(running ? "Running" : "Not running")")
+            lines.append("The aegis-rift link is \(running ? "active" : "inactive")")
+
+        case "AeroSpace":
+            let running = AeroSpaceCommandActor.isAeroSpaceRunning()
+            lines.append("AeroSpace: \(running ? "Running" : "Not running")")
+            lines.append("The aegis-aerospace link is \(running ? "active" : "inactive")")
+
+        default:
+            let status = YabaiSetupChecker.check()
+            let saStatus = YabaiSetupChecker.checkSA()
+
+            switch status {
+            case .ready:
+                let yabaiVersion = getYabaiVersion()
+                lines.append("Yabai: v\(yabaiVersion)")
+                switch saStatus {
+                case .loaded:
+                    lines.append("SA: Loaded ✓")
+                case .notLoaded:
+                    lines.append("SA: Not loaded (run: sudo yabai --load-sa)")
+                case .notInstalled:
+                    lines.append("SA: Not installed")
+                case .unknown:
+                    lines.append("SA: Unknown")
+                }
+                lines.append("The aegis-yabai link is active")
+            case .yabaiNotInstalled:
+                lines.append("Yabai: Not installed")
+                lines.append("The aegis-yabai link is inactive")
+            case .signalsNotConfigured:
+                let yabaiVersion = getYabaiVersion()
+                lines.append("Yabai: v\(yabaiVersion)")
+                if saStatus == .notLoaded {
+                    lines.append("SA: Not loaded (run: sudo yabai --load-sa)")
+                }
+                lines.append("The aegis-yabai link is inactive")
+            case .notifyScriptMissing:
+                let yabaiVersion = getYabaiVersion()
+                lines.append("Yabai: v\(yabaiVersion)")
+                if saStatus == .notLoaded {
+                    lines.append("SA: Not loaded (run: sudo yabai --load-sa)")
+                }
+                lines.append("The aegis-yabai link is inactive")
             }
-            lines.append("The aegis-yabai link is active")
-        case .yabaiNotInstalled:
-            lines.append("Yabai: Not installed")
-            lines.append("The aegis-yabai link is inactive")
-        case .signalsNotConfigured:
-            let yabaiVersion = getYabaiVersion()
-            lines.append("Yabai: v\(yabaiVersion)")
-            // Add SA status even when signals not configured
-            if saStatus == .notLoaded {
-                lines.append("SA: Not loaded (run: sudo yabai --load-sa)")
-            }
-            lines.append("The aegis-yabai link is inactive")
-        case .notifyScriptMissing:
-            let yabaiVersion = getYabaiVersion()
-            lines.append("Yabai: v\(yabaiVersion)")
-            // Add SA status even when script missing
-            if saStatus == .notLoaded {
-                lines.append("SA: Not loaded (run: sudo yabai --load-sa)")
-            }
-            lines.append("The aegis-yabai link is inactive")
         }
 
         let body = lines.joined(separator: "\n")
