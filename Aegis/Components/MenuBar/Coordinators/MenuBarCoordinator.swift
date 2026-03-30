@@ -5,7 +5,7 @@ import SwiftUI
 // Main coordinator that manages all menu bar components
 
 class MenuBarCoordinator {
-    private let yabaiService: YabaiService
+    private let windowManager: WindowManagerProtocol
     private let eventRouter: EventRouter
     private let floatingAppController: FloatingAppController
 
@@ -26,17 +26,17 @@ class MenuBarCoordinator {
     private var suppressReorderUntil: Date = .distantPast
 
 
-    init(yabaiService: YabaiService,
+    init(windowManager: WindowManagerProtocol,
          eventRouter: EventRouter,
          displayIndex: Int? = nil,
          targetScreen: NSScreen? = nil,
          spaceFilterMode: MenuBarViewModel.SpaceFilterMode = .all) {
-        self.yabaiService = yabaiService
+        self.windowManager = windowManager
         self.eventRouter = eventRouter
         self.displayIndex = displayIndex
         self.targetScreen = targetScreen
         self.spaceFilterMode = spaceFilterMode
-        self.floatingAppController = FloatingAppController(yabaiService: yabaiService)
+        self.floatingAppController = FloatingAppController(windowManager: windowManager)
         self.windowController = MenuBarWindowController()
         self.interactionMonitor = MenuBarInteractionMonitor()
     }
@@ -45,7 +45,7 @@ class MenuBarCoordinator {
 
     func show() {
         // Create ViewModel with display-specific settings
-        let vm = MenuBarViewModel(yabaiService: yabaiService, targetScreen: targetScreen)
+        let vm = MenuBarViewModel(windowManager: windowManager, targetScreen: targetScreen)
         vm.displayIndex = displayIndex
         vm.spaceFilterMode = spaceFilterMode
         viewModel = vm
@@ -54,55 +54,57 @@ class MenuBarCoordinator {
         let contentView = MenuBarView(
             viewModel: vm,
             onSpaceClick: { [weak self] index in
-                self?.yabaiService.focusSpace(index)
+                self?.windowManager.focusSpace(index)
             },
             onWindowClick: { [weak self] windowId in
-                self?.yabaiService.focusWindow(windowId)
+                self?.windowManager.focusWindow(windowId)
             },
             onSpaceDestroy: { [weak self] index in
-                self?.yabaiService.destroySpace(index)
+                self?.windowManager.destroySpace(index)
             },
             onSpaceCreate: { [weak self] in
-                self?.yabaiService.createSpace()
+                self?.windowManager.createSpace()
             },
             onWindowDrop: { [weak self] windowId, targetSpaceIndex, insertBeforeWindowId, shouldStack in
                 guard let self = self else { return }
 
                 // Get the current space of the window before moving
-                let sourceSpaceIndex = self.yabaiService.getWindowSpace(windowId)
+                let sourceSpaceIndex = self.windowManager.getWindowSpace(windowId)
 
-                self.yabaiService.moveWindowToSpace(windowId, spaceIndex: targetSpaceIndex, insertBeforeWindowId: insertBeforeWindowId, shouldStack: shouldStack)
+                self.windowManager.moveWindowToSpace(windowId, spaceIndex: targetSpaceIndex, insertBeforeWindowId: insertBeforeWindowId, shouldStack: shouldStack)
 
                 // If moving to a different space, follow the window
                 if let sourceSpace = sourceSpaceIndex, sourceSpace != targetSpaceIndex {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        self.yabaiService.focusSpace(targetSpaceIndex)
+                        self.windowManager.focusSpace(targetSpaceIndex)
                     }
                 }
             },
             onSpaceMove: { [weak self] fromIndex, toIndex in
+                guard let self = self else { return }
+                guard self.windowManager.capabilities.contains(.reorderSpaces) else { return }
                 // Optimistically reorder spaceIds + update display indices
                 // (caller wraps in animation-disabled transaction)
-                self?.viewModel?.spaceStore.reorderSpace(fromDisplayIndex: fromIndex, toDisplayIndex: toIndex)
-                // Suppress orderFront during the yabai-triggered space refresh
-                self?.suppressReorderUntil = Date().addingTimeInterval(1.0)
-                // Then tell yabai to actually move the space
-                self?.yabaiService.moveSpace(fromIndex, toIndex: toIndex)
+                self.viewModel?.spaceStore.reorderSpace(fromDisplayIndex: fromIndex, toDisplayIndex: toIndex)
+                // Suppress orderFront during the WM-triggered space refresh
+                self.suppressReorderUntil = Date().addingTimeInterval(1.0)
+                // Then tell the WM to actually move the space
+                self.windowManager.moveSpace(from: fromIndex, to: toIndex)
             },
             onRotateLayout: { [weak self] degrees in
-                self?.yabaiService.rotateLayout(degrees)
+                self?.windowManager.rotateLayout(degrees)
             },
             onFlipLayout: { [weak self] axis in
-                self?.yabaiService.flipLayout(axis: axis)
+                self?.windowManager.flipLayout(axis: axis)
             },
             onBalanceLayout: { [weak self] in
-                self?.yabaiService.balanceLayout()
+                self?.windowManager.balanceLayout()
             },
             onToggleLayout: { [weak self] in
-                self?.yabaiService.toggleLayout()
+                self?.windowManager.toggleLayout()
             },
             onStackAllWindows: { [weak self] in
-                self?.yabaiService.toggleStackAllWindowsInCurrentSpace()
+                self?.windowManager.toggleStackAllWindows()
             },
             onToggleApp: { [weak self] app in
                 self?.floatingAppController.toggle(app)

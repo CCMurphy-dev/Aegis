@@ -241,6 +241,53 @@ struct SettingsMultiMonitorPicker: View {
     }
 }
 
+/// Picker for selecting which window manager to use
+struct SettingsWindowManagerPicker: View {
+    let label: String
+    let description: String?
+    @Binding var selection: WindowManagerType
+
+    init(label: String, description: String? = nil, selection: Binding<WindowManagerType>) {
+        self.label = label
+        self.description = description
+        self._selection = selection
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.system(size: 12))
+                    .foregroundColor(Color.white.opacity(0.9))
+
+                if let description = description {
+                    Text(description)
+                        .font(.system(size: 10))
+                        .foregroundColor(Color.white.opacity(0.6))
+                }
+            }
+
+            Picker("", selection: $selection) {
+                ForEach(WindowManagerType.allCases, id: \.self) { type in
+                    Text(type.displayName)
+                        .tag(type)
+                }
+            }
+            .pickerStyle(SegmentedPickerStyle())
+
+            Text(selection.description)
+                .font(.system(size: 10))
+                .foregroundColor(Color.white.opacity(0.5))
+                .italic()
+
+            Text("Requires restart to take effect")
+                .font(.system(size: 9))
+                .foregroundColor(Color.orange.opacity(0.7))
+        }
+        .padding(.vertical, 4)
+    }
+}
+
 /// Info text for displaying read-only information
 struct SettingsInfoText: View {
     let label: String
@@ -408,6 +455,109 @@ struct SettingsYabaiSetupButton: View {
         // Get the app delegate to show the setup window
         if let appDelegate = NSApp.delegate as? AppDelegate {
             appDelegate.showSetupWindow(status: setupStatus)
+        }
+    }
+}
+
+/// Simple info row for WMs that don't need a setup flow (e.g. Rift)
+struct SettingsWMInfoRow: View {
+    let wmName: String
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(wmName) Integration")
+                    .font(.system(size: 12))
+                    .foregroundColor(Color.white.opacity(0.9))
+
+                Text("Connected via event subscription")
+                    .font(.system(size: 10))
+                    .foregroundColor(.green.opacity(0.8))
+            }
+
+            Spacer()
+
+            HStack(spacing: 4) {
+                Image(systemName: "checkmark.circle")
+                    .font(.system(size: 11, weight: .medium))
+                Text("Active")
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .foregroundColor(.green)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.green.opacity(0.15))
+            )
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+/// AeroSpace setup button for running/re-running AeroSpace integration setup
+struct SettingsAeroSpaceSetupButton: View {
+    @State private var setupStatus: AeroSpaceSetupChecker.SetupStatus = .configNotSetUp
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("AeroSpace Integration")
+                    .font(.system(size: 12))
+                    .foregroundColor(Color.white.opacity(0.9))
+
+                Text(statusText)
+                    .font(.system(size: 10))
+                    .foregroundColor(statusColor)
+            }
+
+            Spacer()
+
+            Button(action: {
+                showSetupWindow()
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: setupStatus == .ready ? "checkmark.circle" : "wrench.and.screwdriver")
+                        .font(.system(size: 11, weight: .medium))
+                    Text(setupStatus == .ready ? "Configured" : "Run Setup")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundColor(setupStatus == .ready ? .green : .orange)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(setupStatus == .ready ? Color.green.opacity(0.15) : Color.orange.opacity(0.15))
+                )
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+        .padding(.vertical, 4)
+        .onAppear {
+            setupStatus = AeroSpaceSetupChecker.check()
+        }
+    }
+
+    private var statusText: String {
+        switch setupStatus {
+        case .ready:
+            return "FIFO pipe integration is active"
+        case .aeroSpaceNotInstalled:
+            return "AeroSpace not installed"
+        case .notifyScriptMissing:
+            return "Setup script not installed"
+        case .configNotSetUp:
+            return "Config not set up"
+        }
+    }
+
+    private var statusColor: Color {
+        setupStatus == .ready ? .green.opacity(0.8) : .orange.opacity(0.8)
+    }
+
+    private func showSetupWindow() {
+        if let appDelegate = NSApp.delegate as? AppDelegate {
+            appDelegate.showAeroSpaceSetupWindow(status: setupStatus)
         }
     }
 }

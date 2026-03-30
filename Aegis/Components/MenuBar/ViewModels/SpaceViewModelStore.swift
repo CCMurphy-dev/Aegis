@@ -25,7 +25,7 @@ final class SpaceViewModelStore: ObservableObject {
     /// Update all space ViewModels with new data
     /// Only creates/destroys ViewModels when spaces are added/removed
     /// Individual SpaceViewModels handle their own change detection
-    func update(spaces: [Space],
+    func update(spaces: [WMSpace],
                 windowIconsBySpace: [Int: [WindowIcon]],
                 allWindowIconsBySpace: [Int: [WindowIcon]],
                 focusedIndexBySpace: [Int: Int],

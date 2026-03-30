@@ -7,7 +7,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var displayMenuBarManager: DisplayMenuBarManager?
     var notchHUDController: NotchHUDController?
 
-    var yabaiService: YabaiService?
+    var windowManager: WindowManagerProtocol?
     var systemInfoService: SystemInfoService?
     var musicService: MediaService?
     var bluetoothService: BluetoothDeviceService?
@@ -17,6 +17,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var eventRouter: EventRouter?
 
     private var setupWindowController: YabaiSetupWindowController?
+    private var aeroSpaceSetupWindowController: AeroSpaceSetupWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let aegisVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
@@ -35,13 +36,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         notchHUDController?.enableAnimationDiagnostics(true)
 
         // Show startup notification with status
-        StartupNotificationService.showStartupNotification()
+        StartupNotificationService.showStartupNotification(windowManagerName: windowManager?.name ?? "Yabai")
 
         // Sync launch at login setting with actual system state
         LaunchAtLoginService.shared.syncWithConfig()
 
-        // Check if yabai setup is needed and show setup window
-        checkAndShowSetupIfNeeded()
+        // Check if WM setup is needed and show setup window
+        if windowManager?.name == "Yabai" {
+            checkAndShowSetupIfNeeded()
+        } else if windowManager?.name == "AeroSpace" {
+            checkAndShowAeroSpaceSetupIfNeeded()
+        }
 
         logInfo("Startup complete")
     }
@@ -92,6 +97,47 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupWindowController?.showModal()
     }
 
+    // MARK: - AeroSpace Setup Check
+
+    private func checkAndShowAeroSpaceSetupIfNeeded() {
+        if UserDefaults.standard.bool(forKey: "aegis.aerospace.setup.dismissed") {
+            logInfo("AeroSpace setup check: previously dismissed by user")
+            return
+        }
+
+        let status = AeroSpaceSetupChecker.check()
+
+        guard status != .ready else {
+            logInfo("AeroSpace setup check: integration is ready")
+            return
+        }
+
+        logInfo("AeroSpace setup check: showing setup window (status: \(status))")
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.showAeroSpaceSetupWindow(status: status)
+        }
+    }
+
+    func showAeroSpaceSetupWindow(status: AeroSpaceSetupChecker.SetupStatus? = nil) {
+        let currentStatus = status ?? AeroSpaceSetupChecker.check()
+
+        aeroSpaceSetupWindowController = AeroSpaceSetupWindowController(
+            status: currentStatus,
+            onDismiss: { [weak self] in
+                UserDefaults.standard.set(true, forKey: "aegis.aerospace.setup.dismissed")
+                self?.aeroSpaceSetupWindowController = nil
+            },
+            onRetry: { [weak self] in
+                self?.aeroSpaceSetupWindowController = nil
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    self?.checkAndShowAeroSpaceSetupIfNeeded()
+                }
+            }
+        )
+        aeroSpaceSetupWindowController?.showModal()
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         logInfo("Aegis shutting down")
         displayMenuBarManager?.hide()
@@ -105,7 +151,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Setup Services
     private func setupServices() {
         eventRouter = EventRouter()
-        yabaiService = YabaiService(eventRouter: eventRouter!)
+        logInfo("WindowManager config: \(AegisConfig.shared.windowManagerType.rawValue)")
+        windowManager = WindowManagerFactory.create(type: AegisConfig.shared.windowManagerType, eventRouter: eventRouter!)
+        AegisConfig.shared.activeWindowManagerName = windowManager?.name ?? "Yabai"
+        logInfo("Active window manager: \(AegisConfig.shared.activeWindowManagerName)")
         systemInfoService = SystemInfoService(eventRouter: eventRouter!)
         musicService = MediaService(eventRouter: eventRouter!)
         bluetoothService = BluetoothDeviceService(eventRouter: eventRouter!)
@@ -117,6 +166,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // App Switcher (Cmd+Tab replacement)
         appSwitcherService = AppSwitcherService.shared
+        appSwitcherService?.setWindowManager(windowManager!)
         appSwitcherService?.start()
 
         // Wire up SystemStatusMonitor.shared to receive focus events
@@ -127,9 +177,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Setup Menu Bar
     private func setupMenuBar() {
-        guard let yabaiService, let eventRouter else { return }
+        guard let windowManager, let eventRouter else { return }
         displayMenuBarManager = DisplayMenuBarManager(
-            yabaiService: yabaiService,
+            windowManager: windowManager,
             eventRouter: eventRouter
         )
         displayMenuBarManager?.show()
@@ -137,12 +187,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Setup Notch HUD
     private func setupNotchHUD() {
-        guard let systemInfoService, let musicService, let eventRouter, let yabaiService else { return }
+        guard let systemInfoService, let musicService, let eventRouter, let windowManager else { return }
         notchHUDController = NotchHUDController(
             systemInfoService: systemInfoService,
             musicService: musicService,
             eventRouter: eventRouter,
-            yabaiService: yabaiService
+            windowManager: windowManager
         )
 
         // CRITICAL: Prepare windows at app startup (before any interactions)

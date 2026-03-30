@@ -39,6 +39,14 @@ final class AppSwitcherService {
     private let yabaiCommand = YabaiCommandActor.shared
     private let config = AegisConfig.shared
 
+    /// Window manager reference for WM-agnostic window queries
+    private var windowManager: WindowManagerProtocol?
+
+    /// Set the window manager (called from AppDelegate after both are initialized)
+    func setWindowManager(_ wm: WindowManagerProtocol) {
+        self.windowManager = wm
+    }
+
     /// Scroll accumulator for Cmd+scroll activation
     private var cmdScrollAccumulator: CGFloat = 0
 
@@ -463,9 +471,13 @@ final class AppSwitcherService {
     private func activateSwitcher(reverse: Bool) {
         logDebug("Activating app switcher")
 
-        // Fetch windows from yabai asynchronously
+        // Fetch windows from window manager
         Task {
-            await refreshWindowsFromYabai()
+            if let wm = windowManager, wm.name != "Yabai" {
+                await refreshWindowsFromWM(wm)
+            } else {
+                await refreshWindowsFromYabai()
+            }
 
             await MainActor.run {
                 guard !self.allWindows.isEmpty else {
@@ -540,6 +552,76 @@ final class AppSwitcherService {
 
     private func hideWindow() {
         windowController?.hide()
+    }
+
+    // MARK: - WM-agnostic Data
+
+    private func refreshWindowsFromWM(_ wm: WindowManagerProtocol) async {
+        let excludedApps = config.excludedApps
+        let showMinimized = config.appSwitcherShowMinimized
+        let showHidden = config.appSwitcherShowHidden
+
+        let spaces = wm.getCurrentSpaces()
+        let allWMWindows = wm.getAllWindows()
+
+        let realWindows = allWMWindows.filter { window in
+            guard !excludedApps.contains(window.app) else { return false }
+            if window.isMinimized && !showMinimized { return false }
+            if window.isHidden && !showHidden { return false }
+            guard window.isVisible else { return false }
+            return true
+        }
+
+        refreshIconCache()
+
+        var groups: [SpaceGroup] = []
+        var flatWindows: [SwitcherWindow] = []
+
+        let sortedSpaces = spaces.sorted { s1, s2 in
+            if s1.isFocused { return true }
+            if s2.isFocused { return false }
+            return s1.index < s2.index
+        }
+
+        for space in sortedSpaces {
+            let spaceWindows = realWindows
+                .filter { $0.space == space.index }
+                .sorted { w1, w2 in
+                    if w1.hasFocus { return true }
+                    if w2.hasFocus { return false }
+                    return w1.title < w2.title
+                }
+
+            guard !spaceWindows.isEmpty else { continue }
+
+            let switcherWindows: [SwitcherWindow] = spaceWindows.map { [weak self] window in
+                let icon = self?.appIconCache[window.app] ?? self?.appIconCache[window.appName]
+                    ?? wm.getAppIcon(for: window.app)
+
+                return SwitcherWindow(
+                    id: window.id,
+                    title: window.title,
+                    appName: window.appName,
+                    spaceIndex: window.space,
+                    icon: icon,
+                    hasFocus: window.hasFocus,
+                    isMinimized: window.isMinimized,
+                    isHidden: window.isHidden
+                )
+            }
+
+            groups.append(SpaceGroup(
+                spaceIndex: space.index,
+                spaceLabel: space.label,
+                isFocused: space.isFocused,
+                windows: switcherWindows
+            ))
+
+            flatWindows.append(contentsOf: switcherWindows)
+        }
+
+        self.spaceGroups = groups
+        self.allWindows = flatWindows
     }
 
     // MARK: - Yabai Data
@@ -678,21 +760,22 @@ final class AppSwitcherService {
     }
 
     private func focusWindow(_ window: SwitcherWindow) {
-        // Use yabai to focus the specific window
-        Task {
-            do {
-                // First switch to the window's space if needed
-                _ = try await yabaiCommand.run(["-m", "space", "--focus", "\(window.spaceIndex)"])
-
-                // If window is minimized, deminimize it first
-                if window.isMinimized {
-                    _ = try await yabaiCommand.run(["-m", "window", "--deminimize", "\(window.id)"])
+        if let wm = windowManager, wm.name != "Yabai" {
+            // Use WM protocol for non-yabai window managers
+            wm.focusSpace(window.spaceIndex)
+            wm.focusWindow(window.id)
+        } else {
+            // Use yabai directly for yabai (supports deminimize)
+            Task {
+                do {
+                    _ = try await yabaiCommand.run(["-m", "space", "--focus", "\(window.spaceIndex)"])
+                    if window.isMinimized {
+                        _ = try await yabaiCommand.run(["-m", "window", "--deminimize", "\(window.id)"])
+                    }
+                    _ = try await yabaiCommand.run(["-m", "window", "--focus", "\(window.id)"])
+                } catch {
+                    logError("Failed to focus window \(window.id): \(error)")
                 }
-
-                // Then focus the specific window
-                _ = try await yabaiCommand.run(["-m", "window", "--focus", "\(window.id)"])
-            } catch {
-                logError("Failed to focus window \(window.id): \(error)")
             }
         }
     }

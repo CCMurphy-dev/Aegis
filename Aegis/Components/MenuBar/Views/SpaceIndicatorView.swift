@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 // MARK: - Space Indicator View
 
 struct SpaceIndicatorView: View {
-    let space: Space
+    let space: WMSpace
     let isActive: Bool
     let windowIcons: [WindowIcon]
     let allWindowIcons: [WindowIcon]
@@ -69,7 +69,7 @@ struct SpaceIndicatorView: View {
     // MARK: - Sub-views to help type checker
 
     private var spaceNumberView: some View {
-        Text("\(space.index)")
+        Text(space.label?.isEmpty == false ? space.label! : "\(space.index)")
             .font(.system(size: 12, weight: .semibold))
             .foregroundColor(ThemeColors.primaryText(opacity: isActive ? 1.0 : 0.6))
             .frame(width: 16)

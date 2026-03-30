@@ -6,7 +6,7 @@ class NotchHUDController: ObservableObject {
     private let systemInfoService: SystemInfoService
     private let musicService: MediaService
     private let eventRouter: EventRouter
-    private let yabaiService: YabaiService
+    private let windowManager: WindowManagerProtocol
 
     // Separate windows for music, volume/brightness, device connection, focus, and notifications
     private var mediaWindow: NSWindow!
@@ -69,11 +69,11 @@ class NotchHUDController: ObservableObject {
     init(systemInfoService: SystemInfoService,
          musicService: MediaService,
          eventRouter: EventRouter,
-         yabaiService: YabaiService) {
+         windowManager: WindowManagerProtocol) {
         self.systemInfoService = systemInfoService
         self.musicService = musicService
         self.eventRouter = eventRouter
-        self.yabaiService = yabaiService
+        self.windowManager = windowManager
 
         // Set up Yabai integration for notification clicks
         notificationViewModel.openAppHandler = { [weak self] appName, bundleIdentifier in
@@ -750,7 +750,7 @@ class NotchHUDController: ObservableObject {
     /// Focus app window via Yabai, or launch/activate via NSWorkspace if not found
     private func focusOrLaunchApp(appName: String, bundleIdentifier: String) {
         // Try Yabai first (respects window management)
-        if !appName.isEmpty && yabaiService.focusWindowByAppName(appName) {
+        if !appName.isEmpty && windowManager.focusWindowByAppName(appName) {
             return
         }
 

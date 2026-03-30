@@ -1,0 +1,14 @@
+#!/bin/bash
+# Aegis-AeroSpace FIFO Pipe Notification Script
+# This script sends workspace change events to Aegis via a FIFO pipe
+
+PIPE_PATH="$HOME/.config/aegis/aerospace.pipe"
+
+# Check if pipe exists
+if [ ! -p "$PIPE_PATH" ]; then
+    exit 0
+fi
+
+# Send event to the pipe (non-blocking)
+# Write in background to avoid blocking AeroSpace
+echo "workspace_changed" > "$PIPE_PATH" 2>/dev/null &
