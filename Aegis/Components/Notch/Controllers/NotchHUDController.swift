@@ -199,6 +199,7 @@ class NotchHUDController: ObservableObject {
         }
 
         let hostingView = NSHostingView(rootView: wrappedView)
+        if #available(macOS 13, *) { hostingView.sceneBridgingOptions = [] }
         hostingView.frame = screen.frame
 
         // Create window ONCE at startup
@@ -266,6 +267,7 @@ class NotchHUDController: ObservableObject {
         .frame(maxWidth: .infinity)
 
         let hostingView = NSHostingView(rootView: wrappedView)
+        if #available(macOS 13, *) { hostingView.sceneBridgingOptions = [] }
         hostingView.frame = NSRect(origin: .zero, size: windowFrame.size)
 
         // Create main display window (ignores mouse events)
@@ -323,6 +325,7 @@ class NotchHUDController: ObservableObject {
         .frame(maxWidth: .infinity)
 
         let hostingView = NSHostingView(rootView: wrappedView)
+        if #available(macOS 13, *) { hostingView.sceneBridgingOptions = [] }
         hostingView.frame = NSRect(origin: .zero, size: windowFrame.size)
 
         deviceWindow = NSWindow(
@@ -375,6 +378,7 @@ class NotchHUDController: ObservableObject {
         .frame(maxWidth: .infinity)
 
         let hostingView = NSHostingView(rootView: wrappedView)
+        if #available(macOS 13, *) { hostingView.sceneBridgingOptions = [] }
         hostingView.frame = NSRect(origin: .zero, size: windowFrame.size)
 
         focusWindow = NSWindow(
@@ -435,6 +439,7 @@ class NotchHUDController: ObservableObject {
 
         // Use custom hosting view that passes through clicks outside the HUD panels
         let hostingView = NotificationHUDHostingView(rootView: AnyView(wrappedView))
+        if #available(macOS 13, *) { hostingView.sceneBridgingOptions = [] }
         hostingView.frame = NSRect(origin: .zero, size: windowFrame.size)
         self.notificationHostingView = hostingView
 

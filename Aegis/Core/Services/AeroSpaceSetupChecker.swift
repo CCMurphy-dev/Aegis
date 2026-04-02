@@ -15,9 +15,14 @@ struct AeroSpaceSetupChecker {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         return "\(home)/.config/aegis/aegis-aerospace-notify"
     }
-    private static var aeroSpaceConfigPath: String {
+    /// Returns the first existing AeroSpace config path, checking both valid locations.
+    private static var aeroSpaceConfigPath: String? {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
-        return "\(home)/.aerospace.toml"
+        let candidates = [
+            "\(home)/.config/aerospace/aerospace.toml",
+            "\(home)/.aerospace.toml"
+        ]
+        return candidates.first { FileManager.default.fileExists(atPath: $0) }
     }
 
     /// Check full setup status
@@ -51,7 +56,8 @@ struct AeroSpaceSetupChecker {
 
     /// Check if aerospace config contains the Aegis hook
     private static func isConfigured() -> Bool {
-        guard let contents = try? String(contentsOfFile: aeroSpaceConfigPath, encoding: .utf8) else {
+        guard let path = aeroSpaceConfigPath,
+              let contents = try? String(contentsOfFile: path, encoding: .utf8) else {
             return false
         }
         return contents.contains("aegis-aerospace-notify")

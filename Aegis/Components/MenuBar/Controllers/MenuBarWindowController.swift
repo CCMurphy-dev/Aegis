@@ -46,6 +46,7 @@ class MenuBarWindowController: ObservableObject {
         configureWindow()
 
         let hostingView = NSHostingView(rootView: content)
+        if #available(macOS 13, *) { hostingView.sceneBridgingOptions = [] }
         hostingView.wantsLayer = true
         hostingView.layer?.backgroundColor = NSColor.clear.cgColor
         menuBarWindow?.contentView = hostingView

@@ -10,31 +10,51 @@ echo "Setting up Aegis <-> AeroSpace FIFO pipe integration..."
 # 1. Create config directory
 CONFIG_DIR="$HOME/.config/aegis"
 NOTIFY_SCRIPT="$CONFIG_DIR/aegis-aerospace-notify"
+MODE_SCRIPT="$CONFIG_DIR/aegis-aerospace-mode-notify"
 
 echo "Creating config directory at $CONFIG_DIR"
 mkdir -p "$CONFIG_DIR"
 
-# 2. Create the notification script
-echo "Creating notification script at $NOTIFY_SCRIPT"
+# 2. Create the workspace notification script
+echo "Creating workspace notification script at $NOTIFY_SCRIPT"
 
 cat > "$NOTIFY_SCRIPT" << 'EOF'
 #!/bin/bash
 # Aegis-AeroSpace FIFO Pipe Notification Script
-# This script sends workspace change events to Aegis via a FIFO pipe
+# Sends workspace change events to Aegis via a FIFO pipe
 
 PIPE_PATH="$HOME/.config/aegis/aerospace.pipe"
 
-# Check if pipe exists
 if [ ! -p "$PIPE_PATH" ]; then
     exit 0
 fi
 
-# Send event to the pipe (non-blocking)
 echo "workspace_changed" > "$PIPE_PATH" 2>/dev/null &
 EOF
 
 chmod +x "$NOTIFY_SCRIPT"
-echo "Created notification script"
+echo "Created workspace notification script"
+
+# 2b. Create the mode notification script
+echo "Creating mode notification script at $MODE_SCRIPT"
+
+cat > "$MODE_SCRIPT" << 'EOF'
+#!/bin/bash
+# Aegis-AeroSpace Mode Notification Script
+# Sends mode change events to Aegis via the FIFO pipe
+
+PIPE_PATH="$HOME/.config/aegis/aerospace.pipe"
+
+if [ ! -p "$PIPE_PATH" ]; then
+    exit 0
+fi
+
+CURRENT_MODE=$(aerospace list-modes --current 2>/dev/null | head -1)
+echo "mode:${CURRENT_MODE:-main}" > "$PIPE_PATH" 2>/dev/null &
+EOF
+
+chmod +x "$MODE_SCRIPT"
+echo "Created mode notification script"
 
 # 3. Check if aerospace is installed
 if ! command -v aerospace &> /dev/null; then
@@ -46,10 +66,18 @@ fi
 echo "Found aerospace at $(which aerospace)"
 
 # 4. Check AeroSpace config for exec-on-workspace-change
-AEROSPACE_CONFIG="${AEROSPACE_CONFIG:-$HOME/.aerospace.toml}"
+# Resolve config path: env override > ~/.config/aerospace/aerospace.toml > ~/.aerospace.toml
+if [ -z "$AEROSPACE_CONFIG" ]; then
+    if [ -f "$HOME/.config/aerospace/aerospace.toml" ]; then
+        AEROSPACE_CONFIG="$HOME/.config/aerospace/aerospace.toml"
+    else
+        AEROSPACE_CONFIG="$HOME/.aerospace.toml"
+    fi
+fi
 AEGIS_MARKER="# AEGIS_INTEGRATION"
 
-SNIPPET="exec-on-workspace-change = ['/bin/bash', '-c', '$HOME/.config/aegis/aegis-aerospace-notify']"
+SNIPPET_WS="exec-on-workspace-change = ['/bin/bash', '-c', '\$HOME/.config/aegis/aegis-aerospace-notify']"
+SNIPPET_MODE="on-mode-changed = ['exec-and-forget /bin/bash -c \"\$HOME/.config/aegis/aegis-aerospace-mode-notify\"']"
 
 if [ -f "$AEROSPACE_CONFIG" ]; then
     if grep -q "$AEGIS_MARKER" "$AEROSPACE_CONFIG"; then
@@ -64,6 +92,9 @@ if [ -f "$AEROSPACE_CONFIG" ]; then
         echo ""
         echo "  exec-on-workspace-change = ['/bin/bash', '-c', 'your-existing-command; \$HOME/.config/aegis/aegis-aerospace-notify']"
         echo ""
+        echo "Also add the mode change hook:"
+        echo "  $SNIPPET_MODE"
+        echo ""
     else
         echo ""
         echo "Found AeroSpace config at: $AEROSPACE_CONFIG"
@@ -71,21 +102,22 @@ if [ -f "$AEROSPACE_CONFIG" ]; then
         echo "Would you like to automatically add Aegis integration? [y/N]"
         read -r response
         if [[ "$response" =~ ^[Yy]$ ]]; then
-            echo "" >> "$AEROSPACE_CONFIG"
             cat >> "$AEROSPACE_CONFIG" << TOML_EOF
 
 $AEGIS_MARKER
-$SNIPPET
+$SNIPPET_WS
+$SNIPPET_MODE
 TOML_EOF
-            echo "Added exec-on-workspace-change to $AEROSPACE_CONFIG"
+            echo "Added workspace and mode hooks to $AEROSPACE_CONFIG"
             echo ""
             echo "Reloading AeroSpace config..."
             aerospace reload-config 2>/dev/null || echo "  (reload failed — restart AeroSpace manually)"
         else
             echo ""
-            echo "Skipped. To add manually, put this line in your $AEROSPACE_CONFIG:"
+            echo "Skipped. To add manually, put these lines in your $AEROSPACE_CONFIG:"
             echo ""
-            echo "  $SNIPPET"
+            echo "  $SNIPPET_WS"
+            echo "  $SNIPPET_MODE"
         fi
     fi
 else
@@ -99,8 +131,9 @@ else
 # AeroSpace config
 # See https://nikitabobko.github.io/AeroSpace/guide for full reference
 
-# AEGIS_INTEGRATION
-exec-on-workspace-change = ['/bin/bash', '-c', '\$HOME/.config/aegis/aegis-aerospace-notify']
+$AEGIS_MARKER
+$SNIPPET_WS
+$SNIPPET_MODE
 TOML_EOF
         echo "Created $AEROSPACE_CONFIG with Aegis integration"
         echo ""
@@ -110,18 +143,21 @@ TOML_EOF
         echo ""
         echo "Skipped. To add manually, create $AEROSPACE_CONFIG with:"
         echo ""
-        echo "  $SNIPPET"
+        echo "  $SNIPPET_WS"
+        echo "  $SNIPPET_MODE"
         echo ""
         echo "To specify a custom config location, run:"
-        echo "  AEROSPACE_CONFIG=/path/to/your/.aerospace.toml ./setup-aegis-aerospace.sh"
+        echo "  AEROSPACE_CONFIG=/path/to/your/aerospace.toml ./setup-aegis-aerospace.sh"
     fi
 fi
 
 # 5. Save snippet for reference
 cat > "$CONFIG_DIR/aerospace-config-snippet.toml" << 'SNIPPET_EOF'
-# Aegis Integration — add this to your .aerospace.toml
+# Aegis Integration — add these lines to your aerospace.toml
 # Notifies Aegis instantly when you switch workspaces
 exec-on-workspace-change = ['/bin/bash', '-c', '$HOME/.config/aegis/aegis-aerospace-notify']
+# Notifies Aegis when you change modes (shows mode badge in menu bar)
+on-mode-changed = ['exec-and-forget /bin/bash -c "$HOME/.config/aegis/aegis-aerospace-mode-notify"']
 SNIPPET_EOF
 
 echo ""

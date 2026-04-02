@@ -668,6 +668,9 @@ class AegisConfig: ObservableObject {
     /// The resolved name of the active window manager (set by AppDelegate after init)
     @Published var activeWindowManagerName: String = "Yabai"
 
+    /// Current AeroSpace mode (e.g. "main", "resize"). Non-"main" values show a mode badge.
+    @Published var aeroSpaceCurrentMode: String = "main"
+
     /// How to display menu bars across multiple monitors
     @Published var multiMonitorMode: MultiMonitorMode = .auto
 

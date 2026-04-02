@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.24] - 2026-04-02
+
+### Added
+- **AeroSpace mode visualiser** - Pill badge in the menu bar displays the active AeroSpace mode (e.g. `RESIZE`) when not in `main` mode, styled to match the active space indicator. Disappears automatically on return to `main`
+- **AeroSpace mode hook** - Setup script now installs `on-mode-changed` hook and `aegis-aerospace-mode-notify` script alongside the workspace hook
+
+### Fixed
+- **AeroSpace config path** - Installer and setup checker now check `~/.config/aerospace/aerospace.toml` first (alongside the existing `~/.aerospace.toml` fallback)
+- **Crash on macOS 26** - Disabled SwiftUI safe area region bridging (`sceneBridgingOptions = []`) on all overlay windows (menu bar + all HUD windows), preventing a crash triggered by `NSWindow.postWindowNeedsUpdateConstraints` on macOS 26.3
+
 ## [1.0.23] - 2026-03-30
 
 ### Added

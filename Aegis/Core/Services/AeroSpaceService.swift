@@ -200,7 +200,19 @@ final class AeroSpaceService {
 
         lastFIFOEventTime = Date()
         logDebug("AeroSpace FIFO: \(lines.joined(separator: ", "))")
-        scheduleRefresh(source: "FIFO:workspace_changed")
+
+        for line in lines {
+            if line.hasPrefix("mode:") {
+                let mode = String(line.dropFirst("mode:".count))
+                DispatchQueue.main.async {
+                    AegisConfig.shared.aeroSpaceCurrentMode = mode
+                }
+                logInfo("AeroSpace mode changed: \(mode)")
+            } else {
+                // Workspace change event (or any other event)
+                scheduleRefresh(source: "FIFO:workspace_changed")
+            }
+        }
     }
 
     private func scheduleRefresh(source: String) {

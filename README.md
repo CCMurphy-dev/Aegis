@@ -30,6 +30,7 @@ Aegis auto-detects your window manager at launch. No configuration required.
 | **BSP / tiling layout toggle** | ✓ | ✓ | ✓ |
 | **Close / minimize window** | — | ✓ | — |
 | **Resize window** | — | ✓ | — |
+| **Mode visualiser** | — | ✓ | — |
 | **Multi-monitor focus/move** | — | ✓ | — |
 | **App switcher (Cmd+Tab) by workspace** | ✓ | ✓ | ✓ |
 | **Event system** | FIFO pipe | FIFO pipe | Mach subscription |

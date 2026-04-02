@@ -290,14 +290,20 @@ struct MenuBarView: View {
                     .animation(.easeOut(duration: 0.2), value: isContextButtonExpanded)
 
                     // Right: System status - positioned on its own layer for proper vertical centering
-                    if config.showSystemStatus {
-                        HStack {
-                            Spacer()
+                    HStack {
+                        Spacer()
+                        // AeroSpace mode badge — only shown when in a non-default mode
+                        if config.activeWindowManagerName == "AeroSpace" && config.aeroSpaceCurrentMode != "main" {
+                            AeroSpaceModeBadge(mode: config.aeroSpaceCurrentMode)
+                                .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                        }
+                        if config.showSystemStatus {
                             SystemStatusView()
                                 .padding(.trailing, config.menuBarEdgePadding)
                         }
-                        .frame(height: config.menuBarHeight, alignment: .center)
                     }
+                    .animation(.easeInOut(duration: 0.15), value: config.aeroSpaceCurrentMode)
+                    .frame(height: config.menuBarHeight, alignment: .center)
 
                     // Buttons on top layer to ensure they're interactive
                     // Using pure AppKit buttons to bypass SwiftUI during scroll for minimal CPU
