@@ -8,6 +8,25 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.25</title>
+            <sparkle:version>1.0.25</sparkle:version>
+            <sparkle:shortVersionString>1.0.25</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Thu, 03 Apr 2026 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.25</h2>
+                <ul>
+                    <li><strong>Crash Fix (macOS 26) — complete</strong> - Fixed the remaining crash on macOS 26 after granting permissions. The v1.0.24 fix only blocked one of two crash paths; this release adds an Objective-C exception guard directly in the window layer, catching all variants</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.25/Aegis.app.zip"
+                length="2804791"
+                type="application/octet-stream"
+                sparkle:edSignature="036raPSYZstjVw/yt1DJ7lmcIwCLsBtczDdGKjt1kAoeSmM1I0gIh2P5Tj00yfoFxiYUDleWGH03brmnOumWBg==" />
+        </item>
+
+        <item>
             <title>Version 1.0.24</title>
             <sparkle:version>1.0.24</sparkle:version>
             <sparkle:shortVersionString>1.0.24</sparkle:shortVersionString>

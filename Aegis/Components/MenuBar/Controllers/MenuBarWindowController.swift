@@ -148,7 +148,7 @@ class MenuBarWindowController: ObservableObject {
 // MARK: - Custom Window Class
 
 // Custom window that prevents becoming key window (avoids focus stealing)
-class MenuBarWindow: NSWindow {
+class MenuBarWindow: AegisOverlayWindow {
     override var canBecomeKey: Bool {
         return false
     }

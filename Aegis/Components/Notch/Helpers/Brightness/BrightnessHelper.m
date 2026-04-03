@@ -116,3 +116,24 @@ static void BrightnessChangeCallback(CGDirectDisplayID display, void *userInfo) 
 }
 
 @end
+
+// Forward-declare the private AppKit category method so the compiler
+// knows the selector exists without needing private headers.
+@interface NSWindow (NSDisplayCycle_Private)
+- (void)postWindowNeedsUpdateConstraints;
+@end
+
+@implementation AegisOverlayWindow
+
+- (void)postWindowNeedsUpdateConstraints {
+    @try {
+        [super postWindowNeedsUpdateConstraints];
+    } @catch (NSException *exception) {
+        // macOS 26 throws in postWindowNeedsUpdateConstraints for borderless
+        // overlay windows (both invalidateSafeAreaInsets and
+        // invalidateSafeAreaCornerInsets paths). Safe to suppress —
+        // NSHostingView will re-request on the next display cycle.
+    }
+}
+
+@end

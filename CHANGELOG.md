@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.25] - 2026-04-03
+
+### Fixed
+- **Crash on macOS 26 (complete fix)** - Replaced `sceneBridgingOptions = []` workaround with an Objective-C `@try/@catch` override of `NSWindow.postWindowNeedsUpdateConstraints` on all overlay windows. This intercepts the throw at the source regardless of which safe area invalidation path triggers it, fixing both the `invalidateSafeAreaCornerInsets` and `invalidateSafeAreaInsets` paths confirmed in v1.0.24
+
 ## [1.0.24] - 2026-04-02
 
 ### Added

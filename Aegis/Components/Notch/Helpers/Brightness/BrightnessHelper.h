@@ -30,4 +30,11 @@ extern NSString * _Nonnull const AegisBrightnessChangedNotification;
 
 @end
 
+/// Base NSWindow subclass for all Aegis overlay windows.
+/// Overrides postWindowNeedsUpdateConstraints to catch the ObjC exception
+/// thrown by macOS 26 for borderless overlay windows.
+#import <AppKit/AppKit.h>
+@interface AegisOverlayWindow : NSWindow
+@end
+
 #endif /* BrightnessHelper_h */

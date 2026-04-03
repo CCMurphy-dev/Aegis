@@ -13,7 +13,7 @@ import SwiftUI
 
 /// Custom window that can receive mouse events but never becomes key window.
 /// This prevents the "makeKeyWindow called but canBecomeKey returned NO" warnings.
-class NotificationHUDWindow: NSWindow {
+class NotificationHUDWindow: AegisOverlayWindow {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
     override func makeKey() { /* Do nothing */ }

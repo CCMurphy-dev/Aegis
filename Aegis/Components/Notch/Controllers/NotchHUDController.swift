@@ -203,7 +203,7 @@ class NotchHUDController: ObservableObject {
         hostingView.frame = screen.frame
 
         // Create window ONCE at startup
-        overlayWindow = NSWindow(
+        overlayWindow = AegisOverlayWindow(
             contentRect: screen.frame,
             styleMask: [.borderless, .fullSizeContentView],
             backing: .buffered,
@@ -271,7 +271,7 @@ class NotchHUDController: ObservableObject {
         hostingView.frame = NSRect(origin: .zero, size: windowFrame.size)
 
         // Create main display window (ignores mouse events)
-        mediaWindow = NSWindow(
+        mediaWindow = AegisOverlayWindow(
             contentRect: windowFrame,
             styleMask: [.borderless, .fullSizeContentView],
             backing: .buffered,
@@ -328,7 +328,7 @@ class NotchHUDController: ObservableObject {
         if #available(macOS 13, *) { hostingView.sceneBridgingOptions = [] }
         hostingView.frame = NSRect(origin: .zero, size: windowFrame.size)
 
-        deviceWindow = NSWindow(
+        deviceWindow = AegisOverlayWindow(
             contentRect: windowFrame,
             styleMask: [.borderless, .fullSizeContentView],
             backing: .buffered,
@@ -381,7 +381,7 @@ class NotchHUDController: ObservableObject {
         if #available(macOS 13, *) { hostingView.sceneBridgingOptions = [] }
         hostingView.frame = NSRect(origin: .zero, size: windowFrame.size)
 
-        focusWindow = NSWindow(
+        focusWindow = AegisOverlayWindow(
             contentRect: windowFrame,
             styleMask: [.borderless, .fullSizeContentView],
             backing: .buffered,
