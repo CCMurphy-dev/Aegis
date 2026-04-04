@@ -131,7 +131,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             onRetry: { [weak self] in
                 self?.aeroSpaceSetupWindowController = nil
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    self?.checkAndShowAeroSpaceSetupIfNeeded()
+                    self?.showAeroSpaceSetupWindow()
                 }
             }
         )

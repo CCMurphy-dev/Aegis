@@ -556,6 +556,8 @@ struct SettingsAeroSpaceSetupButton: View {
     }
 
     private func showSetupWindow() {
+        // Clear dismissed flag so auto-check resumes working after manual re-setup
+        UserDefaults.standard.removeObject(forKey: "aegis.aerospace.setup.dismissed")
         if let appDelegate = NSApp.delegate as? AppDelegate {
             appDelegate.showAeroSpaceSetupWindow(status: setupStatus)
         }

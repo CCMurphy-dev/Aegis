@@ -8,6 +8,27 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.26</title>
+            <sparkle:version>1.0.26</sparkle:version>
+            <sparkle:shortVersionString>1.0.26</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Fri, 04 Apr 2026 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.26</h2>
+                <ul>
+                    <li><strong>AeroSpace Setup — Upgrade Fix</strong> - Integration scripts are now updated automatically from the app bundle when you open the setup prompt. Users upgrading from v1.0.23 who were missing the mode-notify script no longer need to manually re-run setup</li>
+                    <li><strong>AeroSpace Setup — Restore Fix</strong> - Deleting ~/.config/aegis and clicking Run Setup now correctly restores all three integration scripts in one step</li>
+                    <li><strong>AeroSpace Setup — "Check Again" Fix</strong> - The Check Again button in the setup prompt now always re-opens the setup window instead of silently closing it</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.26/Aegis.app.zip"
+                length="2805755"
+                type="application/octet-stream"
+                sparkle:edSignature="63HsMupLnnaRftjKY9PKuATw/On2iK8f5O9Rb4E2rANdCT1E5QyL0M0akccQSFtl6mq3l3Y08TsE3ALdZgjfDg==" />
+        </item>
+
+        <item>
             <title>Version 1.0.25</title>
             <sparkle:version>1.0.25</sparkle:version>
             <sparkle:shortVersionString>1.0.25</sparkle:shortVersionString>

@@ -1,0 +1,12 @@
+#!/bin/bash
+# Aegis-AeroSpace Mode Notification Script
+# Sends mode change events to Aegis via the FIFO pipe
+
+PIPE_PATH="$HOME/.config/aegis/aerospace.pipe"
+
+if [ ! -p "$PIPE_PATH" ]; then
+    exit 0
+fi
+
+CURRENT_MODE=$(aerospace list-modes --current 2>/dev/null | head -1)
+echo "mode:${CURRENT_MODE:-main}" > "$PIPE_PATH" 2>/dev/null &

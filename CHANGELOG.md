@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.26] - 2026-04-04
+
+### Fixed
+- **AeroSpace setup scripts not updated on upgrade** - The setup prompt now copies all integration scripts (`setup-aegis-aerospace.sh`, `aegis-aerospace-notify`, `aegis-aerospace-mode-notify`) directly from the app bundle, overwriting any file whose content differs from the bundled version. Users upgrading from v1.0.23 who were missing the new mode-notify script no longer need to manually re-run the setup script
+- **AeroSpace scripts not created after deleting `~/.config/aegis`** - Clicking "Run Setup" in Settings now correctly restores all three integration scripts and resets the dismissed state so auto-checking resumes
+- **"Check Again" silently closing the setup prompt** - The retry button in the AeroSpace setup prompt now always re-opens the setup window, instead of silently aborting if the user had previously clicked Skip
+
 ## [1.0.25] - 2026-04-03
 
 ### Fixed

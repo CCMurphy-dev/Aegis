@@ -89,7 +89,7 @@ struct AeroSpaceSetupPromptView: View {
         .frame(width: 480)
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
-            ensureSetupScriptExists()
+            ensureIntegrationFilesExist()
         }
     }
 
@@ -119,21 +119,28 @@ struct AeroSpaceSetupPromptView: View {
         NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"))
     }
 
-    /// Ensure the setup script exists in ~/.config/aegis/
-    private func ensureSetupScriptExists() {
+    /// Copy all integration scripts from the app bundle to ~/.config/aegis/,
+    /// overwriting any file whose content differs from the bundled version.
+    /// This ensures scripts are updated automatically after an app upgrade.
+    private func ensureIntegrationFilesExist() {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let configDir = "\(home)/.config/aegis"
-        let destPath = "\(configDir)/setup-aegis-aerospace.sh"
-
         try? FileManager.default.createDirectory(atPath: configDir, withIntermediateDirectories: true)
 
-        if FileManager.default.fileExists(atPath: destPath) {
-            return
-        }
+        let resources: [(resource: String, ext: String?, dest: String)] = [
+            ("setup-aegis-aerospace",    "sh", "\(configDir)/setup-aegis-aerospace.sh"),
+            ("aegis-aerospace-notify",   nil,  "\(configDir)/aegis-aerospace-notify"),
+            ("aegis-aerospace-mode-notify", nil, "\(configDir)/aegis-aerospace-mode-notify"),
+        ]
 
-        if let bundlePath = Bundle.main.path(forResource: "setup-aegis-aerospace", ofType: "sh"),
-           let contents = try? String(contentsOfFile: bundlePath, encoding: .utf8) {
-            try? contents.write(toFile: destPath, atomically: true, encoding: .utf8)
+        for (resource, ext, destPath) in resources {
+            guard let bundlePath = Bundle.main.path(forResource: resource, ofType: ext),
+                  let bundleContent = try? String(contentsOfFile: bundlePath, encoding: .utf8) else {
+                continue
+            }
+            let existingContent = try? String(contentsOfFile: destPath, encoding: .utf8)
+            guard existingContent != bundleContent else { continue }  // already up to date
+            try? bundleContent.write(toFile: destPath, atomically: true, encoding: .utf8)
             try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: destPath)
         }
     }
