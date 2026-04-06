@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.27] - 2026-04-06
+
+### Fixed
+- **Crash on macOS 26 (follow-up)** - A later macOS 26 beta renamed `postWindowNeedsUpdateConstraints` to `_postWindowNeedsUpdateConstraints`. The v1.0.25 override targeted the public name and no longer fired. Now overrides both the public and private variants to remain robust across macOS 26 beta changes
+
 ## [1.0.26] - 2026-04-04
 
 ### Fixed

@@ -8,6 +8,25 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.27</title>
+            <sparkle:version>1.0.27</sparkle:version>
+            <sparkle:shortVersionString>1.0.27</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Sun, 06 Apr 2026 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.27</h2>
+                <ul>
+                    <li><strong>Crash Fix (macOS 26) — follow-up</strong> - A later macOS 26 beta renamed the internal method targeted by the v1.0.25 fix. Aegis now overrides both the public and private variants, covering all known macOS 26 beta builds</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.27/Aegis.app.zip"
+                length="2805783"
+                type="application/octet-stream"
+                sparkle:edSignature="i6glIu6SxyGlUGN+eNxaRVJZKGGoY/IFZKzm95I6G34Vn4Y3WTiDUIMjHp3e5FmGERT+RgIu2TVGke7kFLInAQ==" />
+        </item>
+
+        <item>
             <title>Version 1.0.26</title>
             <sparkle:version>1.0.26</sparkle:version>
             <sparkle:shortVersionString>1.0.26</sparkle:shortVersionString>
