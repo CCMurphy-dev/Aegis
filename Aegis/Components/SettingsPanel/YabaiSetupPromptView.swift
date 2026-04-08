@@ -153,7 +153,7 @@ class YabaiSetupWindowController: NSWindowController {
     private var onDismiss: (() -> Void)?
 
     convenience init(status: YabaiSetupChecker.SetupStatus, onDismiss: @escaping () -> Void, onRetry: @escaping () -> Void) {
-        let window = NSWindow(
+        let window = AegisOverlayWindow(
             contentRect: NSRect(x: 0, y: 0, width: 480, height: 280),
             styleMask: [.titled, .closable],
             backing: .buffered,

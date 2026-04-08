@@ -147,3 +147,25 @@ static void BrightnessChangeCallback(CGDirectDisplayID display, void *userInfo) 
 }
 
 @end
+
+@implementation AegisOverlayPanel
+
+- (void)postWindowNeedsUpdateConstraints {
+    @try {
+        [super postWindowNeedsUpdateConstraints];
+    } @catch (NSException *exception) {
+        // macOS 26 throws here for borderless panel windows.
+        // Safe to suppress — NSHostingView re-requests on the next cycle.
+    }
+}
+
+- (void)_postWindowNeedsUpdateConstraints {
+    @try {
+        [super _postWindowNeedsUpdateConstraints];
+    } @catch (NSException *exception) {
+        // macOS 26 renamed postWindowNeedsUpdateConstraints to this private
+        // variant in a later 26.x build. Same suppression applies.
+    }
+}
+
+@end

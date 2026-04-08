@@ -8,6 +8,25 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.28</title>
+            <sparkle:version>1.0.28</sparkle:version>
+            <sparkle:shortVersionString>1.0.28</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Tue, 08 Apr 2026 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.28</h2>
+                <ul>
+                    <li><strong>Crash Fix (macOS 26) — complete coverage</strong> - Extended the macOS 26 crash fix to all remaining windows: Settings panel, Yabai setup prompt, AeroSpace setup prompt, and App Switcher. All windows in Aegis are now fully protected against the macOS 26 constraint-update exception</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.28/Aegis.app.zip"
+                length="2806291"
+                type="application/octet-stream"
+                sparkle:edSignature="2JlV0VbHTeNYV27S7zML1CkRHPTMWznV4R5g7faKihHOmmG8dYacEPlmvMfFnu2S1pP5L2MTaS5niclilzYCDA==" />
+        </item>
+
+        <item>
             <title>Version 1.0.27</title>
             <sparkle:version>1.0.27</sparkle:version>
             <sparkle:shortVersionString>1.0.27</sparkle:shortVersionString>

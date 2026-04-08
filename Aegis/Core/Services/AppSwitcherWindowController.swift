@@ -4,7 +4,7 @@ import Combine  // Required for @Published property wrapper
 
 /// Custom NSPanel subclass that can become key to receive mouse clicks
 /// while still being a non-activating panel (won't steal app focus)
-class ClickablePanel: NSPanel {
+class ClickablePanel: AegisOverlayPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 }

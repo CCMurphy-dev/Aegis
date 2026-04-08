@@ -37,4 +37,9 @@ extern NSString * _Nonnull const AegisBrightnessChangedNotification;
 @interface AegisOverlayWindow : NSWindow
 @end
 
+/// Base NSPanel subclass for Aegis panel windows.
+/// Same macOS 26 postWindowNeedsUpdateConstraints fix as AegisOverlayWindow.
+@interface AegisOverlayPanel : NSPanel
+@end
+
 #endif /* BrightnessHelper_h */

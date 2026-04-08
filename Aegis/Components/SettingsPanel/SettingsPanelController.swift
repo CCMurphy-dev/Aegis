@@ -24,7 +24,7 @@ class SettingsPanelController {
         let hostingController = NSHostingController(rootView: settingsView)
 
         // Create window with larger default size
-        let window = NSWindow(
+        let window = AegisOverlayWindow(
             contentRect: NSRect(x: 0, y: 0, width: 700, height: 800),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,

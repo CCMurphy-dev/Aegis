@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.28] - 2026-04-08
+
+### Fixed
+- **Crash on macOS 26 (complete coverage)** - Extended the `AegisOverlayWindow` fix to all remaining unprotected windows: Settings panel, Yabai setup prompt, AeroSpace setup prompt, and the App Switcher panel. Added `AegisOverlayPanel` (an `NSPanel` subclass with identical `@try/@catch` overrides) to cover the App Switcher, which inherits from `NSPanel` rather than `NSWindow`. All `NSHostingView` instances in Aegis are now fully protected against the macOS 26 constraint-update exception
+
 ## [1.0.27] - 2026-04-06
 
 ### Fixed
