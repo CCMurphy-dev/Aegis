@@ -48,6 +48,27 @@ class MenuBarController {
 
 // MARK: - SwiftUI Menu Bar View (kept in this file for compatibility)
 
+// PreferenceKey used to report the active space pill's frame in the scroll viewport.
+// Fires reactively on every layout pass (including during expansion animation).
+struct ActiveSpaceFrameValue: Equatable {
+    let spaceId: Int
+    let frame: CGRect
+}
+
+struct ActiveSpaceFrameKey: PreferenceKey {
+    static var defaultValue: ActiveSpaceFrameValue? = nil
+    static func reduce(value: inout ActiveSpaceFrameValue?, nextValue: () -> ActiveSpaceFrameValue?) {
+        value = nextValue() ?? value
+    }
+}
+
+// Reference type: tracks last seen focused space ID and frame without triggering SwiftUI re-renders.
+// Used to detect focus changes and pill expansion in onPreferenceChange without causing layout passes.
+private final class ScrollState {
+    var previousSpaceId: Int? = nil
+    var previousFrame: CGRect? = nil
+}
+
 struct MenuBarView: View {
     @ObservedObject var viewModel: MenuBarViewModel
     @ObservedObject var spaceStore: SpaceViewModelStore
@@ -71,6 +92,8 @@ struct MenuBarView: View {
     @State private var isScrolled: Bool = false
     @State private var previousSpaceCount: Int = 0
     @State private var isContextButtonExpanded: Bool = false
+    @State private var scrollState = ScrollState()
+    @State private var isMediaHUDActive: Bool = false
 
     // Dynamic context button width based on expansion state and visibility
     private var contextButtonWidth: CGFloat {
@@ -111,17 +134,20 @@ struct MenuBarView: View {
             return screenWidth - leftButtonsWidth - 150
         }
 
-        // Calculate STATIC position where album art would appear (regardless of HUD state)
-        // Album art is trailing-aligned in its container, so its right edge touches notchLeftEdge
-        // and its left edge is at notchLeftEdge - albumArtWidth (no padding between art and notch)
         let notchDimensions = NotchDimensions.calculate(for: screen)
         let notchLeftEdge = screenWidth / 2 - notchDimensions.width / 2
-        let albumArtWidth = notchDimensions.height  // Album art is square
-        let hudLeftEdge = notchLeftEdge - albumArtWidth
-
-        // The ScrollView is offset left to extend under the buttons, so it visually starts at x=0
-        // Therefore, maxWidth = hudLeftEdge (the x-position where content should stop)
-        return hudLeftEdge
+        // The scroll container is visually offset left (to extend under buttons), so its
+        // visual right edge = scrollViewExtraLeft + maxWidth, not just maxWidth.
+        // Subtract the extra to align the visual edge with the desired screen position.
+        let scrollViewExtraLeft = leftButtonsWidth
+            - (config.menuBarEdgePadding + config.spaceIndicatorSpacing + contextButtonWidth)
+        if isMediaHUDActive {
+            // HUD active: visual right edge stops at album art's left edge
+            return notchLeftEdge - notchDimensions.height - scrollViewExtraLeft
+        } else {
+            // HUD inactive: visual right edge stops at notch left edge
+            return notchLeftEdge - scrollViewExtraLeft
+        }
     }
 
     init(
@@ -180,6 +206,13 @@ struct MenuBarView: View {
                                 ScrollViewReader { scrollProxy in
                                     ScrollView(.horizontal, showsIndicators: false) {
                                         HStack(alignment: .center, spacing: config.spaceIndicatorSpacing) {
+                                            // Sentinel at scroll-content-x=0 (before any pill).
+                                            // scrollTo("space-row-start", .leading) → contentOffset=0
+                                            // → scrollOffset=0 → isScrolled=false → left fade disappears.
+                                            Color.clear
+                                                .frame(width: config.menuBarEdgePadding + contextButtonWidth, height: 0)
+                                                .id("space-row-start")
+
                                             // Split State Architecture: ForEach over space IDs
                                             // Each SpaceIndicatorViewContainer observes only its own SpaceViewModel
                                             // This prevents re-renders of all spaces when only one changes
@@ -209,7 +242,6 @@ struct MenuBarView: View {
                                                 }
                                             }
                                         }
-                                        .padding(.leading, config.menuBarEdgePadding + config.spaceIndicatorSpacing + contextButtonWidth)  // Start after button
                                         .padding(.trailing, 20)  // Small trailing padding
                                         .background(
                                             GeometryReader { geo in
@@ -246,9 +278,72 @@ struct MenuBarView: View {
                                             previousSpaceCount = newCount
                                         }
                                     }
+                                    .onPreferenceChange(ActiveSpaceFrameKey.self) { value in
+                                        guard let value else {
+                                            scrollState.previousSpaceId = nil
+                                            scrollState.previousFrame = nil
+                                            return
+                                        }
+                                        let isNewFocus = value.spaceId != scrollState.previousSpaceId
+                                        let previousFrame = scrollState.previousFrame
+                                        scrollState.previousSpaceId = value.spaceId
+                                        scrollState.previousFrame = value.frame
+
+                                        if value.frame.maxX > maxWidth + 2 {
+                                            let shouldScroll: Bool
+                                            if isNewFocus {
+                                                shouldScroll = true
+                                            } else if let prev = previousFrame {
+                                                // Expansion: maxX grows significantly more than minX shifts.
+                                                // Manual scroll: both edges shift by roughly the same delta.
+                                                let maxXGrowth = value.frame.maxX - prev.maxX
+                                                let minXShift = value.frame.minX - prev.minX
+                                                shouldScroll = maxXGrowth > minXShift + 5
+                                            } else {
+                                                shouldScroll = false
+                                            }
+                                            if shouldScroll {
+                                                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                                    scrollProxy.scrollTo(value.spaceId, anchor: .trailing)
+                                                }
+                                            }
+                                        } else if value.frame.minX < -2 && isNewFocus {
+                                            // Only snap left on focus change, not during manual scroll.
+                                            // Scrolling to sentinel (x=0) sets contentOffset=0
+                                            // so isScrolled=false and the left fade clears.
+                                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                                scrollProxy.scrollTo("space-row-start", anchor: .leading)
+                                            }
+                                        }
+                                    }
+                                    .onReceive(sharedState.isHUDVisibleSubject) { isActive in
+                                        // Only update state here — @State mutations are queued, so
+                                        // availableSpaceWidth would still read the old value if called here.
+                                        isMediaHUDActive = isActive
+                                    }
+                                    .onChange(of: isMediaHUDActive) { isActive in
+                                        // Fires after state is committed → availableSpaceWidth is correct.
+                                        // If HUD just became active (maxWidth narrowed), scroll active pill into new boundary.
+                                        guard isActive,
+                                              let frame = scrollState.previousFrame,
+                                              let spaceId = scrollState.previousSpaceId else { return }
+                                        let newMaxWidth = availableSpaceWidth(screenWidth: geometry.size.width)
+                                        if frame.maxX > newMaxWidth + 2 {
+                                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                                scrollProxy.scrollTo(spaceId, anchor: .trailing)
+                                            }
+                                        }
+                                    }
                                     .onAppear {
-                                        // Initialize the previous space count
                                         previousSpaceCount = spaceStore.spaceIds.count
+                                        if let index = sharedState.currentFocusedSpaceIndex,
+                                           let spaceId = spaceStore.spaceIds.first(where: {
+                                               spaceStore.viewModel(for: $0)?.space.index == index
+                                           }) {
+                                            DispatchQueue.main.async {
+                                                scrollProxy.scrollTo(spaceId, anchor: .trailing)
+                                            }
+                                        }
                                     }
                                 }
                                 .frame(maxWidth: maxWidth, alignment: .leading)  // Constrain width to stop before notch
@@ -269,13 +364,13 @@ struct MenuBarView: View {
                                         Rectangle()
                                             .fill(Color.white)
 
-                                        // Right fade - smooth fade before edge
+                                        // Right fade - smooth fade before edge (kept narrow so active pill isn't faded)
                                         LinearGradient(
                                             colors: [.white, .clear],
                                             startPoint: .leading,
                                             endPoint: .trailing
                                         )
-                                        .frame(width: 40)
+                                        .frame(width: 16)
                                     }
                                     .animation(.easeInOut(duration: 0.2), value: isScrolled)
                                 )

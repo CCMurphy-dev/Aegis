@@ -36,8 +36,16 @@ final class SharedMenuBarState: ObservableObject {
     }
     let draggedWindowIdSubject = CurrentValueSubject<Int?, Never>(nil)
 
-    /// Tracks notch HUD visibility (non-published: not read by any SwiftUI view body)
-    var isHUDVisible: Bool = false
+    /// Tracks notch HUD visibility; broadcasts via subject so MenuBarView can observe
+    /// without triggering objectWillChange (which would re-render all space containers).
+    var isHUDVisible: Bool = false {
+        didSet {
+            if isHUDVisible != oldValue {
+                isHUDVisibleSubject.send(isHUDVisible)
+            }
+        }
+    }
+    let isHUDVisibleSubject = CurrentValueSubject<Bool, Never>(false)
 
     /// Manages HUD module layout (non-published: not read by any SwiftUI view body)
     var hudLayoutCoordinator: HUDLayoutCoordinator?
@@ -93,7 +101,7 @@ final class SharedMenuBarState: ObservableObject {
     /// Index of the space that previously had focus (for directional dot animation)
     var previousFocusedSpaceIndex: Int?
 
-    /// Index of the space that currently has focus
+    /// Index of the space that currently has focus.
     var currentFocusedSpaceIndex: Int?
 
     /// Clear expandedWindowId if the window no longer exists

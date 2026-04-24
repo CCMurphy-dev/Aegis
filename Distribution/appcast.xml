@@ -8,6 +8,26 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.29</title>
+            <sparkle:version>1.0.29</sparkle:version>
+            <sparkle:shortVersionString>1.0.29</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Thu, 24 Apr 2026 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.29</h2>
+                <ul>
+                    <li><strong>Space indicator scroll — Now Playing HUD overlap fix</strong> - The space indicator scroll area now dynamically adjusts its right boundary based on Now Playing HUD visibility. Pills stop before the album art panel when the media player HUD is open, and use the full width up to the notch edge when it is closed</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.29/Aegis.app.zip"
+                length="2817807"
+                type="application/octet-stream"
+                sparkle:edSignature="ALO3kOQsB0haK/ahLuuBYbsqa+zYJ362AzgRUWEKuuKkTY93FwLPXZsnCHqcvgr6WYUlZUPUQ5C8oAa1Agp+BA==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 1.0.28</title>
             <sparkle:version>1.0.28</sparkle:version>
             <sparkle:shortVersionString>1.0.28</sparkle:shortVersionString>

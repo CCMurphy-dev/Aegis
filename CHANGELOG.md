@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.29] - 2026-04-24
+
+### Fixed
+- **Space indicator scroll — Now Playing HUD overlap** - The space indicator scroll area now dynamically adjusts its right boundary based on Now Playing HUD visibility. When the media player HUD is open, pills stop before the album art panel; when it is closed, pills can use the full width up to the notch edge. Previously the boundary was always set conservatively to the album art position regardless of HUD state, and incorrectly ignored the visual offset introduced by the app launcher button
+
 ## [1.0.28] - 2026-04-08
 
 ### Fixed

@@ -89,6 +89,19 @@ struct SpaceIndicatorViewContainer: View {
                     }
             }
         )
+        .background(
+            GeometryReader { geo in
+                Color.clear.preference(
+                    key: ActiveSpaceFrameKey.self,
+                    value: spaceViewModel.isActive
+                        ? ActiveSpaceFrameValue(
+                            spaceId: spaceViewModel.spaceId,
+                            frame: geo.frame(in: .named("scroll"))
+                          )
+                        : nil
+                )
+            }
+        )
         .onChange(of: spaceViewModel.isActive) { isActive in
             if isActive {
                 sharedState.previousFocusedSpaceIndex = sharedState.currentFocusedSpaceIndex
