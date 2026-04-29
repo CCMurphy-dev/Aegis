@@ -8,6 +8,26 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.30</title>
+            <sparkle:version>1.0.30</sparkle:version>
+            <sparkle:shortVersionString>1.0.30</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Tue, 29 Apr 2026 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.30</h2>
+                <ul>
+                    <li><strong>Fix: "Send to Space" submenu now shows space numbers</strong> - The right-click context menu's Send to Space submenu was displaying "Space" for every entry without a number. Spaces are now correctly labelled "Space 1", "Space 2", etc.</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.30/Aegis.app.zip"
+                length="2818081"
+                type="application/octet-stream"
+                sparkle:edSignature="x1P7sjMQa6MvpR+Gy2qmr96ii/2RZeGcFxq2BsU49QbpZxFxymhwQihKWHKFEFEKUMgfceEjoXP6S+9Vm6J8Aw==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 1.0.29</title>
             <sparkle:version>1.0.29</sparkle:version>
             <sparkle:shortVersionString>1.0.29</sparkle:shortVersionString>

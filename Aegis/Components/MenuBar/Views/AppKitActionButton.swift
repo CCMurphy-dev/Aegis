@@ -677,7 +677,8 @@ struct AppKitLayoutActionsButtonWrapper: NSViewRepresentable {
                 }
             } else {
                 for space in spaces {
-                    let spaceLabel = space.label ?? "\(space.index)"
+                    let label = space.label ?? ""
+                    let spaceLabel = label.isEmpty ? "\(space.index)" : label
                     let spaceItem = NSMenuItem(title: "Space \(spaceLabel)", action: #selector(LayoutActionsMenuTarget.sendToSpace(_:)), keyEquivalent: "")
                     spaceItem.target = menuTarget
                     spaceItem.representedObject = space.index
