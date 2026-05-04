@@ -8,6 +8,26 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.31</title>
+            <sparkle:version>1.0.31</sparkle:version>
+            <sparkle:shortVersionString>1.0.31</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Sun, 04 May 2026 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.31</h2>
+                <ul>
+                    <li><strong>Fix: Menu bar stays hidden after screen lock/unlock in fullscreen</strong> - When macOS locked the screen while a fullscreen window was open, Aegis's menu bar would reappear on login instead of remaining hidden. The fullscreen state is now preserved across screen lock, unlock, and wake from sleep.</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.31/Aegis.app.zip"
+                length="2819616"
+                type="application/octet-stream"
+                sparkle:edSignature="t/l7rcN2C1BAV1zXOcm9qhcrB2+VgUGwuCKreK2uDmphnn0Pyzm7FRB8/5QrfPbvehA8vLEeq2+s7uAZEFnWAQ==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 1.0.30</title>
             <sparkle:version>1.0.30</sparkle:version>
             <sparkle:shortVersionString>1.0.30</sparkle:shortVersionString>

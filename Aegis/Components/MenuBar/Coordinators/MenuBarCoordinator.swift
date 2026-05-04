@@ -150,6 +150,18 @@ class MenuBarCoordinator {
         viewModel?.refreshWindowIcons()
     }
 
+    // MARK: - Fullscreen State
+
+    /// Current fullscreen state of this coordinator's display (for snapshot before rebuild)
+    var isCurrentlyFullscreen: Bool { windowController.isInFullscreenSpace }
+
+    /// Immediately apply a known fullscreen state to the window and seed the VM
+    /// so the next yabai poll correctly diffs from this baseline.
+    func seedFullscreenState(_ isFullscreen: Bool) {
+        viewModel?.seedFullscreenState(isFullscreen)
+        windowController.updateVisibilityForSpace(isFullscreen: isFullscreen)
+    }
+
     // MARK: - Notch HUD Integration
 
     func connectHUDVisibility(from hudController: NotchHUDController) {

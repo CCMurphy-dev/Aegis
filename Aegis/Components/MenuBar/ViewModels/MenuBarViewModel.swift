@@ -39,6 +39,12 @@ class MenuBarViewModel: ObservableObject {
     /// Called by performUpdate when fullscreen state changes
     var onFullscreenStateChanged: ((Bool) -> Void)?
 
+    /// Seed the initial fullscreen state so the change-detection diff works correctly
+    /// after a rebuild. Called by the coordinator immediately after show().
+    func seedFullscreenState(_ isFullscreen: Bool) {
+        isFocusedSpaceFullscreen = isFullscreen
+    }
+
     /// Raw spaces data from window manager
     private var spaces: [WMSpace] = []
 

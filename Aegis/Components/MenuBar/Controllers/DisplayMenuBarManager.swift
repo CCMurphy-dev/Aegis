@@ -319,6 +319,10 @@ final class DisplayMenuBarManager {
     /// Called on screen wake or unlock, where NSScreen frames may have shifted
     /// but existing coordinators still hold stale window positions.
     func rebuildAllMenuBars() {
+        // Snapshot fullscreen state before tearing down so new windows start hidden
+        // if the display was already in a fullscreen space
+        let savedFullscreen = coordinatorsByDisplay.mapValues { $0.isCurrentlyFullscreen }
+
         for (_, coordinator) in coordinatorsByDisplay {
             coordinator.hide()
         }
@@ -329,6 +333,16 @@ final class DisplayMenuBarManager {
 
         // Sync immediately, then again after the display has fully settled
         syncMenuBarsWithDisplays()
+
+        // Re-apply fullscreen state immediately so the window stays hidden and the VM
+        // baseline is correct for the next yabai diff (handles both stay-fullscreen and
+        // exit-fullscreen-during-lock cases)
+        for (displayIndex, coordinator) in coordinatorsByDisplay {
+            if savedFullscreen[displayIndex] == true {
+                coordinator.seedFullscreenState(true)
+            }
+        }
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.syncMenuBarsWithDisplays()
         }
