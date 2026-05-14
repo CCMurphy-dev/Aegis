@@ -182,11 +182,16 @@ struct MenuBarView: View {
         self.onToggleApp = onToggleApp
     }
 
+    private var glassMenuBarMaterial: NSVisualEffectView.Material {
+        // When the macOS 26 SDK surfaces .glass, swap .hudWindow here
+        return .hudWindow
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
             // Background blur with gradient fade - full blur at top, transparent at bottom
             // Blends smoothly into the desktop wallpaper
-            GradientBlurView(material: .hudWindow, blendingMode: .behindWindow)
+            GradientBlurView(material: glassMenuBarMaterial, blendingMode: .behindWindow)
                 .frame(height: config.menuBarHeight)
 
             GeometryReader { geometry in

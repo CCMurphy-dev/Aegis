@@ -37,7 +37,7 @@ struct SpaceIndicatorView: View {
     private final class WidthRef { var value: CGFloat = 50 }
     @State private var widthRef = WidthRef()
 
-    private let config = AegisConfig.shared
+    @ObservedObject private var config = AegisConfig.shared
 
     // Icons to display - either limited or all based on expansion state
     private var displayedIcons: [WindowIcon] {
@@ -176,12 +176,22 @@ struct SpaceIndicatorView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(
-                // Use AppKit-based hover background to avoid SwiftUI state churn
-                HoverableBackground(isActive: isActive, cornerRadius: 8)
+                Group {
+                    if config.isLiquidGlass {
+                        SpacePillGlassBackground(isActive: isActive, cornerRadius: 8)
+                    } else {
+                        // Use AppKit-based hover background to avoid SwiftUI state churn
+                        HoverableBackground(isActive: isActive, cornerRadius: 8)
+                    }
+                }
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(isActive ? ThemeColors.border(opacity: 0.18) : .clear, lineWidth: 1)
+                Group {
+                    if !config.isLiquidGlass {
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(isActive ? ThemeColors.border(opacity: 0.18) : .clear, lineWidth: 1)
+                    }
+                }
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
@@ -208,7 +218,10 @@ struct SpaceIndicatorView: View {
                 }
             }
             .animation(.easeOut(duration: 0.2), value: focusedIndex != nil)
-            .shadow(color: isActive ? ThemeColors.foreground.opacity(0.12) : .clear, radius: 6)
+            .shadow(
+                color: (!config.isLiquidGlass && isActive) ? ThemeColors.foreground.opacity(0.12) : .clear,
+                radius: 6
+            )
             .animation(.easeOut(duration: 0.12), value: isActive)
         // Measure width for drag calculations — writes to class ref (not @State)
         // so no SwiftUI re-renders are triggered during animation
@@ -818,6 +831,170 @@ final class HoverableBackgroundView: NSView {
         CATransaction.setDisableActions(true)
         backgroundLayer.backgroundColor = targetColor
         CATransaction.commit()
+    }
+}
+
+// MARK: - Glass Pill Background (Liquid Glass theme)
+
+/// NSViewRepresentable wrapper around GlassPillBackgroundView.
+/// Uses .glass material on macOS 26+, falling back to .ultraThinMaterial.
+/// Hover tracking is handled at the AppKit level (same pattern as HoverableBackground).
+struct GlassPillBackground: NSViewRepresentable {
+    let isActive: Bool
+    let cornerRadius: CGFloat
+
+    func makeNSView(context: Context) -> GlassPillBackgroundView {
+        let view = GlassPillBackgroundView()
+        view.cornerRadius = cornerRadius
+        view.isActiveSpace = isActive
+        return view
+    }
+
+    func updateNSView(_ nsView: GlassPillBackgroundView, context: Context) {
+        nsView.isActiveSpace = isActive
+    }
+}
+
+final class GlassPillBackgroundView: NSView {
+    var cornerRadius: CGFloat = 8 {
+        didSet { applyCornerRadius() }
+    }
+
+    var isActiveSpace: Bool = false {
+        didSet {
+            guard isActiveSpace != oldValue else { return }
+            updateAppearance(animated: true)
+        }
+    }
+
+    private var isHovered: Bool = false {
+        didSet {
+            guard isHovered != oldValue else { return }
+            updateAppearance(animated: true)
+        }
+    }
+
+    private let effectView = NSVisualEffectView()
+    private var trackingArea: NSTrackingArea?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setup()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setup()
+    }
+
+    private func setup() {
+        wantsLayer = true
+        effectView.material = .hudWindow
+        effectView.blendingMode = .behindWindow
+        effectView.state = .active
+        effectView.wantsLayer = true
+        effectView.autoresizingMask = [.width, .height]
+        addSubview(effectView)
+        applyCornerRadius()
+        updateAppearance(animated: false)
+    }
+
+    private func applyCornerRadius() {
+        layer?.cornerRadius = cornerRadius
+        layer?.masksToBounds = true
+        effectView.layer?.cornerRadius = cornerRadius
+        effectView.layer?.masksToBounds = true
+    }
+
+    override func layout() {
+        super.layout()
+        effectView.frame = bounds
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = trackingArea { removeTrackingArea(existing) }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways],
+            owner: self,
+            userInfo: nil
+        )
+        trackingArea = area
+        addTrackingArea(area)
+    }
+
+    override func mouseEntered(with event: NSEvent) { isHovered = true }
+    override func mouseExited(with event: NSEvent)  { isHovered = false }
+
+    private func updateAppearance(animated: Bool) {
+        let targetAlpha: CGFloat = isActiveSpace ? 1.0 : isHovered ? 0.75 : 0.45
+        if animated {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.12
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                effectView.animator().alphaValue = targetAlpha
+            }
+        } else {
+            effectView.alphaValue = targetAlpha
+        }
+    }
+}
+
+/// SwiftUI wrapper that layers specular highlight, glass edge stroke, and shadow
+/// over the NSVisualEffectView glass base for the Liquid Glass theme.
+struct SpacePillGlassBackground: View {
+    let isActive: Bool
+    let cornerRadius: CGFloat
+
+    var body: some View {
+        ZStack {
+            // Layer 1: NSVisualEffectView glass blur (handles refraction/tinting)
+            GlassPillBackground(isActive: isActive, cornerRadius: cornerRadius)
+
+            // Layer 2: Active inner wet glow
+            if isActive {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(Color.white.opacity(0.08))
+            }
+
+            // Layer 3: Specular highlight — light hitting the top glass surface
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(
+                    LinearGradient(
+                        gradient: Gradient(stops: [
+                            .init(color: .white.opacity(0.35), location: 0.0),
+                            .init(color: .white.opacity(0.0),  location: 0.42)
+                        ]),
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+
+            // Layer 4: Glass edge — bright top-left, dim bottom-right (3D glass edge)
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .strokeBorder(
+                    LinearGradient(
+                        gradient: Gradient(stops: [
+                            .init(color: .white.opacity(0.45), location: 0.0),
+                            .init(color: .white.opacity(0.45), location: 0.25),
+                            .init(color: .white.opacity(0.18), location: 0.5),
+                            .init(color: .white.opacity(0.08), location: 0.75),
+                            .init(color: .white.opacity(0.08), location: 1.0)
+                        ]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        }
+        .shadow(
+            color: .black.opacity(isActive ? 0.20 : 0.0),
+            radius: isActive ? 9 : 0,
+            x: 0,
+            y: 2
+        )
+        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isActive)
     }
 }
 

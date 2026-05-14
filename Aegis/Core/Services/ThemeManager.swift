@@ -20,6 +20,7 @@ final class ThemeManager: ObservableObject {
         case .light: isDarkMode = false
         case .system: isDarkMode = isSystemInDarkMode()
         case .custom: isDarkMode = true
+        case .liquidGlass: isDarkMode = isSystemInDarkMode()
         }
 
         DistributedNotificationCenter.default().addObserver(
@@ -96,6 +97,8 @@ final class ThemeManager: ObservableObject {
             newIsDarkMode = isSystemInDarkMode()
         case .custom:
             newIsDarkMode = true  // Custom uses dark as base
+        case .liquidGlass:
+            newIsDarkMode = isSystemInDarkMode()
         }
 
         if newIsDarkMode != isDarkMode {

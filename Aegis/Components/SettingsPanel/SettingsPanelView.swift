@@ -224,6 +224,61 @@ struct SettingsPanelView: View {
                 selection: $config.appTheme
             )
 
+            if config.appTheme == .liquidGlass {
+                HStack(spacing: 12) {
+                    // Glassmorphic preview swatch
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(0.22), Color.white.opacity(0.08)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(
+                                LinearGradient(
+                                    gradient: Gradient(stops: [
+                                        .init(color: .white.opacity(0.35), location: 0),
+                                        .init(color: .clear, location: 0.42)
+                                    ]),
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [.white.opacity(0.45), .white.opacity(0.08)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    }
+                    .frame(width: 52, height: 28)
+                    .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 2)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Liquid Glass")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.white)
+                        Text("macOS 26 Tahoe aesthetic — refractive blur with specular glass edges")
+                            .font(.system(size: 10))
+                            .foregroundColor(Color.white.opacity(0.55))
+                            .fixedSize(horizontal: false, vertical: true)
+                        if #unavailable(macOS 26) {
+                            Text("Uses ultraThinMaterial on your current macOS version")
+                                .font(.system(size: 10))
+                                .foregroundColor(Color.orange.opacity(0.8))
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
             Divider().background(Color.white.opacity(0.1))
 
             if config.appTheme == .custom {
@@ -315,32 +370,34 @@ struct SettingsPanelView: View {
                 isOn: $config.showFocusName
             )
 
-            Divider().background(Color.white.opacity(0.1))
+            if !config.isLiquidGlass {
+                Divider().background(Color.white.opacity(0.1))
 
-            SettingsSubsection(title: "Space Background Opacity") {
-                SettingsDoubleSlider(
-                    label: "Active Space",
-                    value: $config.activeSpaceBgOpacity,
-                    range: 0.0...0.5,
-                    step: 0.02,
-                    unit: ""
-                )
+                SettingsSubsection(title: "Space Background Opacity") {
+                    SettingsDoubleSlider(
+                        label: "Active Space",
+                        value: $config.activeSpaceBgOpacity,
+                        range: 0.0...0.5,
+                        step: 0.02,
+                        unit: ""
+                    )
 
-                SettingsDoubleSlider(
-                    label: "Hovered Space",
-                    value: $config.hoveredSpaceBgOpacity,
-                    range: 0.0...0.5,
-                    step: 0.02,
-                    unit: ""
-                )
+                    SettingsDoubleSlider(
+                        label: "Hovered Space",
+                        value: $config.hoveredSpaceBgOpacity,
+                        range: 0.0...0.5,
+                        step: 0.02,
+                        unit: ""
+                    )
 
-                SettingsDoubleSlider(
-                    label: "Inactive Space",
-                    value: $config.inactiveSpaceBgOpacity,
-                    range: 0.0...0.5,
-                    step: 0.02,
-                    unit: ""
-                )
+                    SettingsDoubleSlider(
+                        label: "Inactive Space",
+                        value: $config.inactiveSpaceBgOpacity,
+                        range: 0.0...0.5,
+                        step: 0.02,
+                        unit: ""
+                    )
+                }
             }
 
             Divider().background(Color.white.opacity(0.1))

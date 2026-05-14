@@ -7,6 +7,7 @@ enum AppTheme: String, CaseIterable, Codable {
     case light = "light"
     case system = "system"
     case custom = "custom"
+    case liquidGlass = "liquidGlass"
 
     var displayName: String {
         switch self {
@@ -14,6 +15,7 @@ enum AppTheme: String, CaseIterable, Codable {
         case .light: return "Light"
         case .system: return "System"
         case .custom: return "Custom"
+        case .liquidGlass: return "Liquid Glass"
         }
     }
 }
@@ -34,8 +36,11 @@ class AegisConfig: ObservableObject {
 
     // MARK: - Appearance
 
-    /// App theme mode: dark, light, or system
+    /// App theme mode: dark, light, system, custom, or liquidGlass
     @Published var appTheme: AppTheme = .dark
+
+    /// True when the liquid glass theme is active
+    var isLiquidGlass: Bool { appTheme == .liquidGlass }
 
     /// Custom background color (hex "#RRGGBB"), nil = theme default
     @Published var customBackgroundColor: String? = nil
