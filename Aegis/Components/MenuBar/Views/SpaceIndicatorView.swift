@@ -836,121 +836,26 @@ final class HoverableBackgroundView: NSView {
 
 // MARK: - Glass Pill Background (Liquid Glass theme)
 
-/// NSViewRepresentable wrapper around GlassPillBackgroundView.
-/// Uses .glass material on macOS 26+, falling back to .ultraThinMaterial.
-/// Hover tracking is handled at the AppKit level (same pattern as HoverableBackground).
-struct GlassPillBackground: NSViewRepresentable {
-    let isActive: Bool
-    let cornerRadius: CGFloat
-
-    func makeNSView(context: Context) -> GlassPillBackgroundView {
-        let view = GlassPillBackgroundView()
-        view.cornerRadius = cornerRadius
-        view.isActiveSpace = isActive
-        return view
-    }
-
-    func updateNSView(_ nsView: GlassPillBackgroundView, context: Context) {
-        nsView.isActiveSpace = isActive
-    }
-}
-
-final class GlassPillBackgroundView: NSView {
-    var cornerRadius: CGFloat = 8 {
-        didSet { applyCornerRadius() }
-    }
-
-    var isActiveSpace: Bool = false {
-        didSet {
-            guard isActiveSpace != oldValue else { return }
-            updateAppearance(animated: true)
-        }
-    }
-
-    private var isHovered: Bool = false {
-        didSet {
-            guard isHovered != oldValue else { return }
-            updateAppearance(animated: true)
-        }
-    }
-
-    private let effectView = NSVisualEffectView()
-    private var trackingArea: NSTrackingArea?
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        setup()
-    }
-
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        setup()
-    }
-
-    private func setup() {
-        wantsLayer = true
-        effectView.material = .hudWindow
-        effectView.blendingMode = .behindWindow
-        effectView.state = .active
-        effectView.wantsLayer = true
-        effectView.autoresizingMask = [.width, .height]
-        addSubview(effectView)
-        applyCornerRadius()
-        updateAppearance(animated: false)
-    }
-
-    private func applyCornerRadius() {
-        layer?.cornerRadius = cornerRadius
-        layer?.masksToBounds = true
-        effectView.layer?.cornerRadius = cornerRadius
-        effectView.layer?.masksToBounds = true
-    }
-
-    override func layout() {
-        super.layout()
-        effectView.frame = bounds
-    }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let existing = trackingArea { removeTrackingArea(existing) }
-        let area = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseEnteredAndExited, .activeAlways],
-            owner: self,
-            userInfo: nil
-        )
-        trackingArea = area
-        addTrackingArea(area)
-    }
-
-    override func mouseEntered(with event: NSEvent) { isHovered = true }
-    override func mouseExited(with event: NSEvent)  { isHovered = false }
-
-    private func updateAppearance(animated: Bool) {
-        let targetAlpha: CGFloat = isActiveSpace ? 1.0 : isHovered ? 0.75 : 0.45
-        if animated {
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.12
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                effectView.animator().alphaValue = targetAlpha
-            }
-        } else {
-            effectView.alphaValue = targetAlpha
-        }
-    }
-}
-
-/// SwiftUI wrapper that layers specular highlight, glass edge stroke, and shadow
-/// over the NSVisualEffectView glass base for the Liquid Glass theme.
+/// Pure SwiftUI glass pill background for the Liquid Glass theme.
+/// Uses SwiftUI's Material system to avoid nested NSVisualEffectView issues.
+/// Hover is tracked via onHover (only this small background view re-renders).
 struct SpacePillGlassBackground: View {
     let isActive: Bool
     let cornerRadius: CGFloat
+    @State private var isHovered = false
+    @ObservedObject private var config = AegisConfig.shared
+
+    private var blurOpacity: Double {
+        let base: Double = isActive ? 1.0 : isHovered ? 0.75 : 0.45
+        return base * config.liquidGlassBlurOpacity
+    }
 
     var body: some View {
         ZStack {
-            // Layer 1: NSVisualEffectView glass blur (handles refraction/tinting)
-            GlassPillBackground(isActive: isActive, cornerRadius: cornerRadius)
+            // Layer 1: Material blur base (SwiftUI handles nesting correctly)
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(.thinMaterial)
+                .opacity(blurOpacity)
 
             // Layer 2: Active inner wet glow
             if isActive {
@@ -963,8 +868,8 @@ struct SpacePillGlassBackground: View {
                 .fill(
                     LinearGradient(
                         gradient: Gradient(stops: [
-                            .init(color: .white.opacity(0.35), location: 0.0),
-                            .init(color: .white.opacity(0.0),  location: 0.42)
+                            .init(color: .white.opacity(config.liquidGlassSpecularOpacity), location: 0.0),
+                            .init(color: .white.opacity(0.0), location: 0.42)
                         ]),
                         startPoint: .top,
                         endPoint: .bottom
@@ -995,6 +900,8 @@ struct SpacePillGlassBackground: View {
             y: 2
         )
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isActive)
+        .animation(.easeOut(duration: 0.12), value: isHovered)
+        .onHover { isHovered = $0 }
     }
 }
 

@@ -277,6 +277,23 @@ struct SettingsPanelView: View {
                 }
                 .padding(.vertical, 4)
                 .transition(.opacity.combined(with: .move(edge: .top)))
+
+                SettingsSubsection(title: "Glass Intensity") {
+                    SettingsDoubleSlider(
+                        label: "Specular Highlight",
+                        value: $config.liquidGlassSpecularOpacity,
+                        range: 0.0...0.5,
+                        step: 0.02,
+                        unit: ""
+                    )
+                    SettingsDoubleSlider(
+                        label: "Blur Opacity",
+                        value: $config.liquidGlassBlurOpacity,
+                        range: 0.3...1.0,
+                        step: 0.05,
+                        unit: ""
+                    )
+                }
             }
 
             Divider().background(Color.white.opacity(0.1))

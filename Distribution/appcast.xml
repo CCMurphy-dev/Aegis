@@ -8,6 +8,28 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.32</title>
+            <sparkle:version>1.0.32</sparkle:version>
+            <sparkle:shortVersionString>1.0.32</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Sun, 18 May 2026 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.32</h2>
+                <ul>
+                    <li><strong>Fix: Native volume/brightness HUD no longer appears on macOS 26 Tahoe</strong> - macOS 26 introduced BezelServices for system HUD overlays, which conflicted with Aegis's notch HUD (both would appear simultaneously). Aegis now intercepts media key events at the system level before BezelServices processes them, adjusting volume/brightness directly and showing only the Aegis HUD. Approach inspired by mew-notch.</li>
+                    <li><strong>Updated mediaremote-adapter to v0.7.6</strong> - Fixes a slow memory leak in the Perl media monitoring process and improves compatibility with more apps.</li>
+                    <li><strong>Liquid Glass theme</strong> - New theme consistent with macOS 26 Tahoe's glass aesthetic, with configurable specular highlight and blur intensity.</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.32/Aegis.app.zip"
+                length="2795659"
+                type="application/octet-stream"
+                sparkle:edSignature="hSEHPm4pxHJe7BMz4p0hPTB2qtmB1i25UIM8481K9rJu2PSOWTEEGLqsDf9xjI/MuTZSlgxLJjOZXE7JzzgADQ==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 1.0.31</title>
             <sparkle:version>1.0.31</sparkle:version>
             <sparkle:shortVersionString>1.0.31</sparkle:shortVersionString>

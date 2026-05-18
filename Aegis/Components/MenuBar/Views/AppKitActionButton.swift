@@ -48,6 +48,7 @@ final class AppKitLayoutActionsButton: NSView {
     private var borderLayer: CAShapeLayer!
     private var iconLayer: CATextLayer!
     private var labelLayer: CATextLayer!
+    private var specularLayer: CAGradientLayer!
 
     // Layout constants
     private let cornerRadius: CGFloat = 8
@@ -105,8 +106,18 @@ final class AppKitLayoutActionsButton: NSView {
     private func updateColors() {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        backgroundLayer.backgroundColor = ThemeColors.backgroundNSColor(alpha: config.inactiveSpaceBgOpacity).cgColor
-        borderLayer.strokeColor = ThemeColors.foregroundNSColor(alpha: config.activeBorderOpacity).cgColor
+        if config.isLiquidGlass {
+            backgroundLayer.backgroundColor = NSColor.white.withAlphaComponent(0.10).cgColor
+            borderLayer.strokeColor = NSColor.white.withAlphaComponent(0.35).cgColor
+            borderLayer.opacity = 1.0
+            let s = Float(config.liquidGlassSpecularOpacity)
+            specularLayer.colors = [NSColor.white.withAlphaComponent(CGFloat(s)).cgColor, NSColor.clear.cgColor]
+            specularLayer.isHidden = false
+        } else {
+            backgroundLayer.backgroundColor = ThemeColors.backgroundNSColor(alpha: config.inactiveSpaceBgOpacity).cgColor
+            borderLayer.strokeColor = ThemeColors.foregroundNSColor(alpha: config.activeBorderOpacity).cgColor
+            specularLayer.isHidden = true
+        }
         iconLayer.foregroundColor = ThemeColors.foregroundNSColor(alpha: config.tertiaryTextOpacity).cgColor
         labelLayer.foregroundColor = ThemeColors.foregroundNSColor(alpha: config.secondaryTextOpacity).cgColor
         CATransaction.commit()
@@ -128,6 +139,17 @@ final class AppKitLayoutActionsButton: NSView {
         backgroundLayer.cornerRadius = cornerRadius
         backgroundLayer.backgroundColor = ThemeColors.backgroundNSColor(alpha: config.inactiveSpaceBgOpacity).cgColor
         layer?.addSublayer(backgroundLayer)
+
+        // Specular highlight layer (Liquid Glass theme)
+        specularLayer = CAGradientLayer()
+        specularLayer.cornerRadius = cornerRadius
+        specularLayer.locations = [0.0, 0.42]
+        specularLayer.startPoint = CGPoint(x: 0.5, y: 0)
+        specularLayer.endPoint = CGPoint(x: 0.5, y: 1)
+        let s = config.liquidGlassSpecularOpacity
+        specularLayer.colors = [NSColor.white.withAlphaComponent(s).cgColor, NSColor.clear.cgColor]
+        specularLayer.isHidden = !config.isLiquidGlass
+        layer?.addSublayer(specularLayer)
 
         // Border layer
         borderLayer = CAShapeLayer()
@@ -190,6 +212,9 @@ final class AppKitLayoutActionsButton: NSView {
         // Background - starts collapsed
         backgroundLayer.frame = CGRect(x: 0, y: 0, width: collapsedWidth, height: height)
 
+        // Specular layer - same frame as background
+        specularLayer.frame = CGRect(x: 0, y: 0, width: collapsedWidth, height: height)
+
         // Border - matches collapsed size
         let borderPath = CGPath(roundedRect: CGRect(x: 0.5, y: 0.5, width: collapsedWidth - 1, height: height - 1),
                                 cornerWidth: cornerRadius, cornerHeight: cornerRadius,
@@ -233,11 +258,15 @@ final class AppKitLayoutActionsButton: NSView {
         }
 
         // Background opacity
-        let bgOpacity: CGFloat = showLabel ? config.activeSpaceBgOpacity : (isHovered ? config.hoveredSpaceBgOpacity : config.inactiveSpaceBgOpacity)
-        backgroundLayer.backgroundColor = ThemeColors.backgroundNSColor(alpha: bgOpacity).cgColor
-
-        // Border visibility
-        borderLayer.opacity = (isHovered || showLabel) ? 1.0 : 0.0
+        if config.isLiquidGlass {
+            let glassAlpha: CGFloat = (isHovered || showLabel) ? 0.18 : 0.10
+            backgroundLayer.backgroundColor = NSColor.white.withAlphaComponent(glassAlpha).cgColor
+            borderLayer.opacity = 1.0  // always visible in glass mode
+        } else {
+            let bgOpacity: CGFloat = showLabel ? config.activeSpaceBgOpacity : (isHovered ? config.hoveredSpaceBgOpacity : config.inactiveSpaceBgOpacity)
+            backgroundLayer.backgroundColor = ThemeColors.backgroundNSColor(alpha: bgOpacity).cgColor
+            borderLayer.opacity = (isHovered || showLabel) ? 1.0 : 0.0
+        }
 
         // Icon brightness
         iconLayer.foregroundColor = ThemeColors.foregroundNSColor(alpha: isHovered ? config.primaryTextOpacity : config.tertiaryTextOpacity).cgColor
@@ -1050,6 +1079,7 @@ final class AppKitAppLauncherButton: NSView {
     private var borderLayer: CAShapeLayer!
     private var iconLayer: CALayer!
     private var dotLayer: CALayer!
+    private var specularLayer: CAGradientLayer!
 
     // Layout constants
     private let cornerRadius: CGFloat = 8
@@ -1101,8 +1131,18 @@ final class AppKitAppLauncherButton: NSView {
     private func updateColors() {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        backgroundLayer.backgroundColor = ThemeColors.backgroundNSColor(alpha: config.inactiveSpaceBgOpacity).cgColor
-        borderLayer.strokeColor = ThemeColors.foregroundNSColor(alpha: config.activeBorderOpacity).cgColor
+        if config.isLiquidGlass {
+            backgroundLayer.backgroundColor = NSColor.white.withAlphaComponent(0.10).cgColor
+            borderLayer.strokeColor = NSColor.white.withAlphaComponent(0.35).cgColor
+            borderLayer.opacity = 1.0
+            let s = config.liquidGlassSpecularOpacity
+            specularLayer.colors = [NSColor.white.withAlphaComponent(s).cgColor, NSColor.clear.cgColor]
+            specularLayer.isHidden = false
+        } else {
+            backgroundLayer.backgroundColor = ThemeColors.backgroundNSColor(alpha: config.inactiveSpaceBgOpacity).cgColor
+            borderLayer.strokeColor = ThemeColors.foregroundNSColor(alpha: config.activeBorderOpacity).cgColor
+            specularLayer.isHidden = true
+        }
         dotLayer.backgroundColor = ThemeColors.foregroundNSColor(alpha: 1.0).cgColor
         CATransaction.commit()
     }
@@ -1138,6 +1178,18 @@ final class AppKitAppLauncherButton: NSView {
         backgroundLayer.backgroundColor = ThemeColors.backgroundNSColor(alpha: config.inactiveSpaceBgOpacity).cgColor
         backgroundLayer.frame = bounds
         layer?.addSublayer(backgroundLayer)
+
+        // Specular highlight layer (Liquid Glass theme)
+        specularLayer = CAGradientLayer()
+        specularLayer.cornerRadius = cornerRadius
+        specularLayer.locations = [0.0, 0.42]
+        specularLayer.startPoint = CGPoint(x: 0.5, y: 0)
+        specularLayer.endPoint = CGPoint(x: 0.5, y: 1)
+        let s = config.liquidGlassSpecularOpacity
+        specularLayer.colors = [NSColor.white.withAlphaComponent(s).cgColor, NSColor.clear.cgColor]
+        specularLayer.frame = bounds
+        specularLayer.isHidden = !config.isLiquidGlass
+        layer?.addSublayer(specularLayer)
 
         // Border layer
         borderLayer = CAShapeLayer()
@@ -1204,10 +1256,13 @@ final class AppKitAppLauncherButton: NSView {
         CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
 
         // Background
-        backgroundLayer.backgroundColor = ThemeColors.backgroundNSColor(alpha: isHovered ? config.hoveredSpaceBgOpacity : config.inactiveSpaceBgOpacity).cgColor
-
-        // Border
-        borderLayer.opacity = isHovered ? 1.0 : 0.0
+        if config.isLiquidGlass {
+            backgroundLayer.backgroundColor = NSColor.white.withAlphaComponent(isHovered ? 0.18 : 0.10).cgColor
+            borderLayer.opacity = 1.0  // always visible in glass mode
+        } else {
+            backgroundLayer.backgroundColor = ThemeColors.backgroundNSColor(alpha: isHovered ? config.hoveredSpaceBgOpacity : config.inactiveSpaceBgOpacity).cgColor
+            borderLayer.opacity = isHovered ? 1.0 : 0.0
+        }
 
         // Icon opacity
         iconLayer.opacity = isHovered ? 1.0 : 0.7

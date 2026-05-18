@@ -92,40 +92,31 @@ class SystemInfoService {
     
     // Suppress the native macOS HUD overlays
     private func suppressNativeHUD() {
-        // This uses a private API to disable the system HUD
-        // Note: This may not work on all macOS versions
-        let script = """
-        launchctl unload -w /System/Library/LaunchAgents/com.apple.OSDUIHelper.plist 2>/dev/null
-        """
+        // macOS 15 and earlier: OSDUIHelper handles the system HUD — disable via launchctl
+        // macOS 26+: BezelServices runs inside loginwindow and cannot be stopped via launchctl.
+        //            Instead, MediaKeyTapService intercepts media key events at the CGEventTap
+        //            level before BezelServices can process them.
+        let script = "launchctl unload -wF /System/Library/LaunchAgents/com.apple.OSDUIHelper.plist 2>/dev/null"
 
-        // Run with elevated privileges
         let task = Process()
         task.launchPath = "/bin/sh"
         task.arguments = ["-c", script]
+        try? task.run()
 
-        do {
-            try task.run()
-        } catch {
-            print("Could not suppress native HUD: \(error)")
-            // Continue anyway - custom HUD will still work
-        }
+        // macOS 26+: intercept media keys before BezelServices sees them
+        MediaKeyTapService.shared.start()
     }
 
     // Restore the native macOS HUD overlays
     private func restoreNativeHUD() {
-        let script = """
-        launchctl load -w /System/Library/LaunchAgents/com.apple.OSDUIHelper.plist 2>/dev/null
-        """
+        let script = "launchctl load -wF /System/Library/LaunchAgents/com.apple.OSDUIHelper.plist 2>/dev/null"
 
         let task = Process()
         task.launchPath = "/bin/sh"
         task.arguments = ["-c", script]
+        try? task.run()
 
-        do {
-            try task.run()
-        } catch {
-            print("Could not restore native HUD: \(error)")
-        }
+        MediaKeyTapService.shared.stop()
     }
     
     // MARK: - Volume Monitoring

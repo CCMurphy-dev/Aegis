@@ -175,6 +175,12 @@ class AegisConfig: ObservableObject {
     /// Background opacity for inactive space
     @Published var inactiveSpaceBgOpacity: Double = 0.12
 
+    /// Specular highlight brightness for the Liquid Glass theme (top-edge shine)
+    @Published var liquidGlassSpecularOpacity: Double = 0.20
+
+    /// Overall blur opacity multiplier for the Liquid Glass theme
+    @Published var liquidGlassBlurOpacity: Double = 0.90
+
     /// Background opacity for active button
     @Published var activeButtonBgOpacity: Double = 0.2
 
@@ -875,6 +881,8 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(activeSpaceBgOpacity, forKey: "activeSpaceBgOpacity")
         UserDefaults.standard.set(hoveredSpaceBgOpacity, forKey: "hoveredSpaceBgOpacity")
         UserDefaults.standard.set(inactiveSpaceBgOpacity, forKey: "inactiveSpaceBgOpacity")
+        UserDefaults.standard.set(liquidGlassSpecularOpacity, forKey: "liquidGlassSpecularOpacity")
+        UserDefaults.standard.set(liquidGlassBlurOpacity, forKey: "liquidGlassBlurOpacity")
         UserDefaults.standard.set(activeButtonBgOpacity, forKey: "activeButtonBgOpacity")
         UserDefaults.standard.set(hoveredButtonBgOpacity, forKey: "hoveredButtonBgOpacity")
         UserDefaults.standard.set(inactiveButtonBgOpacity, forKey: "inactiveButtonBgOpacity")
@@ -1126,6 +1134,12 @@ class AegisConfig: ObservableObject {
         }
         if let val = UserDefaults.standard.object(forKey: "inactiveSpaceBgOpacity") as? Double {
             inactiveSpaceBgOpacity = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "liquidGlassSpecularOpacity") as? Double {
+            liquidGlassSpecularOpacity = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "liquidGlassBlurOpacity") as? Double {
+            liquidGlassBlurOpacity = val
         }
         if let val = UserDefaults.standard.object(forKey: "activeButtonBgOpacity") as? Double {
             activeButtonBgOpacity = val
@@ -1507,6 +1521,8 @@ class AegisConfig: ObservableObject {
         activeSpaceBgOpacity = 0.18
         hoveredSpaceBgOpacity = 0.15
         inactiveSpaceBgOpacity = 0.12
+        liquidGlassSpecularOpacity = 0.20
+        liquidGlassBlurOpacity = 0.90
         activeButtonBgOpacity = 0.2
         hoveredButtonBgOpacity = 0.15
         inactiveButtonBgOpacity = 0.12

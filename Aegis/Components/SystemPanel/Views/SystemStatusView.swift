@@ -63,13 +63,23 @@ struct SystemStatusView: View {
         .padding(.horizontal, 6)
         .frame(height: 20)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(ThemeColors.background.opacity(config.inactiveSpaceBgOpacity))
+            Group {
+                if config.isLiquidGlass {
+                    SpacePillGlassBackground(isActive: true, cornerRadius: 8)
+                } else {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(ThemeColors.background.opacity(config.inactiveSpaceBgOpacity))
+                }
+            }
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(ThemeColors.border(opacity: config.activeBorderOpacity), lineWidth: 1)
+            Group {
+                if !config.isLiquidGlass {
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(ThemeColors.border(opacity: config.activeBorderOpacity), lineWidth: 1)
+                }
+            }
         )
-        .shadow(color: ThemeColors.shadow(), radius: 1, x: 0, y: 1)
+        .shadow(color: config.isLiquidGlass ? .black.opacity(0.20) : ThemeColors.shadow(), radius: config.isLiquidGlass ? 9 : 1, x: 0, y: config.isLiquidGlass ? 2 : 1)
     }
 }
