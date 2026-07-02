@@ -705,6 +705,15 @@ struct SettingsColorPicker: View {
                     applyHex()
                 }
 
+            if hexText != (hex ?? "") && !hexText.isEmpty {
+                Button("Apply") {
+                    applyHex()
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.accentColor)
+                .font(.system(size: 11))
+            }
+
             if hex != nil {
                 Button("Reset") {
                     hex = nil

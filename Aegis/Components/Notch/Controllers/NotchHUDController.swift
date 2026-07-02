@@ -21,6 +21,7 @@ class NotchHUDController: ObservableObject {
     // Auto-hide timer for media HUD
     private var mediaAutoHideTimer: Timer?
     private var mediaHideWorkItem: DispatchWorkItem?  // Cancellable delayed hide for media HUD
+    private var mediaStalenessTimer: Timer?  // Periodic check to hide HUD if media stopped
     private var lastTrackIdentifier: String?  // Track changes to detect new songs
 
     // Auto-hide timer for device HUD
@@ -1042,6 +1043,16 @@ class NotchHUDController: ObservableObject {
         DispatchQueue.main.async {
             self.mediaViewModel.isVisible = true
         }
+
+        // Start staleness check — periodically verify media is still playing
+        mediaStalenessTimer?.invalidate()
+        mediaStalenessTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            guard let info = self.musicService.getCurrentInfo(), info.isPlaying else {
+                self.hideMediaHUD()
+                return
+            }
+        }
     }
 
     private func hideMediaHUD() {
@@ -1051,6 +1062,10 @@ class NotchHUDController: ObservableObject {
         // Cancel auto-hide timer
         mediaAutoHideTimer?.invalidate()
         mediaAutoHideTimer = nil
+
+        // Cancel staleness timer
+        mediaStalenessTimer?.invalidate()
+        mediaStalenessTimer = nil
 
         // Trigger slide-out animation
         mediaViewModel.isVisible = false
@@ -1188,9 +1203,17 @@ class NotchHUDController: ObservableObject {
         // Reset dismissed state so HUD can reappear
         mediaViewModel.isDismissed = false
 
+        // Recalculate notch dimensions in case display changed during sleep
+        if let screen = DisplayScreenMatcher.screenWithNotch() {
+            notchDimensions = NotchDimensions.calculate(for: screen)
+        }
+
         // Force republish current media info if music is playing
         // This triggers showMedia() through the event router
         musicService.forceRepublish()
+
+        // Reposition windows in case screen origin shifted after wake
+        repositionAllWindows()
     }
 
     /// Called when screen is unlocked after login - reinitializes HUD windows
@@ -1206,6 +1229,9 @@ class NotchHUDController: ObservableObject {
         // Ensure all windows are properly ordered and positioned
         reinitializeWindowState()
 
+        // Reposition windows with freshly calculated dimensions
+        repositionAllWindows()
+
         // Reset media HUD state and republish
         mediaViewModel.isDismissed = false
         musicService.forceRepublish()
@@ -1218,15 +1244,11 @@ class NotchHUDController: ObservableObject {
         // Recalculate notch dimensions for new screen configuration
         if let screen = DisplayScreenMatcher.screenWithNotch() {
             let newDimensions = NotchDimensions.calculate(for: screen)
+            notchDimensions = newDimensions
+            logInfo("📐 New notch dimensions: \(newDimensions.width)x\(newDimensions.height)")
 
-            // Only reinitialize if dimensions actually changed
-            if newDimensions != notchDimensions {
-                notchDimensions = newDimensions
-                logInfo("📐 New notch dimensions: \(newDimensions.width)x\(newDimensions.height)")
-
-                // Reposition all HUD windows for new screen geometry
-                repositionAllWindows()
-            }
+            // Always reposition — screen origin can shift even when notch size is unchanged
+            repositionAllWindows()
         }
     }
 
@@ -1256,24 +1278,18 @@ class NotchHUDController: ObservableObject {
 
     /// Reposition all HUD windows for new screen geometry
     private func repositionAllWindows() {
-        guard let screen = DisplayScreenMatcher.screenWithNotch(), let notchDimensions = notchDimensions else { return }
-
+        guard let screen = DisplayScreenMatcher.screenWithNotch() else { return }
         let screenFrame = screen.frame
 
-        // Calculate centered position for overlay HUD
-        let overlayWidth = notchDimensions.width + 40  // Approximate expanded width
-        let overlayX = screenFrame.midX - (overlayWidth / 2)
-        let overlayY = screenFrame.maxY - notchDimensions.height - 10
-
-        overlayWindow.setFrame(NSRect(x: overlayX, y: overlayY, width: overlayWidth, height: notchDimensions.height + 20), display: true)
-
-        // Media window positioned similarly
-        mediaWindow.setFrame(NSRect(x: overlayX, y: overlayY, width: overlayWidth, height: notchDimensions.height + 20), display: true)
-
-        // Device/Focus/Notification windows - positioned relative to notch
-        deviceWindow.setFrame(NSRect(x: overlayX, y: overlayY, width: overlayWidth, height: notchDimensions.height + 20), display: true)
-        focusWindow.setFrame(NSRect(x: overlayX, y: overlayY, width: overlayWidth, height: notchDimensions.height + 20), display: true)
-        notificationWindow.setFrame(NSRect(x: overlayX, y: overlayY, width: overlayWidth, height: notchDimensions.height + 20), display: true)
+        // All HUD windows span the full screen — SwiftUI content centres itself
+        // inside the window using .frame(maxWidth: .infinity). Setting a narrow
+        // frame here breaks that layout and causes the HUD to appear offset.
+        overlayWindow.setFrame(screenFrame, display: true)
+        mediaWindow.setFrame(screenFrame, display: true)
+        deviceWindow.setFrame(screenFrame, display: true)
+        focusWindow.setFrame(screenFrame, display: true)
+        // notificationWindow is excluded: it is either hidden at (-10000,-10000)
+        // or actively positioned by showNotification() with its own frame logic.
     }
 
     // MARK: - Diagnostics

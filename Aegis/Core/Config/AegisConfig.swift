@@ -506,7 +506,7 @@ class AegisConfig: ObservableObject {
     @Published var mediaHUDRightPanelMode: MediaHUDRightPanelMode = .visualizer
 
     /// Auto-hide media HUD after showing track info (only reappears on track change)
-    @Published var mediaHUDAutoHide: Bool = false
+    @Published var mediaHUDAutoHide: Bool = true
 
     /// Delay before auto-hiding media HUD (seconds)
     @Published var mediaHUDAutoHideDelay: TimeInterval = 5.0

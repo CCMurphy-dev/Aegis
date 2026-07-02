@@ -8,6 +8,28 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.33</title>
+            <sparkle:version>1.0.33</sparkle:version>
+            <sparkle:shortVersionString>1.0.33</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Wed, 02 Jul 2026 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.33</h2>
+                <ul>
+                    <li><strong>Fix: Notch HUD position offset after sleep/unlock</strong> - HUD windows now restore to full-screen frames on wake, preventing the volume/brightness/media elements from appearing shifted to the right of the notch.</li>
+                    <li><strong>Fix: Media HUD persisting when nothing is playing</strong> - Auto-hide now defaults to on (5s), and a periodic staleness check force-hides the HUD if the media source has stopped. Fixes the issue where hovering over YouTube previews in Firefox caused the HUD to stick.</li>
+                    <li><strong>Custom color Apply button</strong> - Hex color inputs in Settings → Appearance → Custom Colors now show an explicit "Apply" button, so users don't need to press Enter to confirm typed values.</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.33/Aegis.app.zip"
+                length="4791413"
+                type="application/octet-stream"
+                sparkle:edSignature="vbIW0yD6eeSylKxE6r8ruH1sDOjT6R+Dz0apoJsZLFDHXur25kU3KG1eZROkW4xqXcat7sgqM/gENxI1nWn7DA==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 1.0.32</title>
             <sparkle:version>1.0.32</sparkle:version>
             <sparkle:shortVersionString>1.0.32</sparkle:shortVersionString>
