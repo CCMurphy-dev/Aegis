@@ -199,6 +199,10 @@ struct AegisConfigData: Codable {
     var notificationHUDAutoHideDelay: Double?
     var notificationExcludedApps: [String]?
 
+    // Wallpaper Blur
+    var enableWallpaperBlur: Bool?
+    var wallpaperBlurIntensity: Double?
+
     // Window Manager
     var windowManagerType: String?   // "auto", "yabai", "rift", "aerospace"
 
@@ -500,6 +504,10 @@ extension AegisConfig {
             dateFormat = format
         }
 
+        // Wallpaper Blur
+        if let v = data.enableWallpaperBlur { enableWallpaperBlur = v }
+        if let v = data.wallpaperBlurIntensity { wallpaperBlurIntensity = v }
+
         // Window Manager
         if let raw = data.windowManagerType, let type = WindowManagerType(rawValue: raw) {
             windowManagerType = type
@@ -714,6 +722,10 @@ extension AegisConfig {
             notificationHUDAutoHideDelay: notificationHUDAutoHideDelay,
             notificationExcludedApps: notificationExcludedApps,
 
+            // Wallpaper Blur
+            enableWallpaperBlur: enableWallpaperBlur,
+            wallpaperBlurIntensity: wallpaperBlurIntensity,
+
             // Window Manager
             windowManagerType: windowManagerType.rawValue,
 
@@ -871,6 +883,15 @@ osascript -e 'id of app "AppName"'
 Notifications from these apps will be silently ignored. This prevents duplicate HUDs (e.g., Focus mode notifications are already shown by the Focus HUD).
 
 You can add bundle identifiers (e.g., `"com.apple.mail"`) or partial app name matches (e.g., `"Slack"`).
+
+---
+
+## Desktop
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enableWallpaperBlur` | bool | `false` | Blur desktop wallpaper when windows are focused on the current space |
+| `wallpaperBlurIntensity` | number | `0.85` | Blur overlay intensity (0.1 to 1.0) |
 
 ---
 

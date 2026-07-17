@@ -14,6 +14,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var focusMonitor: FocusStatusMonitor?
     var notificationService: NotificationService?
     var appSwitcherService: AppSwitcherService?
+    var wallpaperBlurService: WallpaperBlurService?
     var eventRouter: EventRouter?
 
     private var setupWindowController: YabaiSetupWindowController?
@@ -168,6 +169,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         appSwitcherService = AppSwitcherService.shared
         appSwitcherService?.setWindowManager(windowManager!)
         appSwitcherService?.start()
+
+        // Wallpaper blur (desktop blur when windows are focused)
+        wallpaperBlurService = WallpaperBlurService(eventRouter: eventRouter!)
 
         // Wire up SystemStatusMonitor.shared to receive focus events
         // This avoids duplicate file system watchers

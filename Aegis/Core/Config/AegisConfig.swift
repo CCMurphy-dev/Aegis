@@ -622,6 +622,14 @@ class AegisConfig: ObservableObject {
     /// Show the system status panel (WiFi, time, date, battery, focus)
     @Published var showSystemStatus: Bool = true
 
+    // MARK: - Wallpaper Blur
+
+    /// Enable dynamic wallpaper blur when windows are focused
+    @Published var enableWallpaperBlur: Bool = false
+
+    /// Blur overlay intensity (alpha value 0-1)
+    @Published var wallpaperBlurIntensity: Double = 0.85
+
     // MARK: - Menu Bar Component Toggles
 
     /// Show space indicator buttons in menu bar (Yabai integration)
@@ -1001,6 +1009,10 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(dateFormat.rawValue, forKey: "dateFormat")
         UserDefaults.standard.set(windowManagerType.rawValue, forKey: "windowManagerType")
         UserDefaults.standard.set(multiMonitorMode.rawValue, forKey: "multiMonitorMode")
+
+        // Wallpaper Blur
+        UserDefaults.standard.set(enableWallpaperBlur, forKey: "enableWallpaperBlur")
+        UserDefaults.standard.set(wallpaperBlurIntensity, forKey: "wallpaperBlurIntensity")
     }
 
     private func loadPreferences() {
@@ -1471,6 +1483,14 @@ class AegisConfig: ObservableObject {
            let mode = MultiMonitorMode(rawValue: val) {
             multiMonitorMode = mode
         }
+
+        // Wallpaper Blur
+        if let val = UserDefaults.standard.object(forKey: "enableWallpaperBlur") as? Bool {
+            enableWallpaperBlur = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "wallpaperBlurIntensity") as? Double {
+            wallpaperBlurIntensity = val
+        }
     }
 
     func resetToDefaults() {
@@ -1635,6 +1655,8 @@ class AegisConfig: ObservableObject {
         dateFormat = .long
         windowManagerType = .auto
         multiMonitorMode = .auto
+        enableWallpaperBlur = false
+        wallpaperBlurIntensity = 0.85
 
         savePreferences()
     }

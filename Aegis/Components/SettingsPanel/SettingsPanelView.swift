@@ -186,6 +186,27 @@ struct SettingsPanelView: View {
 
             Divider().background(Color.white.opacity(0.1))
 
+            // Desktop
+            SettingsSubsection(title: "Desktop") {
+                SettingsToggle(
+                    label: "Wallpaper Blur",
+                    description: "Blur desktop wallpaper when windows are focused",
+                    isOn: $config.enableWallpaperBlur
+                )
+
+                if config.enableWallpaperBlur {
+                    SettingsDoubleSlider(
+                        label: "Blur Intensity",
+                        value: $config.wallpaperBlurIntensity,
+                        range: 0.1...1.0,
+                        step: 0.05,
+                        unit: ""
+                    )
+                }
+            }
+
+            Divider().background(Color.white.opacity(0.1))
+
             // Menu Bar
             SettingsSubsection(title: "Menu Bar") {
                 SettingsToggle(
