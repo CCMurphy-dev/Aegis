@@ -8,6 +8,26 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.34</title>
+            <sparkle:version>1.0.34</sparkle:version>
+            <sparkle:shortVersionString>1.0.34</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Thu, 17 Jul 2026 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.34</h2>
+                <ul>
+                    <li><strong>Wallpaper Blur</strong> — Dynamically blurs the desktop wallpaper when windows are focused. Each display blurs independently. Configurable intensity slider in Settings → Features → Desktop.</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.34/Aegis.app.zip"
+                length="4824767"
+                type="application/octet-stream"
+                sparkle:edSignature="0cL4lD8jCMHKtZYXxtw4cQOsFlWmqOM+FNbJ57ARlKvqLq4AEWAUz5cxo1Thu1acOxgq8wlG58nFzFIC3QlZAA==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 1.0.33</title>
             <sparkle:version>1.0.33</sparkle:version>
             <sparkle:shortVersionString>1.0.33</sparkle:shortVersionString>
