@@ -104,6 +104,9 @@ class SystemInfoService {
         try? task.run()
 
         // macOS 26+: intercept media keys before BezelServices sees them
+        MediaKeyTapService.shared.onVolumeKeyAction = { [weak self] action in
+            self?.handleKeyTapAction(action)
+        }
         MediaKeyTapService.shared.start()
     }
 
@@ -506,5 +509,39 @@ class SystemInfoService {
         // Only publish if overlay HUD is enabled
         guard config.showOverlayHUD else { return }
         eventRouter.publish(.volumeChanged, data: ["level": displayLevel, "isMuted": estimatedBluetoothMuted])
+    }
+
+    // MARK: - MediaKeyTapService Callback
+
+    /// Called by MediaKeyTapService after it adjusts volume via CoreAudio.
+    /// Bypasses the suppression window since this is a deliberate user key press.
+    private func handleKeyTapAction(_ action: MediaKeyTapService.KeyAction) {
+        switch action {
+        case .volumeUp, .volumeDown:
+            if deviceSupportsVolumeProperty {
+                guard let volume = getCurrentVolume() else { return }
+                let isMuted = getIsMuted()
+                let effectivelyMuted = isMuted || (volume == 0.0 && previousNonZeroVolume > 0.01)
+                if volume > 0.01 { previousNonZeroVolume = volume }
+                currentState.volume = volume
+                currentState.isMuted = effectivelyMuted
+                guard config.showOverlayHUD else { return }
+                eventRouter.publish(.volumeChanged, data: ["level": effectivelyMuted ? 0.0 : volume, "isMuted": effectivelyMuted])
+            } else {
+                handleBluetoothVolumeKey(isVolumeUp: action == .volumeUp)
+            }
+        case .mute:
+            if deviceSupportsVolumeProperty {
+                guard let volume = getCurrentVolume() else { return }
+                let isMuted = getIsMuted()
+                let effectivelyMuted = isMuted || (volume == 0.0 && previousNonZeroVolume > 0.01)
+                currentState.volume = volume
+                currentState.isMuted = effectivelyMuted
+                guard config.showOverlayHUD else { return }
+                eventRouter.publish(.volumeChanged, data: ["level": effectivelyMuted ? 0.0 : volume, "isMuted": effectivelyMuted])
+            } else {
+                handleBluetoothMuteKey()
+            }
+        }
     }
 }

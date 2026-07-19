@@ -11,7 +11,17 @@ import AppKit
 /// CoreAudio/brightness listeners fire and show the Aegis notch HUD instead.
 final class MediaKeyTapService {
 
+    enum KeyAction {
+        case volumeUp
+        case volumeDown
+        case mute
+    }
+
     static let shared = MediaKeyTapService()
+
+    /// Called on the CGEventTap thread after volume/mute is adjusted.
+    /// SystemInfoService sets this to update the HUD directly.
+    var onVolumeKeyAction: ((KeyAction) -> Void)?
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -123,12 +133,15 @@ final class MediaKeyTapService {
             switch keyCode {
             case NX_KEYTYPE_SOUND_UP:
                 adjustVolume(by: 1.0 / 16.0)
+                DispatchQueue.main.async { self.onVolumeKeyAction?(.volumeUp) }
                 return nil
             case NX_KEYTYPE_SOUND_DOWN:
                 adjustVolume(by: -1.0 / 16.0)
+                DispatchQueue.main.async { self.onVolumeKeyAction?(.volumeDown) }
                 return nil
             case NX_KEYTYPE_MUTE:
                 toggleMute()
+                DispatchQueue.main.async { self.onVolumeKeyAction?(.mute) }
                 return nil
             case NX_KEYTYPE_BRIGHTNESS_UP:
                 adjustBrightness(by: 1.0 / 16.0)
