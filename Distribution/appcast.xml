@@ -8,6 +8,26 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.35</title>
+            <sparkle:version>1.0.35</sparkle:version>
+            <sparkle:shortVersionString>1.0.35</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Sat, 19 Jul 2026 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.35</h2>
+                <ul>
+                    <li><strong>Fix: Volume HUD not showing after connecting headphones</strong> - MediaKeyTapService now directly notifies the HUD after adjusting volume, bypassing CoreAudio listener dependencies. Fixes the issue where the volume HUD wouldn't appear after connecting Bluetooth or wired headphones.</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.35/Aegis.app.zip"
+                length="4827669"
+                type="application/octet-stream"
+                sparkle:edSignature="GduDor1iBlijyw2U7b+1IjS1x6CiixJMH4034fD0bYhxM/viDyTaxhuJ4eB7Kbt0YRJr/L1KMVrxU+Tl6mG4Aw==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 1.0.34</title>
             <sparkle:version>1.0.34</sparkle:version>
             <sparkle:shortVersionString>1.0.34</sparkle:shortVersionString>
@@ -16,7 +36,7 @@
             <description><![CDATA[
                 <h2>What's New in 1.0.34</h2>
                 <ul>
-                    <li><strong>Fix: Volume HUD not showing after connecting headphones</strong> - MediaKeyTapService now directly notifies the HUD after adjusting volume, bypassing CoreAudio listener dependencies. Fixes the issue where the volume HUD wouldn't appear after connecting Bluetooth or wired headphones.</li>
+                    <li><strong>Wallpaper Blur</strong> — Dynamically blurs the desktop wallpaper when windows are focused. Each display blurs independently. Configurable intensity slider in Settings → Features → Desktop.</li>
                 </ul>
             ]]></description>
             <enclosure
@@ -25,8 +45,6 @@
                 type="application/octet-stream"
                 sparkle:edSignature="OG+xx2tdzsYtfb71exyvyzeDEaYhUcTAxfHrXiF3pm6bxMdgZ95YYvygLL+LLFP1mtRQFNMrbJqLSJlCnEDxBA==" />
         </item>
-
-        <!-- Previous Releases -->
         <item>
             <title>Version 1.0.33</title>
             <sparkle:version>1.0.33</sparkle:version>
