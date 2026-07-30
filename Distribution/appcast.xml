@@ -8,6 +8,28 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.0.36</title>
+            <sparkle:version>1.0.36</sparkle:version>
+            <sparkle:shortVersionString>1.0.36</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Wed, 30 Jul 2026 00:00:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.0.36</h2>
+                <ul>
+                    <li><strong>Fix: Memory leaks</strong> - Reuse GPU-backed CIContext for wallpaper blur instead of creating a new one per capture (~50-100MB each). Fix observer lifecycle leaks in ThemeManager and WallpaperBlurService. Convert CoreAudio device change listener to properly removable function pointer.</li>
+                    <li><strong>Fix: Bluetooth disconnect tracking</strong> - Prune stale entries from recently-disconnected device tracker to prevent unbounded dictionary growth.</li>
+                    <li><strong>Performance: Remove debug logging from Release builds</strong> - Replace 194 print() calls with logDebug() which is a no-op in Release builds, reducing string allocation and unified log pressure.</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.0.36/Aegis.app.zip"
+                length="4832150"
+                type="application/octet-stream"
+                sparkle:edSignature="vpvrqXe3nV9TRnssPYuYIOkA+9NzJsw0MXlQNfxCuMGFH5qVBg1JX+ayxMk3tziuPLoSJky883cFbwXvnbA4CA==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 1.0.35</title>
             <sparkle:version>1.0.35</sparkle:version>
             <sparkle:shortVersionString>1.0.35</sparkle:shortVersionString>
