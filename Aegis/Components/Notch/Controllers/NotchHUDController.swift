@@ -104,6 +104,7 @@ class NotchHUDController: ObservableObject {
         deviceAutoHideTimer?.invalidate()
         focusAutoHideTimer?.invalidate()
         notificationAutoHideTimer?.invalidate()
+        mediaStalenessTimer?.invalidate()
         hideWorkItem?.cancel()
     }
 
@@ -176,7 +177,7 @@ class NotchHUDController: ObservableObject {
         let notchDimensions = NotchDimensions.calculate(for: screen)
         self.notchDimensions = notchDimensions  // Store for width calculations
 
-        print("🪟 prepareOverlayWindow: notchHeight=\(notchHeight), notchWidth=\(notchDimensions.width), screen=\(screen.frame)")
+        logDebug("🪟 prepareOverlayWindow: notchHeight=\(notchHeight), notchWidth=\(notchDimensions.width), screen=\(screen.frame)")
 
         // Create the view ONCE with the persistent view model
         let hudView = MinimalHUDWrapper(
@@ -346,7 +347,7 @@ class NotchHUDController: ObservableObject {
         deviceWindow.alphaValue = 0
         deviceWindow.orderFront(nil)
 
-        print("🎧 prepareDeviceWindow: Device HUD window prepared")
+        logDebug("🎧 prepareDeviceWindow: Device HUD window prepared")
     }
 
     private func prepareFocusWindow() {
@@ -399,7 +400,7 @@ class NotchHUDController: ObservableObject {
         focusWindow.alphaValue = 0
         focusWindow.orderFront(nil)
 
-        print("🎯 prepareFocusWindow: Focus HUD window prepared")
+        logDebug("🎯 prepareFocusWindow: Focus HUD window prepared")
     }
 
     private func prepareNotificationWindow() {
@@ -446,7 +447,7 @@ class NotchHUDController: ObservableObject {
 
         // Set up click callback to open source app
         hostingView.onPanelClick = { [weak self] in
-            print("🔔 NotificationHUD panel clicked - opening source app")
+            logDebug("🔔 NotificationHUD panel clicked - opening source app")
             self?.notificationViewModel.openSourceApp()
             self?.hideNotificationHUD()
         }
@@ -480,7 +481,7 @@ class NotchHUDController: ObservableObject {
         notificationWindow.orderFront(nil)
         notificationWindow.setFrameOrigin(NSPoint(x: -10000, y: -10000))
 
-        print("🔔 prepareNotificationWindow: Notification HUD window prepared with size \(windowFrame.size)")
+        logDebug("🔔 prepareNotificationWindow: Notification HUD window prepared with size \(windowFrame.size)")
     }
 
     // MARK: - Show HUDs
@@ -611,11 +612,11 @@ class NotchHUDController: ObservableObject {
 
         // Check master toggle and device HUD toggle
         guard config.showNotchHUD, config.showDeviceHUD else {
-            print("🎧 NotchHUDController: Device HUD disabled in config")
+            logDebug("🎧 NotchHUDController: Device HUD disabled in config")
             return
         }
 
-        print("🎧 NotchHUDController.showDeviceConnected: \(device.name)")
+        logDebug("🎧 NotchHUDController.showDeviceConnected: \(device.name)")
 
         // Update view model
         deviceViewModel.show(device: device, isConnecting: true)
@@ -632,11 +633,11 @@ class NotchHUDController: ObservableObject {
 
         // Check master toggle and device HUD toggle
         guard config.showNotchHUD, config.showDeviceHUD else {
-            print("🎧 NotchHUDController: Device HUD disabled in config")
+            logDebug("🎧 NotchHUDController: Device HUD disabled in config")
             return
         }
 
-        print("🎧 NotchHUDController.showDeviceDisconnected: \(device.name)")
+        logDebug("🎧 NotchHUDController.showDeviceDisconnected: \(device.name)")
 
         // Update view model
         deviceViewModel.show(device: device, isConnecting: false)
@@ -653,10 +654,10 @@ class NotchHUDController: ObservableObject {
         deviceAutoHideTimer?.invalidate()
 
         let delay = config.deviceHUDAutoHideDelay
-        print("🎧 Scheduling device HUD auto-hide in \(delay)s")
+        logDebug("🎧 Scheduling device HUD auto-hide in \(delay)s")
         deviceAutoHideTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
             guard let self = self else { return }
-            print("🎧 Auto-hide timer fired, hiding device HUD")
+            logDebug("🎧 Auto-hide timer fired, hiding device HUD")
             self.hideDeviceHUD()
         }
     }
@@ -666,11 +667,11 @@ class NotchHUDController: ObservableObject {
 
         // Check master toggle and focus HUD toggle
         guard config.showNotchHUD, config.showFocusHUD else {
-            print("🎯 NotchHUDController: Focus HUD disabled in config")
+            logDebug("🎯 NotchHUDController: Focus HUD disabled in config")
             return
         }
 
-        print("🎯 NotchHUDController.showFocusChanged: \(status.focusName ?? "Off") (enabled: \(status.isEnabled))")
+        logDebug("🎯 NotchHUDController.showFocusChanged: \(status.focusName ?? "Off") (enabled: \(status.isEnabled))")
 
         // Update view model
         focusViewModel.show(status: status)
@@ -687,10 +688,10 @@ class NotchHUDController: ObservableObject {
         focusAutoHideTimer?.invalidate()
 
         let delay = config.focusHUDAutoHideDelay
-        print("🎯 Scheduling focus HUD auto-hide in \(delay)s")
+        logDebug("🎯 Scheduling focus HUD auto-hide in \(delay)s")
         focusAutoHideTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
             guard let self = self else { return }
-            print("🎯 Auto-hide timer fired, hiding focus HUD")
+            logDebug("🎯 Auto-hide timer fired, hiding focus HUD")
             self.hideFocusHUD()
         }
     }
@@ -700,17 +701,17 @@ class NotchHUDController: ObservableObject {
 
         // Check master toggle and notification HUD toggle
         guard config.showNotchHUD, config.showNotificationHUD else {
-            print("🔔 NotchHUDController: Notification HUD disabled in config")
+            logDebug("🔔 NotchHUDController: Notification HUD disabled in config")
             return
         }
 
         // Suppress notifications while Focus HUD is showing (Focus change already displayed)
         guard !focusViewModel.isVisible else {
-            print("🔔 NotchHUDController: Suppressing notification during Focus HUD display")
+            logDebug("🔔 NotchHUDController: Suppressing notification during Focus HUD display")
             return
         }
 
-        print("🔔 NotchHUDController.showNotification: \(appName) - \(title)")
+        logDebug("🔔 NotchHUDController.showNotification: \(appName) - \(title)")
 
         // Update view model
         notificationViewModel.show(
@@ -734,10 +735,10 @@ class NotchHUDController: ObservableObject {
         notificationAutoHideTimer?.invalidate()
 
         let delay = config.notificationHUDAutoHideDelay
-        print("🔔 Scheduling notification HUD auto-hide in \(delay)s")
+        logDebug("🔔 Scheduling notification HUD auto-hide in \(delay)s")
         notificationAutoHideTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
             guard let self = self else { return }
-            print("🔔 Auto-hide timer fired, hiding notification HUD")
+            logDebug("🔔 Auto-hide timer fired, hiding notification HUD")
             self.hideNotificationHUD()
         }
     }
@@ -779,10 +780,10 @@ class NotchHUDController: ObservableObject {
     }
 
     private func showNotificationHUD() {
-        print("🔔 showNotificationHUD() called - currentlyVisible: \(notificationViewModel.isVisible)")
+        logDebug("🔔 showNotificationHUD() called - currentlyVisible: \(notificationViewModel.isVisible)")
 
         guard let screen = DisplayScreenMatcher.screenWithNotch(), let notchDimensions = notchDimensions else {
-            print("🔔 showNotificationHUD: No notch screen or notch dimensions available")
+            logDebug("🔔 showNotificationHUD: No notch screen or notch dimensions available")
             return
         }
 
@@ -837,10 +838,10 @@ class NotchHUDController: ObservableObject {
     }
 
     private func hideNotificationHUD() {
-        print("🔔 hideNotificationHUD() called - currentlyVisible: \(notificationViewModel.isVisible)")
+        logDebug("🔔 hideNotificationHUD() called - currentlyVisible: \(notificationViewModel.isVisible)")
 
         if !notificationViewModel.isVisible {
-            print("🔔 hideNotificationHUD: Already hidden, nothing to do")
+            logDebug("🔔 hideNotificationHUD: Already hidden, nothing to do")
             return
         }
 
@@ -861,7 +862,7 @@ class NotchHUDController: ObservableObject {
         notificationViewModel.bundleIdentifier = ""
         notificationViewModel.appName = ""
 
-        print("🔔 hideNotificationHUD: Setting notificationViewModel.isVisible = false")
+        logDebug("🔔 hideNotificationHUD: Setting notificationViewModel.isVisible = false")
         notificationViewModel.isVisible = false
 
         // Restore media HUD right panel immediately when hide starts
@@ -872,7 +873,7 @@ class NotchHUDController: ObservableObject {
         // After animation completes, hide the window
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             if !self.notificationViewModel.isVisible {
-                print("🔔 hideNotificationHUD: Animation complete, hiding window")
+                logDebug("🔔 hideNotificationHUD: Animation complete, hiding window")
                 self.notificationWindow.alphaValue = 0
                 self.notificationWindow.ignoresMouseEvents = true
                 // Don't use orderOut() - it breaks .canJoinAllSpaces behavior after fullscreen transitions
@@ -885,7 +886,7 @@ class NotchHUDController: ObservableObject {
     // MARK: - Private helpers - Device HUD
 
     private func showDeviceHUD() {
-        print("🎧 showDeviceHUD() called - currentlyVisible: \(deviceViewModel.isVisible)")
+        logDebug("🎧 showDeviceHUD() called - currentlyVisible: \(deviceViewModel.isVisible)")
 
         // Only increment overlay counter when transitioning from hidden to visible
         // This prevents counter mismatch if show is called multiple times
@@ -906,16 +907,16 @@ class NotchHUDController: ObservableObject {
 
         // Animate to visible state
         DispatchQueue.main.async {
-            print("🎧 showDeviceHUD: Setting deviceViewModel.isVisible = true (triggering slide-in animation)")
+            logDebug("🎧 showDeviceHUD: Setting deviceViewModel.isVisible = true (triggering slide-in animation)")
             self.deviceViewModel.isVisible = true
         }
     }
 
     private func hideDeviceHUD() {
-        print("🎧 hideDeviceHUD() called - currentlyVisible: \(deviceViewModel.isVisible)")
+        logDebug("🎧 hideDeviceHUD() called - currentlyVisible: \(deviceViewModel.isVisible)")
 
         if !deviceViewModel.isVisible {
-            print("🎧 hideDeviceHUD: Already hidden, nothing to do")
+            logDebug("🎧 hideDeviceHUD: Already hidden, nothing to do")
             return
         }
 
@@ -923,7 +924,7 @@ class NotchHUDController: ObservableObject {
         deviceAutoHideTimer?.invalidate()
         deviceAutoHideTimer = nil
 
-        print("🎧 hideDeviceHUD: Setting deviceViewModel.isVisible = false (triggering slide-out animation)")
+        logDebug("🎧 hideDeviceHUD: Setting deviceViewModel.isVisible = false (triggering slide-out animation)")
         deviceViewModel.isVisible = false
 
         // Restore media HUD right panel immediately when hide starts
@@ -934,7 +935,7 @@ class NotchHUDController: ObservableObject {
         // After animation completes, hide the window
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             if !self.deviceViewModel.isVisible {
-                print("🎧 hideDeviceHUD: Animation complete, hiding window")
+                logDebug("🎧 hideDeviceHUD: Animation complete, hiding window")
                 self.deviceWindow.alphaValue = 0
                 // Don't use orderOut() - it breaks .canJoinAllSpaces behavior after fullscreen transitions
             }
@@ -944,7 +945,7 @@ class NotchHUDController: ObservableObject {
     // MARK: - Private helpers - Focus HUD
 
     private func showFocusHUD() {
-        print("🎯 showFocusHUD() called - currentlyVisible: \(focusViewModel.isVisible)")
+        logDebug("🎯 showFocusHUD() called - currentlyVisible: \(focusViewModel.isVisible)")
 
         // Only increment overlay counter when transitioning from hidden to visible
         // This prevents counter mismatch if show is called multiple times
@@ -965,16 +966,16 @@ class NotchHUDController: ObservableObject {
 
         // Animate to visible state
         DispatchQueue.main.async {
-            print("🎯 showFocusHUD: Setting focusViewModel.isVisible = true (triggering slide-in animation)")
+            logDebug("🎯 showFocusHUD: Setting focusViewModel.isVisible = true (triggering slide-in animation)")
             self.focusViewModel.isVisible = true
         }
     }
 
     private func hideFocusHUD() {
-        print("🎯 hideFocusHUD() called - currentlyVisible: \(focusViewModel.isVisible)")
+        logDebug("🎯 hideFocusHUD() called - currentlyVisible: \(focusViewModel.isVisible)")
 
         if !focusViewModel.isVisible {
-            print("🎯 hideFocusHUD: Already hidden, nothing to do")
+            logDebug("🎯 hideFocusHUD: Already hidden, nothing to do")
             return
         }
 
@@ -982,7 +983,7 @@ class NotchHUDController: ObservableObject {
         focusAutoHideTimer?.invalidate()
         focusAutoHideTimer = nil
 
-        print("🎯 hideFocusHUD: Setting focusViewModel.isVisible = false (triggering slide-out animation)")
+        logDebug("🎯 hideFocusHUD: Setting focusViewModel.isVisible = false (triggering slide-out animation)")
         focusViewModel.isVisible = false
 
         // Restore media HUD right panel immediately when hide starts
@@ -993,7 +994,7 @@ class NotchHUDController: ObservableObject {
         // After animation completes, hide the window
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             if !self.focusViewModel.isVisible {
-                print("🎯 hideFocusHUD: Animation complete, hiding window")
+                logDebug("🎯 hideFocusHUD: Animation complete, hiding window")
                 self.focusWindow.alphaValue = 0
                 // Don't use orderOut() - it breaks .canJoinAllSpaces behavior after fullscreen transitions
             }

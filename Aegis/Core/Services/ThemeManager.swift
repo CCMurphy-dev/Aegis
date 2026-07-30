@@ -10,6 +10,7 @@ final class ThemeManager: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
     private var appearanceObserver: NSObjectProtocol?
+    private var distributedObserver: NSObjectProtocol?
 
     private init() {
         // Set initial state directly — don't post notification during init
@@ -23,7 +24,7 @@ final class ThemeManager: ObservableObject {
         case .liquidGlass: isDarkMode = isSystemInDarkMode()
         }
 
-        DistributedNotificationCenter.default().addObserver(
+        distributedObserver = DistributedNotificationCenter.default().addObserver(
             forName: NSNotification.Name("AppleInterfaceThemeChangedNotification"),
             object: nil,
             queue: .main
@@ -82,6 +83,9 @@ final class ThemeManager: ObservableObject {
     deinit {
         if let observer = appearanceObserver {
             NotificationCenter.default.removeObserver(observer)
+        }
+        if let observer = distributedObserver {
+            DistributedNotificationCenter.default().removeObserver(observer)
         }
     }
 

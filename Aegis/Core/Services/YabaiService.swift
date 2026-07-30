@@ -668,21 +668,21 @@ final class YabaiService {
     }
 
     func createSpace() {
-        print("➕ Creating new space")
+        logDebug("➕ Creating new space")
         Task {
             do {
                 let output = try await command.run(["-m", "space", "--create"])
-                print("✅ Create space succeeded: \(output)")
+                logDebug("✅ Create space succeeded: \(output)")
                 await refreshSpaces()
 
                 // Focus the newly created space (it's always the last one)
                 let spaces = getCurrentSpaces()
                 if let lastSpace = spaces.last {
                     try? await command.run(["-m", "space", "--focus", "\(lastSpace.index)"])
-                    print("✅ Focused new space: \(lastSpace.index)")
+                    logDebug("✅ Focused new space: \(lastSpace.index)")
                 }
             } catch {
-                print("❌ Create space failed: \(error)")
+                logDebug("❌ Create space failed: \(error)")
             }
         }
     }
@@ -705,53 +705,53 @@ final class YabaiService {
         Task {
             do {
                 let output = try await command.run(["-m", "space", "\(fromIndex)", "--move", "\(toIndex)"])
-                print("✅ Move space succeeded: \(output)")
+                logDebug("✅ Move space succeeded: \(output)")
                 await refreshSpaces()
             } catch {
-                print("❌ Move space failed: \(error)")
+                logDebug("❌ Move space failed: \(error)")
             }
         }
     }
 
     func rotateLayout(_ degrees: Int) {
-        print("🔄 Rotating layout: \(degrees)°")
+        logDebug("🔄 Rotating layout: \(degrees)°")
         Task {
             do {
                 let output = try await command.run(["-m", "space", "--rotate", "\(degrees)"])
-                print("✅ Rotate layout succeeded: \(output)")
+                logDebug("✅ Rotate layout succeeded: \(output)")
             } catch {
-                print("❌ Rotate layout failed: \(error)")
+                logDebug("❌ Rotate layout failed: \(error)")
             }
         }
     }
 
     func balanceLayout() {
-        print("⚖️ Balancing layout")
+        logDebug("⚖️ Balancing layout")
         Task {
             do {
                 let output = try await command.run(["-m", "space", "--balance"])
-                print("✅ Balance layout succeeded: \(output)")
+                logDebug("✅ Balance layout succeeded: \(output)")
             } catch {
-                print("❌ Balance layout failed: \(error)")
+                logDebug("❌ Balance layout failed: \(error)")
             }
         }
     }
 
     func toggleLayout() {
         guard let focused = getCurrentSpaces().first(where: { $0.focused }) else {
-            print("❌ Toggle layout: No focused space found")
+            logDebug("❌ Toggle layout: No focused space found")
             return
         }
         let new = focused.type == "bsp" ? "float" : "bsp"
-        print("🔄 Toggling layout from \(focused.type) to \(new)")
+        logDebug("🔄 Toggling layout from \(focused.type) to \(new)")
 
         Task {
             do {
                 let output = try await command.run(["-m", "space", "--layout", new])
-                print("✅ Toggle layout succeeded: \(output)")
+                logDebug("✅ Toggle layout succeeded: \(output)")
                 await refreshSpaces()
             } catch {
-                print("❌ Toggle layout failed: \(error)")
+                logDebug("❌ Toggle layout failed: \(error)")
             }
         }
     }
@@ -759,13 +759,13 @@ final class YabaiService {
     func flipLayout(axis: String) {
         // Convert "x" to "x-axis" and "y" to "y-axis" for yabai
         let yabaiAxis = axis == "x" ? "x-axis" : "y-axis"
-        print("🔄 Flipping layout on axis: \(yabaiAxis)")
+        logDebug("🔄 Flipping layout on axis: \(yabaiAxis)")
         Task {
             do {
                 let output = try await command.run(["-m", "space", "--mirror", yabaiAxis])
-                print("✅ Flip layout succeeded: \(output)")
+                logDebug("✅ Flip layout succeeded: \(output)")
             } catch {
-                print("❌ Flip layout failed: \(error)")
+                logDebug("❌ Flip layout failed: \(error)")
             }
         }
     }
@@ -802,27 +802,27 @@ final class YabaiService {
 
                         // Check if warp actually worked (output contains error message if it failed)
                         if output.contains("could not locate") {
-                            print("⚠️ Warp \(direction) failed for window \(window.id): \(output)")
+                            logDebug("⚠️ Warp \(direction) failed for window \(window.id): \(output)")
                         } else {
-                            print("✅ Warped window \(window.id) \(direction)")
+                            logDebug("✅ Warped window \(window.id) \(direction)")
                             warpWorked = true
                         }
                     }
 
                     // If no warps worked, use float toggle as fallback
                     if !warpWorked {
-                        print("⚠️ All warp attempts failed, using float toggle fallback")
+                        logDebug("⚠️ All warp attempts failed, using float toggle fallback")
                         for window in stackWindows {
                             try? await command.run(["-m", "window", "--focus", "\(window.id)"])
                             try? await command.run(["-m", "window", "\(window.id)", "--toggle", "float"])
                             // Small delay to let the float state register
                             try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
                             try? await command.run(["-m", "window", "\(window.id)", "--toggle", "float"])
-                            print("✅ Float toggled window \(window.id)")
+                            logDebug("✅ Float toggled window \(window.id)")
                         }
                     }
 
-                    print("✅ Unstacked all windows in space \(focusedSpaceIndex)")
+                    logDebug("✅ Unstacked all windows in space \(focusedSpaceIndex)")
                 } else {
                     // Stack all windows onto the first one
                     let sortedWindows = spaceWindows.sorted { $0.id < $1.id }
@@ -830,7 +830,7 @@ final class YabaiService {
 
                     for window in sortedWindows.dropFirst() {
                         let output = try await command.run(["-m", "window", "\(window.id)", "--stack", "\(firstWindow.id)"])
-                        print("✅ Stacked window \(window.id) onto \(firstWindow.id): \(output)")
+                        logDebug("✅ Stacked window \(window.id) onto \(firstWindow.id): \(output)")
                         // Small delay to let Yabai process the stack before the next one
                         try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
                     }
@@ -838,7 +838,7 @@ final class YabaiService {
 
                 await refreshWindows()
             } catch {
-                print("❌ Toggle stack failed: \(error)")
+                logDebug("❌ Toggle stack failed: \(error)")
             }
         }
     }
@@ -879,7 +879,7 @@ final class YabaiService {
                 _ = try await command.run(["-m", "window", "\(sourceId)", "--warp", "\(targetId)"])
                 await refreshWindows()
             } catch {
-                print("❌ Stack window failed: \(error)")
+                logDebug("❌ Stack window failed: \(error)")
             }
         }
     }
@@ -907,7 +907,7 @@ final class YabaiService {
 
                 await refreshWindows()
             } catch {
-                print("❌ Stack all windows failed: \(error)")
+                logDebug("❌ Stack all windows failed: \(error)")
             }
         }
     }
@@ -941,13 +941,13 @@ final class YabaiService {
             Self.cachedFocusedSpace = spaceData
             return spaceData.index
         } catch {
-            print("❌ queryFocusedSpaceIndexSync failed: \(error)")
+            logDebug("❌ queryFocusedSpaceIndexSync failed: \(error)")
         }
         return Self.cachedFocusedSpaceIndex
     }
 
     func getFocusedSpaceIndexSync() -> Int {
-        return getFocusedSpaceSync()?.index ?? Self.cachedFocusedSpaceIndex
+        return queryFocusedSpaceIndexSync()
     }
 
     /// Query yabai for the currently focused space (uses cache, refreshes in background)
@@ -999,7 +999,7 @@ final class YabaiService {
                 Self.cachedFocusedSpace = spaceData
             }
         } catch {
-            print("❌ Failed to get focused space: \(error)")
+            logDebug("❌ Failed to get focused space: \(error)")
         }
     }
 
@@ -1055,12 +1055,12 @@ final class YabaiService {
                 && ($0.subrole == "AXStandardWindow" || $0.isMinimized)
                 && !excludedApps.contains($0.app)
             }
-            print("📋 queryWindowsForSpaceSync(space:\(spaceIndex)): \(filtered.count) windows, stackIndexes: \(filtered.map { "\($0.app):\($0.stackIndex)" })")
+            logDebug("📋 queryWindowsForSpaceSync(space:\(spaceIndex)): \(filtered.count) windows, stackIndexes: \(filtered.map { "\($0.app):\($0.stackIndex)" })")
             return filtered
         } catch {
             let errData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
             let errStr = String(decoding: errData, as: UTF8.self)
-            print("❌ queryWindowsForSpaceSync(space:\(spaceIndex)) failed: \(error), stderr: \(errStr)")
+            logDebug("❌ queryWindowsForSpaceSync(space:\(spaceIndex)) failed: \(error), stderr: \(errStr)")
             return []
         }
     }
@@ -1081,9 +1081,9 @@ final class YabaiService {
                 let output = try await command.run(["-m", "window", "--warp", direction])
 
                 if output.contains("could not locate") {
-                    print("⚠️ Warp \(direction) failed for window \(windowId)")
+                    logDebug("⚠️ Warp \(direction) failed for window \(windowId)")
                 } else {
-                    print("✅ Warped window \(windowId) \(direction)")
+                    logDebug("✅ Warped window \(windowId) \(direction)")
                     warpWorked = true
                 }
             }

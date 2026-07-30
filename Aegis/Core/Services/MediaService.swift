@@ -53,16 +53,16 @@ class MediaService {
         // Locate adapter files in bundle
         guard let scriptURL = Bundle.main.url(forResource: "mediaremote-adapter", withExtension: "pl"),
               let frameworkPath = Bundle.main.privateFrameworksPath?.appending("/MediaRemoteAdapter.framework") else {
-            print("❌ MediaService: Unable to locate mediaremote-adapter.pl or MediaRemoteAdapter.framework")
-            print("   Expected locations:")
-            print("   - Script: Resources/mediaremote-adapter.pl")
-            print("   - Framework: Frameworks/MediaRemoteAdapter.framework")
+            logDebug("❌ MediaService: Unable to locate mediaremote-adapter.pl or MediaRemoteAdapter.framework")
+            logDebug("   Expected locations:")
+            logDebug("   - Script: Resources/mediaremote-adapter.pl")
+            logDebug("   - Framework: Frameworks/MediaRemoteAdapter.framework")
             return
         }
 
-        print("🎵 MediaService: Starting media monitoring")
-        print("   Script: \(scriptURL.path)")
-        print("   Framework: \(frameworkPath)")
+        logDebug("🎵 MediaService: Starting media monitoring")
+        logDebug("   Script: \(scriptURL.path)")
+        logDebug("   Framework: \(frameworkPath)")
 
         // Set up process to run perl script
         let process = Process()
@@ -77,14 +77,14 @@ class MediaService {
 
         do {
             try process.run()
-            print("🎵 MediaService: Stream started successfully")
+            logDebug("🎵 MediaService: Stream started successfully")
 
             // Read JSON lines from stream
             streamTask = Task { [weak self] in
                 await self?.processJSONStream(from: pipe)
             }
         } catch {
-            print("❌ MediaService: Failed to start stream: \(error)")
+            logDebug("❌ MediaService: Failed to start stream: \(error)")
         }
     }
 
@@ -107,7 +107,7 @@ class MediaService {
             }
         } catch {
             if !Task.isCancelled {
-                print("❌ MediaService: Stream error: \(error)")
+                logDebug("❌ MediaService: Stream error: \(error)")
             }
         }
     }
@@ -206,15 +206,15 @@ class MediaService {
 
             // Log for debugging
             if trackChanged && isPlaying {
-                print("🎵 MediaService: Track changed - Now playing: \(title) by \(artist), isPlaying: \(isPlaying)")
+                logDebug("🎵 MediaService: Track changed - Now playing: \(title) by \(artist), isPlaying: \(isPlaying)")
             } else if playbackStateChanged {
                 if isPlaying {
-                    print("🎵 MediaService: Playback resumed - \(title) by \(artist)")
+                    logDebug("🎵 MediaService: Playback resumed - \(title) by \(artist)")
                 } else {
-                    print("🎵 MediaService: Playback stopped/paused - \(title) by \(artist)")
+                    logDebug("🎵 MediaService: Playback stopped/paused - \(title) by \(artist)")
                 }
             } else if albumArtUpdated {
-                print("🎵 MediaService: Album art received for current track - updating")
+                logDebug("🎵 MediaService: Album art received for current track - updating")
             }
 
             // Publish to event router
@@ -286,7 +286,7 @@ class MediaService {
     /// Bypasses change detection to ensure the HUD is shown even if state hasn't changed
     func forceRepublish() {
         guard let info = currentInfo, info.isPlaying else { return }
-        print("🎵 MediaService: Force republishing current info after wake")
+        logDebug("🎵 MediaService: Force republishing current info after wake")
         eventRouter.publish(.mediaPlaybackChanged, data: ["info": info])
     }
 
@@ -321,7 +321,7 @@ class MediaService {
     private func sendCommand(_ commandID: Int) {
         guard let scriptURL = Bundle.main.url(forResource: "mediaremote-adapter", withExtension: "pl"),
               let frameworkPath = Bundle.main.privateFrameworksPath?.appending("/MediaRemoteAdapter.framework") else {
-            print("❌ MediaService: Cannot send command - adapter not found")
+            logDebug("❌ MediaService: Cannot send command - adapter not found")
             return
         }
 
@@ -332,7 +332,7 @@ class MediaService {
         do {
             try process.run()
         } catch {
-            print("❌ MediaService: Failed to send command \(commandID): \(error)")
+            logDebug("❌ MediaService: Failed to send command \(commandID): \(error)")
         }
     }
 }

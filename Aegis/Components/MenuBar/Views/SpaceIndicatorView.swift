@@ -988,7 +988,7 @@ class SwipeDetectorView: NSView {
         // Use local event monitor to capture scroll events even when hit testing is disabled
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
             guard let self = self, let selfWindow = self.window else {
-                print("🔴 SwipeDetector[\(ObjectIdentifier(self ?? SwipeDetectorView()))]: no window")
+                logDebug("🔴 SwipeDetector[\(ObjectIdentifier(self ?? SwipeDetectorView()))]: no window")
                 return event
             }
 

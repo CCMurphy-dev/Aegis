@@ -20,9 +20,36 @@ class SystemInfoService {
     // Audio device ID for volume monitoring
     private var audioDeviceID: AudioDeviceID = 0
 
-    // Track registered audio listener addresses to remove on device change
-    // Stored as tuples of (deviceID, address) for cleanup
+    // Track registered audio listener addresses for proper removal on device change
     private var registeredVolumeListenerAddresses: [(AudioDeviceID, AudioObjectPropertyAddress)] = []
+
+    // Stable listener proc for CoreAudio — uses AudioObjectAddPropertyListener (not Block variant)
+    // so it can be cleanly removed via AudioObjectRemovePropertyListener.
+    private static let volumeListenerProc: AudioObjectPropertyListenerProc = { _, _, _, clientData in
+        guard let clientData = clientData else { return noErr }
+        let service = Unmanaged<SystemInfoService>.fromOpaque(clientData).takeUnretainedValue()
+        DispatchQueue.main.async { service.volumeDidChange() }
+        return noErr
+    }
+
+    // Stable listener proc for default output device changes
+    private static let deviceChangeListenerProc: AudioObjectPropertyListenerProc = { _, _, _, clientData in
+        guard let clientData = clientData else { return noErr }
+        let service = Unmanaged<SystemInfoService>.fromOpaque(clientData).takeUnretainedValue()
+        DispatchQueue.main.async {
+            service.suppressVolumeEventsUntil = Date().addingTimeInterval(1.0)
+            service.setupVolumeMonitoring()
+            service.eventRouter.publish(.audioOutputDeviceChanged, data: [:])
+        }
+        return noErr
+    }
+
+    // Address for default device change listener (stored for removal in deinit)
+    private var defaultDeviceListenerAddress = AudioObjectPropertyAddress(
+        mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+        mScope: kAudioObjectPropertyScopeGlobal,
+        mElement: kAudioObjectPropertyElementMain
+    )
 
     // Track previous non-zero volume to detect mute via volume = 0
     private var previousNonZeroVolume: Float = 0.5
@@ -69,25 +96,13 @@ class SystemInfoService {
     // MARK: - Default Device Change Monitoring
 
     private func setupDefaultDeviceChangeMonitoring() {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-
-        AudioObjectAddPropertyListenerBlock(
+        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+        AudioObjectAddPropertyListener(
             AudioObjectID(kAudioObjectSystemObject),
-            &address,
-            DispatchQueue.main
-        ) { [weak self] _, _ in
-            print("🔊 Default audio output device changed - re-registering volume listener")
-            // Suppress volume events for 1 second to avoid spurious HUD (e.g., mute animation on disconnect)
-            self?.suppressVolumeEventsUntil = Date().addingTimeInterval(1.0)
-            self?.setupVolumeMonitoring()
-
-            // Notify other services that audio output changed (used by BluetoothDeviceService to detect disconnects faster)
-            self?.eventRouter.publish(.audioOutputDeviceChanged, data: [:])
-        }
+            &defaultDeviceListenerAddress,
+            Self.deviceChangeListenerProc,
+            selfPtr
+        )
     }
     
     // Suppress the native macOS HUD overlays
@@ -124,12 +139,12 @@ class SystemInfoService {
     
     // MARK: - Volume Monitoring
 
-    /// Clear the list of registered listeners when switching devices
-    /// Note: CoreAudio's AudioObjectRemovePropertyListenerBlock requires the exact same block pointer,
-    /// which isn't possible with Swift closures. The old listeners will become orphaned on the old device
-    /// but won't fire since that device is no longer the default output. We track addresses to prevent
-    /// duplicate registration on the same device.
+    /// Remove all registered volume/mute listeners from old audio devices.
     private func removeVolumeListeners() {
+        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+        for var (deviceID, address) in registeredVolumeListenerAddresses {
+            AudioObjectRemovePropertyListener(deviceID, &address, Self.volumeListenerProc, selfPtr)
+        }
         registeredVolumeListenerAddresses.removeAll()
     }
 
@@ -157,12 +172,12 @@ class SystemInfoService {
         )
 
         guard status == noErr else {
-            print("🔊 setupVolumeMonitoring: Failed to get default output device")
+            logDebug("🔊 setupVolumeMonitoring: Failed to get default output device")
             return
         }
 
         audioDeviceID = deviceID
-        print("🔊 setupVolumeMonitoring: Using audio device ID \(deviceID)")
+        logDebug("🔊 setupVolumeMonitoring: Using audio device ID \(deviceID)")
 
         // Check what properties this device supports
         var volumeAddress = AudioObjectPropertyAddress(
@@ -173,12 +188,12 @@ class SystemInfoService {
 
         let hasVolumeProperty = AudioObjectHasProperty(audioDeviceID, &volumeAddress)
         deviceSupportsVolumeProperty = hasVolumeProperty
-        print("🔊 setupVolumeMonitoring: Device has volume property: \(hasVolumeProperty)")
+        logDebug("🔊 setupVolumeMonitoring: Device has volume property: \(hasVolumeProperty)")
 
         // If switching to a device without volume property, reset estimated volume
         if !hasVolumeProperty {
             estimatedBluetoothVolume = 0.5  // Start at 50%
-            print("🔊 setupVolumeMonitoring: Using estimated volume for Bluetooth device")
+            logDebug("🔊 setupVolumeMonitoring: Using estimated volume for Bluetooth device")
         }
 
         // Register for volume change notifications
@@ -189,13 +204,8 @@ class SystemInfoService {
         )
 
         if hasVolumeProperty {
-            AudioObjectAddPropertyListenerBlock(
-                audioDeviceID,
-                &volumeListenerAddress,
-                DispatchQueue.main
-            ) { [weak self] _, _ in
-                self?.volumeDidChange()
-            }
+            let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+            AudioObjectAddPropertyListener(audioDeviceID, &volumeListenerAddress, Self.volumeListenerProc, selfPtr)
             registeredVolumeListenerAddresses.append((audioDeviceID, volumeListenerAddress))
         }
 
@@ -208,13 +218,8 @@ class SystemInfoService {
 
         // Try to register on main element first
         if AudioObjectHasProperty(audioDeviceID, &muteAddress) {
-            AudioObjectAddPropertyListenerBlock(
-                audioDeviceID,
-                &muteAddress,
-                DispatchQueue.main
-            ) { [weak self] _, _ in
-                self?.volumeDidChange()
-            }
+            let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+            AudioObjectAddPropertyListener(audioDeviceID, &muteAddress, Self.volumeListenerProc, selfPtr)
             registeredVolumeListenerAddresses.append((audioDeviceID, muteAddress))
         }
 
@@ -225,13 +230,8 @@ class SystemInfoService {
             mElement: 0
         )
         if AudioObjectHasProperty(audioDeviceID, &muteAddressElement0) {
-            AudioObjectAddPropertyListenerBlock(
-                audioDeviceID,
-                &muteAddressElement0,
-                DispatchQueue.main
-            ) { [weak self] _, _ in
-                self?.volumeDidChange()
-            }
+            let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+            AudioObjectAddPropertyListener(audioDeviceID, &muteAddressElement0, Self.volumeListenerProc, selfPtr)
             registeredVolumeListenerAddresses.append((audioDeviceID, muteAddressElement0))
         }
 
@@ -244,7 +244,7 @@ class SystemInfoService {
     /// Update internal volume state without publishing event (used during device setup)
     private func updateCurrentVolumeState() {
         guard let volume = getCurrentVolume() else {
-            print("🔊 updateCurrentVolumeState: Failed to get volume for device \(audioDeviceID)")
+            logDebug("🔊 updateCurrentVolumeState: Failed to get volume for device \(audioDeviceID)")
             return
         }
 
@@ -256,21 +256,21 @@ class SystemInfoService {
             previousNonZeroVolume = volume
         }
 
-        print("🔊 updateCurrentVolumeState: volume=\(volume), muted=\(isMuted) (no HUD)")
+        logDebug("🔊 updateCurrentVolumeState: volume=\(volume), muted=\(isMuted) (no HUD)")
     }
 
     private func volumeDidChange() {
         // Check if we're in suppression window (e.g., device just changed)
         if Date() < suppressVolumeEventsUntil {
-            print("🔊 volumeDidChange: Suppressed (device switch in progress)")
+            logDebug("🔊 volumeDidChange: Suppressed (device switch in progress)")
             return
         }
 
         guard let volume = getCurrentVolume() else {
-            print("🔊 volumeDidChange: Failed to get current volume for device \(audioDeviceID)")
+            logDebug("🔊 volumeDidChange: Failed to get current volume for device \(audioDeviceID)")
             return
         }
-        print("🔊 volumeDidChange: volume=\(volume) for device \(audioDeviceID)")
+        logDebug("🔊 volumeDidChange: volume=\(volume) for device \(audioDeviceID)")
 
         // Check hardware mute first
         let isMuted = getIsMuted()
@@ -403,6 +403,14 @@ class SystemInfoService {
     }
 
     deinit {
+        removeVolumeListeners()
+        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+        AudioObjectRemovePropertyListener(
+            AudioObjectID(kAudioObjectSystemObject),
+            &defaultDeviceListenerAddress,
+            Self.deviceChangeListenerProc,
+            selfPtr
+        )
         NotificationCenter.default.removeObserver(self)
         if let monitor = keyEventMonitor {
             NSEvent.removeMonitor(monitor)
@@ -421,7 +429,7 @@ class SystemInfoService {
         let keyPressed = ((keyFlags & 0xFF00) >> 8) == 0xA
         let keyRepeat = (keyFlags & 0x1) == 0x1
 
-        print("🔊 handleMediaKeyEvent: keyCode=\(keyCode), keyPressed=\(keyPressed), keyRepeat=\(keyRepeat)")
+        logDebug("🔊 handleMediaKeyEvent: keyCode=\(keyCode), keyPressed=\(keyPressed), keyRepeat=\(keyRepeat)")
 
         // Only respond to key press (not release) and not repeats
         guard keyPressed && !keyRepeat else {
@@ -431,7 +439,7 @@ class SystemInfoService {
         // Key codes: 0 = vol up, 1 = vol down, 2 = brightness up, 3 = brightness down, 7 = mute
         switch keyCode {
         case 0, 1:  // Volume up/down
-            print("🔊 handleMediaKeyEvent: Volume key detected (deviceSupportsVolume: \(deviceSupportsVolumeProperty))")
+            logDebug("🔊 handleMediaKeyEvent: Volume key detected (deviceSupportsVolume: \(deviceSupportsVolumeProperty))")
 
             if deviceSupportsVolumeProperty {
                 // Normal path - read actual volume from CoreAudio
@@ -445,7 +453,7 @@ class SystemInfoService {
                 }
             }
         case 7:  // Mute toggle
-            print("🔊 handleMediaKeyEvent: Mute key detected (deviceSupportsVolume: \(deviceSupportsVolumeProperty))")
+            logDebug("🔊 handleMediaKeyEvent: Mute key detected (deviceSupportsVolume: \(deviceSupportsVolumeProperty))")
 
             if deviceSupportsVolumeProperty {
                 // Normal path - read actual mute state from CoreAudio
@@ -459,7 +467,7 @@ class SystemInfoService {
                 }
             }
         case 2, 3:  // Brightness up/down
-            print("🔊 handleMediaKeyEvent: Brightness key detected, triggering brightnessDidChange")
+            logDebug("🔊 handleMediaKeyEvent: Brightness key detected, triggering brightnessDidChange")
             // Trigger brightnessDidChange which will read current brightness and publish event
             DispatchQueue.main.async {
                 self.brightnessDidChange()
@@ -480,7 +488,7 @@ class SystemInfoService {
             estimatedBluetoothVolume = max(0.0, estimatedBluetoothVolume - volumeStep)
         }
 
-        print("🔊 handleBluetoothVolumeKey: \(isVolumeUp ? "UP" : "DOWN") -> estimated volume: \(estimatedBluetoothVolume)")
+        logDebug("🔊 handleBluetoothVolumeKey: \(isVolumeUp ? "UP" : "DOWN") -> estimated volume: \(estimatedBluetoothVolume)")
 
         // Unmute if adjusting volume while muted
         if estimatedBluetoothMuted {
@@ -500,7 +508,7 @@ class SystemInfoService {
     private func handleBluetoothMuteKey() {
         estimatedBluetoothMuted.toggle()
 
-        print("🔊 handleBluetoothMuteKey: muted = \(estimatedBluetoothMuted)")
+        logDebug("🔊 handleBluetoothMuteKey: muted = \(estimatedBluetoothMuted)")
 
         currentState.isMuted = estimatedBluetoothMuted
         // When muted, show level as 0; when unmuted, show the estimated volume

@@ -55,7 +55,7 @@ final class MediaKeyTapService {
             },
             userInfo: nil
         ) else {
-            print("🔊 MediaKeyTapService: failed to create event tap (check Accessibility permission)")
+            logDebug("🔊 MediaKeyTapService: failed to create event tap (check Accessibility permission)")
             return
         }
 
@@ -67,7 +67,7 @@ final class MediaKeyTapService {
             CGEvent.tapEnable(tap: tap, enable: true)
         }
 
-        print("🔊 MediaKeyTapService: started")
+        logDebug("🔊 MediaKeyTapService: started")
     }
 
     func stop() {
@@ -79,7 +79,7 @@ final class MediaKeyTapService {
             }
             eventTap = nil
         }
-        print("🔊 MediaKeyTapService: stopped")
+        logDebug("🔊 MediaKeyTapService: stopped")
     }
 
     // MARK: - Event Handling

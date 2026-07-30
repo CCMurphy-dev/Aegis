@@ -43,21 +43,21 @@ class MediaHUDViewModel: ObservableObject {
     func overlayDidShow() {
         overlayCount += 1
         isOverlayActive = overlayCount > 0
-        print("🔢 overlayDidShow: count=\(overlayCount), isOverlayActive=\(isOverlayActive)")
+        logDebug("🔢 overlayDidShow: count=\(overlayCount), isOverlayActive=\(isOverlayActive)")
     }
 
     /// Decrement overlay count (call when hiding an overlay HUD)
     func overlayDidHide() {
         overlayCount = max(0, overlayCount - 1)
         isOverlayActive = overlayCount > 0
-        print("🔢 overlayDidHide: count=\(overlayCount), isOverlayActive=\(isOverlayActive)")
+        logDebug("🔢 overlayDidHide: count=\(overlayCount), isOverlayActive=\(isOverlayActive)")
     }
 
     /// Reset overlay counter to 0 (safety valve for stuck state)
     func resetOverlayState() {
         if overlayCount != 0 {
             #if DEBUG
-            print("⚠️ Resetting stuck overlay counter from \(overlayCount) to 0")
+            logDebug("⚠️ Resetting stuck overlay counter from \(overlayCount) to 0")
             #endif
             overlayCount = 0
             isOverlayActive = false

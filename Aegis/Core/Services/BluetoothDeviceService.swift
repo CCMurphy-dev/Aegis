@@ -202,6 +202,10 @@ class BluetoothDeviceService: NSObject {
             return
         }
 
+        // Prune stale entries to prevent unbounded growth
+        let cutoff = Date().addingTimeInterval(-reconnectIgnoreWindow)
+        recentlyDisconnected = recentlyDisconnected.filter { $0.value > cutoff }
+
         // Skip if this device was recently disconnected (spurious reconnect notification)
         if let disconnectTime = recentlyDisconnected[address],
            Date().timeIntervalSince(disconnectTime) < reconnectIgnoreWindow {

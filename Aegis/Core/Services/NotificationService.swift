@@ -36,7 +36,7 @@ class NotificationService {
         guard let ncApp = NSWorkspace.shared.runningApplications
             .first(where: { $0.bundleIdentifier == "com.apple.notificationcenterui" })
         else {
-            print("⚠️ NotificationService: notificationcenterui not found")
+            logDebug("⚠️ NotificationService: notificationcenterui not found")
             return
         }
 
@@ -50,7 +50,7 @@ class NotificationService {
         var observer: AXObserver?
         guard AXObserverCreate(ncApp.processIdentifier, callback, &observer) == .success,
               let observer = observer else {
-            print("⚠️ NotificationService: Failed to create AXObserver (check Accessibility permissions)")
+            logDebug("⚠️ NotificationService: Failed to create AXObserver (check Accessibility permissions)")
             return
         }
 
@@ -65,7 +65,7 @@ class NotificationService {
         let source = AXObserverGetRunLoopSource(observer)
         CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .defaultMode)
 
-        print("✅ NotificationService: Monitoring active (event-driven, zero idle CPU)")
+        logDebug("✅ NotificationService: Monitoring active (event-driven, zero idle CPU)")
     }
 
     private func handleNotificationWindow(_ element: AXUIElement) {
@@ -152,7 +152,7 @@ class NotificationService {
             subrole = ""
         }
 
-        print("\(prefix)[\(role)\(subrole)] value='\(value)'\(desc)\(title)")
+        logDebug("\(prefix)[\(role)\(subrole)] value='\(value)'\(desc)\(title)")
 
         // Recurse into children
         var childrenRef: CFTypeRef?
@@ -186,7 +186,7 @@ class NotificationService {
         }
 
         // Debug logging
-        print("🔔 Extracted: appName='\(appName)' title='\(title)' body='\(body)' bundleId='\(bundleId)'")
+        logDebug("🔔 Extracted: appName='\(appName)' title='\(title)' body='\(body)' bundleId='\(bundleId)'")
 
         return (appName, title, body, bundleId)
     }
@@ -282,13 +282,13 @@ class NotificationService {
             var actionsRef: CFArray?
             if AXUIElementCopyActionNames(bannerElement, &actionsRef) == .success,
                let actions = actionsRef as? [String] {
-                print("🔔 Banner available actions: \(actions)")
+                logDebug("🔔 Banner available actions: \(actions)")
 
                 // First, look for the "Close" action specifically (it has a weird format)
                 for action in actions {
                     if action.contains("Close") {
                         let result = AXUIElementPerformAction(bannerElement, action as CFString)
-                        print("🔔 Tried Close action '\(action)': \(result == .success ? "SUCCESS" : "failed (\(result.rawValue))")")
+                        logDebug("🔔 Tried Close action '\(action)': \(result == .success ? "SUCCESS" : "failed (\(result.rawValue))")")
                         if result == .success {
                             return
                         }
@@ -298,33 +298,33 @@ class NotificationService {
                 // If no Close action worked, try others (but skip AXPress as it just opens the app)
                 for action in actions where !action.contains("AXPress") && !action.contains("Show Details") {
                     let result = AXUIElementPerformAction(bannerElement, action as CFString)
-                    print("🔔 Tried action '\(action)': \(result == .success ? "SUCCESS" : "failed (\(result.rawValue))")")
+                    logDebug("🔔 Tried action '\(action)': \(result == .success ? "SUCCESS" : "failed (\(result.rawValue))")")
                     if result == .success {
                         return
                     }
                 }
             } else {
-                print("🔔 Banner has no actions")
+                logDebug("🔔 Banner has no actions")
             }
 
             // Strategy 1: Try AXDismissAction (if available)
             let dismissResult = AXUIElementPerformAction(bannerElement, "AXDismiss" as CFString)
             if dismissResult == .success {
-                print("🔔 Dismissed banner via AXDismiss action")
+                logDebug("🔔 Dismissed banner via AXDismiss action")
                 return
             }
 
             // Strategy 2: Try AXPress on the banner itself
             let pressResult = AXUIElementPerformAction(bannerElement, kAXPressAction as CFString)
             if pressResult == .success {
-                print("🔔 Dismissed banner via AXPress action")
+                logDebug("🔔 Dismissed banner via AXPress action")
                 return
             }
 
             // Strategy 3: Try AXCancel (common dismiss action)
             let cancelResult = AXUIElementPerformAction(bannerElement, "AXCancel" as CFString)
             if cancelResult == .success {
-                print("🔔 Dismissed banner via AXCancel action")
+                logDebug("🔔 Dismissed banner via AXCancel action")
                 return
             }
 
@@ -345,7 +345,7 @@ class NotificationService {
             _ = dismissButtonRecursively(in: children)
         }
 
-        print("🔔 Warning: Could not dismiss native banner")
+        logDebug("🔔 Warning: Could not dismiss native banner")
     }
 
     /// Find the AXNotificationCenterBanner element in the hierarchy
@@ -383,7 +383,7 @@ class NotificationService {
                    let subrole = subroleRef as? String, subrole == "AXCloseButton" {
                     let result = AXUIElementPerformAction(element, kAXPressAction as CFString)
                     if result == .success {
-                        print("🔔 Dismissed via AXCloseButton")
+                        logDebug("🔔 Dismissed via AXCloseButton")
                         return true
                     }
                 }
@@ -394,7 +394,7 @@ class NotificationService {
                    let desc = descRef as? String, desc.lowercased().contains("close") {
                     let result = AXUIElementPerformAction(element, kAXPressAction as CFString)
                     if result == .success {
-                        print("🔔 Dismissed via close button (by description)")
+                        logDebug("🔔 Dismissed via close button (by description)")
                         return true
                     }
                 }
@@ -405,7 +405,7 @@ class NotificationService {
                    let title = titleRef as? String, title == "X" || title.lowercased().contains("dismiss") {
                     let result = AXUIElementPerformAction(element, kAXPressAction as CFString)
                     if result == .success {
-                        print("🔔 Dismissed via X/dismiss button")
+                        logDebug("🔔 Dismissed via X/dismiss button")
                         return true
                     }
                 }

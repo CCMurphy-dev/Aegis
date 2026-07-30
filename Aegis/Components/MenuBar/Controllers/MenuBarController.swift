@@ -1177,7 +1177,7 @@ struct LayoutActionsButton: View {
 
         // Query WM fresh for accurate stack-index values
         let freshWindows = windowManager.getWindowsForSpace(focusedSpaceIndex)
-        print("📋 Stack menu: focusedSpace=\(focusedSpaceIndex), freshWindows=\(freshWindows.count)")
+        logDebug("📋 Stack menu: focusedSpace=\(focusedSpaceIndex), freshWindows=\(freshWindows.count)")
 
         if freshWindows.count >= 2 {
             // Pre-scale icons once
@@ -1214,7 +1214,7 @@ struct LayoutActionsButton: View {
             stackGroups = frameGroups.values.map { $0.sorted { $0.stackIndex < $1.stackIndex } }
 
             unstackedWindows = notStacked
-            print("📋 Stack grouping: \(stackGroups.count) stacks, \(unstackedWindows.count) unstacked (stacked windows: \(stacked.count))")
+            logDebug("📋 Stack grouping: \(stackGroups.count) stacks, \(unstackedWindows.count) unstacked (stacked windows: \(stacked.count))")
 
             // Helper to get display title for a window
             func windowTitle(_ w: WMWindow) -> String {
@@ -1522,7 +1522,7 @@ class LayoutActionsMenuTarget: NSObject {
 
     @objc func executeAction(_ sender: NSMenuItem) {
         let index = sender.tag
-        print("📋 Menu action at index: \(index)")
+        logDebug("📋 Menu action at index: \(index)")
 
         // Execute based on index (used by AppKitActionButton's hardcoded tag values)
         switch index {
@@ -1536,13 +1536,13 @@ class LayoutActionsMenuTarget: NSObject {
         case 7: onStackAllWindows?()
         case 8: onSpaceCreate?()
         default:
-            print("❌ Unknown action index: \(index)")
+            logDebug("❌ Unknown action index: \(index)")
         }
     }
 
     @objc func executeActionByLabel(_ sender: NSMenuItem) {
         guard let label = sender.representedObject as? String else { return }
-        print("📋 Menu action: \(label)")
+        logDebug("📋 Menu action: \(label)")
 
         switch label {
         case "Rotate 90°": onRotate?(90)
@@ -1555,12 +1555,12 @@ class LayoutActionsMenuTarget: NSObject {
         case "Stack/Unstack": onStackAllWindows?()
         case "New Space": onSpaceCreate?()
         default:
-            print("❌ Unknown action: \(label)")
+            logDebug("❌ Unknown action: \(label)")
         }
     }
 
     @objc func openSettings() {
-        print("⚙️ Opening Settings Panel...")
+        logDebug("⚙️ Opening Settings Panel...")
         SettingsPanelController.shared.showSettings()
     }
 
@@ -1568,21 +1568,21 @@ class LayoutActionsMenuTarget: NSObject {
         let config = AegisConfig.shared
         config.showMediaHUD.toggle()
         config.savePreferences()
-        print("🎵 Show Media HUD: \(config.showMediaHUD ? "ON" : "OFF")")
+        logDebug("🎵 Show Media HUD: \(config.showMediaHUD ? "ON" : "OFF")")
     }
 
     @objc func setRightPanelModeVisualizer(_ sender: NSMenuItem) {
         let config = AegisConfig.shared
         config.mediaHUDRightPanelMode = .visualizer
         config.savePreferences()
-        print("🎵 Media HUD Right Panel: Visualizer")
+        logDebug("🎵 Media HUD Right Panel: Visualizer")
     }
 
     @objc func setRightPanelModeTrackInfo(_ sender: NSMenuItem) {
         let config = AegisConfig.shared
         config.mediaHUDRightPanelMode = .trackInfo
         config.savePreferences()
-        print("🎵 Media HUD Right Panel: Track Info")
+        logDebug("🎵 Media HUD Right Panel: Track Info")
     }
 
     @objc func reloadConfig() {
@@ -1590,43 +1590,43 @@ class LayoutActionsMenuTarget: NSObject {
     }
 
     @objc func restartYabai() {
-        print("🔄 Restarting yabai...")
+        logDebug("🔄 Restarting yabai...")
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/yabai")
         task.arguments = ["--restart-service"]
         do {
             try task.run()
-            print("✅ Yabai restart command sent")
+            logDebug("✅ Yabai restart command sent")
         } catch {
-            print("❌ Failed to restart yabai: \(error)")
+            logDebug("❌ Failed to restart yabai: \(error)")
         }
     }
 
     @objc func restartRift() {
-        print("🔄 Restarting Rift...")
+        logDebug("🔄 Restarting Rift...")
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/rift-cli")
         task.arguments = ["service", "restart"]
         do {
             try task.run()
-            print("✅ Rift restart command sent")
+            logDebug("✅ Rift restart command sent")
         } catch {
-            print("❌ Failed to restart Rift: \(error)")
+            logDebug("❌ Failed to restart Rift: \(error)")
         }
     }
 
     @objc func reloadAeroSpace() {
-        print("🔄 Reloading AeroSpace config...")
+        logDebug("🔄 Reloading AeroSpace config...")
         windowManager?.executeRawCommand(args: ["reload-config"]) { result in
             switch result {
-            case .success: print("✅ AeroSpace config reloaded")
-            case .failure(let error): print("❌ Failed to reload AeroSpace: \(error)")
+            case .success: logDebug("✅ AeroSpace config reloaded")
+            case .failure(let error): logDebug("❌ Failed to reload AeroSpace: \(error)")
             }
         }
     }
 
     @objc func restartAegis() {
-        print("🔄 Restarting Aegis...")
+        logDebug("🔄 Restarting Aegis...")
         // Use NSWorkspace to relaunch
         let url = Bundle.main.bundleURL
         let configuration = NSWorkspace.OpenConfiguration()
@@ -1634,7 +1634,7 @@ class LayoutActionsMenuTarget: NSObject {
 
         NSWorkspace.shared.openApplication(at: url, configuration: configuration) { _, error in
             if let error = error {
-                print("❌ Failed to relaunch: \(error)")
+                logDebug("❌ Failed to relaunch: \(error)")
             } else {
                 NSApp.terminate(nil)
             }
@@ -1642,31 +1642,31 @@ class LayoutActionsMenuTarget: NSObject {
     }
 
     @objc func restartSkhd() {
-        print("🔄 Restarting skhd...")
+        logDebug("🔄 Restarting skhd...")
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/skhd")
         task.arguments = ["--restart-service"]
         do {
             try task.run()
-            print("✅ skhd restart command sent")
+            logDebug("✅ skhd restart command sent")
         } catch {
-            print("❌ Failed to restart skhd: \(error)")
+            logDebug("❌ Failed to restart skhd: \(error)")
         }
     }
 
     @objc func quitAegis() {
-        print("👋 Quitting Aegis...")
+        logDebug("👋 Quitting Aegis...")
         NSApp.terminate(nil)
     }
 
     @objc func createNewSpace() {
-        print("➕ Creating new space...")
+        logDebug("➕ Creating new space...")
         onSpaceCreate?()
     }
 
     @objc func destroyCurrentSpace(_ sender: NSMenuItem) {
         guard let spaceIndex = sender.representedObject as? Int else { return }
-        print("🗑️ Destroying space \(spaceIndex)...")
+        logDebug("🗑️ Destroying space \(spaceIndex)...")
         onSpaceDestroy?(spaceIndex)
     }
 
@@ -1676,7 +1676,7 @@ class LayoutActionsMenuTarget: NSObject {
     private var isAeroSpace: Bool { windowManager?.name == "AeroSpace" }
 
     @objc func focusNext() {
-        print("➡️ Focusing next window...")
+        logDebug("➡️ Focusing next window...")
         if isRift {
             windowManager?.executeRawCommand(args: ["execute", "window", "next"]) { _ in }
         } else if isAeroSpace {
@@ -1687,7 +1687,7 @@ class LayoutActionsMenuTarget: NSObject {
     }
 
     @objc func focusPrevious() {
-        print("⬅️ Focusing previous window...")
+        logDebug("⬅️ Focusing previous window...")
         if isRift {
             windowManager?.executeRawCommand(args: ["execute", "window", "prev"]) { _ in }
         } else if isAeroSpace {
@@ -1698,7 +1698,7 @@ class LayoutActionsMenuTarget: NSObject {
     }
 
     @objc func swapLeft() {
-        print("⬅️ Swapping window left...")
+        logDebug("⬅️ Swapping window left...")
         if isRift {
             windowManager?.executeRawCommand(args: ["execute", "layout", "move-node", "left"]) { _ in }
         } else if isAeroSpace {
@@ -1709,7 +1709,7 @@ class LayoutActionsMenuTarget: NSObject {
     }
 
     @objc func swapRight() {
-        print("➡️ Swapping window right...")
+        logDebug("➡️ Swapping window right...")
         if isRift {
             windowManager?.executeRawCommand(args: ["execute", "layout", "move-node", "right"]) { _ in }
         } else if isAeroSpace {
@@ -1720,7 +1720,7 @@ class LayoutActionsMenuTarget: NSObject {
     }
 
     @objc func toggleFloat() {
-        print("🎈 Toggling float...")
+        logDebug("🎈 Toggling float...")
         if isRift {
             windowManager?.executeRawCommand(args: ["execute", "window", "toggle-float"]) { _ in }
         } else if isAeroSpace {
@@ -1731,7 +1731,7 @@ class LayoutActionsMenuTarget: NSObject {
     }
 
     @objc func toggleFullscreen() {
-        print("🖥️ Toggling fullscreen...")
+        logDebug("🖥️ Toggling fullscreen...")
         if isRift {
             windowManager?.executeRawCommand(args: ["execute", "window", "toggle-fullscreen"]) { _ in }
         } else if isAeroSpace {
@@ -1744,7 +1744,7 @@ class LayoutActionsMenuTarget: NSObject {
     // MARK: - Move Window Actions
 
     @objc func moveNorth() {
-        print("⬆️ Moving window north...")
+        logDebug("⬆️ Moving window north...")
         if isRift {
             windowManager?.executeRawCommand(args: ["execute", "layout", "move-node", "up"]) { _ in }
         } else if isAeroSpace {
@@ -1755,7 +1755,7 @@ class LayoutActionsMenuTarget: NSObject {
     }
 
     @objc func moveSouth() {
-        print("⬇️ Moving window south...")
+        logDebug("⬇️ Moving window south...")
         if isRift {
             windowManager?.executeRawCommand(args: ["execute", "layout", "move-node", "down"]) { _ in }
         } else if isAeroSpace {
@@ -1766,7 +1766,7 @@ class LayoutActionsMenuTarget: NSObject {
     }
 
     @objc func moveEast() {
-        print("➡️ Moving window east...")
+        logDebug("➡️ Moving window east...")
         if isRift {
             windowManager?.executeRawCommand(args: ["execute", "layout", "move-node", "right"]) { _ in }
         } else if isAeroSpace {
@@ -1777,7 +1777,7 @@ class LayoutActionsMenuTarget: NSObject {
     }
 
     @objc func moveWest() {
-        print("⬅️ Moving window west...")
+        logDebug("⬅️ Moving window west...")
         if isRift {
             windowManager?.executeRawCommand(args: ["execute", "layout", "move-node", "left"]) { _ in }
         } else if isAeroSpace {
@@ -1791,12 +1791,12 @@ class LayoutActionsMenuTarget: NSObject {
         if isAeroSpace {
             // AeroSpace: representedObject is workspace name string
             guard let wsName = sender.representedObject as? String else { return }
-            print("📦 Sending window to AeroSpace workspace \(wsName)...")
+            logDebug("📦 Sending window to AeroSpace workspace \(wsName)...")
             windowManager?.executeRawCommand(args: ["move-node-to-workspace", "--focus-follows-window", wsName]) { _ in }
             return
         }
         guard let spaceIndex = sender.representedObject as? Int else { return }
-        print("📦 Sending window to space \(spaceIndex)...")
+        logDebug("📦 Sending window to space \(spaceIndex)...")
         if isRift {
             // Rift uses 0-based workspace indices, spaceIndex is 1-based
             let riftIndex = spaceIndex - 1
@@ -1816,7 +1816,7 @@ class LayoutActionsMenuTarget: NSObject {
 
     @objc func setLayout(_ sender: NSMenuItem) {
         guard let layoutType = sender.representedObject as? String else { return }
-        print("📐 Setting layout to \(layoutType)...")
+        logDebug("📐 Setting layout to \(layoutType)...")
         if isRift {
             windowManager?.executeRawCommand(args: ["execute", "workspace", "set-layout", layoutType]) { _ in }
         } else if isAeroSpace {

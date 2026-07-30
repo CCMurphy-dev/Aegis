@@ -255,9 +255,9 @@ extension AegisConfig {
         if !FileManager.default.fileExists(atPath: fileURL.path) {
             do {
                 try Self.starterConfigContent.write(to: fileURL, atomically: true, encoding: .utf8)
-                print("📁 AegisConfig: Created starter config at \(fileURL.path)")
+                logDebug("📁 AegisConfig: Created starter config at \(fileURL.path)")
             } catch {
-                print("⚠️ AegisConfig: Failed to create starter config: \(error)")
+                logDebug("⚠️ AegisConfig: Failed to create starter config: \(error)")
             }
         }
 
@@ -265,11 +265,11 @@ extension AegisConfig {
         let docsURL = configDir.appendingPathComponent("CONFIG_OPTIONS.md")
         if !FileManager.default.fileExists(atPath: docsURL.path) {
             try? Self.configDocumentation.write(to: docsURL, atomically: true, encoding: .utf8)
-            print("📁 AegisConfig: Created config documentation at \(docsURL.path)")
+            logDebug("📁 AegisConfig: Created config documentation at \(docsURL.path)")
         }
 
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            print("📁 AegisConfig: No config.json found at \(fileURL.path)")
+            logDebug("📁 AegisConfig: No config.json found at \(fileURL.path)")
             return false
         }
 
@@ -278,10 +278,10 @@ extension AegisConfig {
             let decoder = JSONDecoder()
             let configData = try decoder.decode(AegisConfigData.self, from: data)
             applyConfigData(configData)
-            print("✅ AegisConfig: Loaded config from \(fileURL.path)")
+            logDebug("✅ AegisConfig: Loaded config from \(fileURL.path)")
             return true
         } catch {
-            print("⚠️ AegisConfig: Failed to load config.json: \(error)")
+            logDebug("⚠️ AegisConfig: Failed to load config.json: \(error)")
             return false
         }
     }
@@ -528,9 +528,9 @@ extension AegisConfig {
             try FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
 
             try data.write(to: Self.configFilePath)
-            print("✅ AegisConfig: Saved config to \(Self.configFilePath.path)")
+            logDebug("✅ AegisConfig: Saved config to \(Self.configFilePath.path)")
         } catch {
-            print("⚠️ AegisConfig: Failed to save config.json: \(error)")
+            logDebug("⚠️ AegisConfig: Failed to save config.json: \(error)")
         }
     }
 

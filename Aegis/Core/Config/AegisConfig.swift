@@ -756,17 +756,17 @@ class AegisConfig: ObservableObject {
         let resolvedURL = fileURL.resolvingSymlinksInPath()
         let resolvedDir = resolvedURL.deletingLastPathComponent()
         if resolvedDir.path != configDir.path {
-            print("📁 AegisConfig: Config is symlinked, also watching: \(resolvedDir.path)")
+            logDebug("📁 AegisConfig: Config is symlinked, also watching: \(resolvedDir.path)")
             configFileWatcherResolved = createDirectoryWatcher(for: resolvedDir)
         }
 
-        print("📁 AegisConfig: Watching for config file changes at \(configDir.path)")
+        logDebug("📁 AegisConfig: Watching for config file changes at \(configDir.path)")
     }
 
     private func createDirectoryWatcher(for directory: URL) -> DispatchSourceFileSystemObject? {
         let fd = open(directory.path, O_EVTONLY)
         guard fd >= 0 else {
-            print("⚠️ AegisConfig: Could not open directory for watching: \(directory.path)")
+            logDebug("⚠️ AegisConfig: Could not open directory for watching: \(directory.path)")
             return nil
         }
 
@@ -805,16 +805,16 @@ class AegisConfig: ObservableObject {
     /// Reload configuration from JSON file (can be called manually)
     func reloadConfig() {
         guard FileManager.default.fileExists(atPath: Self.configFilePath.path) else {
-            print("⚠️ AegisConfig: No config file found at \(Self.configFilePath.path)")
+            logDebug("⚠️ AegisConfig: No config file found at \(Self.configFilePath.path)")
             return
         }
 
-        print("🔄 AegisConfig: Reloading config...")
+        logDebug("🔄 AegisConfig: Reloading config...")
         isLoadingPreferences = true
         if loadFromJSONFile() {
             // Notify observers that config changed
             objectWillChange.send()
-            print("✅ AegisConfig: Config reloaded successfully")
+            logDebug("✅ AegisConfig: Config reloaded successfully")
         }
         isLoadingPreferences = false
     }
@@ -1617,7 +1617,7 @@ class AegisConfig: ObservableObject {
         visualizerUseBlurEffect = false
         showMediaHUD = true
         mediaHUDRightPanelMode = .visualizer
-        mediaHUDAutoHide = false
+        mediaHUDAutoHide = true
         mediaHUDAutoHideDelay = 5.0
         mediaHUDEnableMarquee = true
         showDeviceHUD = true

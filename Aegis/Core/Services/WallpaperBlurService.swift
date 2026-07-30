@@ -65,9 +65,12 @@ class WallpaperBlurService {
     private var debounceTimer: DispatchWorkItem?
     private var pollTimer: Timer?
     private var workspaceObservers: [NSObjectProtocol] = []
+    private var notificationObservers: [NSObjectProtocol] = []
 
     /// Blur radius for the gaussian blur (in points)
     private let blurRadius: CGFloat = 40
+    /// Shared CIContext — GPU-backed, reused across all captures to avoid ~50-100MB per allocation
+    private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
 
     init(eventRouter: EventRouter) {
         self.eventRouter = eventRouter
@@ -143,7 +146,7 @@ class WallpaperBlurService {
                 guard let scDisplay = content.displays.first(where: { display in
                     display.displayID == screenDisplayID
                 }) else {
-                    print("WallpaperBlur: No matching SCDisplay for screen \(screenDisplayID ?? 0)")
+                    logDebug("WallpaperBlur: No matching SCDisplay for screen \(screenDisplayID ?? 0)")
                     return
                 }
 
@@ -165,6 +168,7 @@ class WallpaperBlurService {
 
                 // Apply gaussian blur on a background queue
                 let blurRadius = self.blurRadius
+                let ciContext = self.ciContext
                 let screenSize = screen.frame.size
                 let blurredImage: NSImage? = await withCheckedContinuation { continuation in
                     DispatchQueue.global(qos: .userInitiated).async {
@@ -194,8 +198,7 @@ class WallpaperBlurService {
                         }
 
                         let clampedImage = outputImage.cropped(to: ciImage.extent)
-                        let context = CIContext(options: [.useSoftwareRenderer: false])
-                        guard let blurredCG = context.createCGImage(clampedImage, from: ciImage.extent) else {
+                        guard let blurredCG = ciContext.createCGImage(clampedImage, from: ciImage.extent) else {
                             continuation.resume(returning: nil)
                             return
                         }
@@ -213,7 +216,7 @@ class WallpaperBlurService {
                     }
                 }
             } catch {
-                print("WallpaperBlur: Failed to capture desktop: \(error)")
+                logDebug("WallpaperBlur: Failed to capture desktop: \(error)")
             }
         }
     }
@@ -282,16 +285,19 @@ class WallpaperBlurService {
             self?.handleDisplayChange()
         }
 
-        workspaceObservers = [activateObs, deactivateObs, spaceObs, screenObs]
+        workspaceObservers = [activateObs, deactivateObs, spaceObs]
+        notificationObservers = [screenObs]
     }
 
     private func removeWorkspaceObservers() {
         for obs in workspaceObservers {
             NSWorkspace.shared.notificationCenter.removeObserver(obs)
+        }
+        for obs in notificationObservers {
             NotificationCenter.default.removeObserver(obs)
         }
         workspaceObservers.removeAll()
-
+        notificationObservers.removeAll()
     }
 
     // MARK: - Focus Detection

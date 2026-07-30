@@ -62,19 +62,19 @@ class StartupNotificationService: NSObject, UNUserNotificationCenterDelegate {
 
         let body = lines.joined(separator: "\n")
 
-        print("📬 Notification content: \(title) - \(body)")
+        logDebug("📬 Notification content: \(title) - \(body)")
 
         // Set delegate to allow notifications while app is in foreground
         UNUserNotificationCenter.current().delegate = shared
 
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             if let error = error {
-                print("⚠️ Notification permission error: \(error)")
+                logDebug("⚠️ Notification permission error: \(error)")
                 return
             }
 
             guard granted else {
-                print("⚠️ Notification permission not granted")
+                logDebug("⚠️ Notification permission not granted")
                 return
             }
 
@@ -92,9 +92,9 @@ class StartupNotificationService: NSObject, UNUserNotificationCenterDelegate {
 
                 UNUserNotificationCenter.current().add(request) { error in
                     if let error = error {
-                        print("⚠️ Failed to add notification: \(error)")
+                        logDebug("⚠️ Failed to add notification: \(error)")
                     } else {
-                        print("✅ Startup notification sent: \(body)")
+                        logDebug("✅ Startup notification sent: \(body)")
                     }
                 }
             }

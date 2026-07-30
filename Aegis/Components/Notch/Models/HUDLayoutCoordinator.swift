@@ -71,7 +71,7 @@ class HUDLayoutCoordinator: ObservableObject {
     func setModule(type: HUDModule.HUDModuleType, isVisible: Bool, width: CGFloat) {
         let moduleId = type.rawValue
 
-        print("🎨 HUDLayoutCoordinator: setModule(\(type.rawValue), isVisible: \(isVisible), width: \(width))")
+        logDebug("🎨 HUDLayoutCoordinator: setModule(\(type.rawValue), isVisible: \(isVisible), width: \(width))")
 
         if let index = activeModules.firstIndex(where: { $0.id == moduleId }) {
             // Update existing module
@@ -81,7 +81,7 @@ class HUDLayoutCoordinator: ObservableObject {
             // Remove if not visible
             if !isVisible {
                 activeModules.remove(at: index)
-                print("🎨 HUDLayoutCoordinator: Removed module \(type.rawValue), active count: \(activeModules.count)")
+                logDebug("🎨 HUDLayoutCoordinator: Removed module \(type.rawValue), active count: \(activeModules.count)")
             }
         } else if isVisible {
             // Add new module
@@ -92,7 +92,7 @@ class HUDLayoutCoordinator: ObservableObject {
                 isVisible: isVisible
             )
             activeModules.append(module)
-            print("🎨 HUDLayoutCoordinator: Added module \(type.rawValue), active count: \(activeModules.count)")
+            logDebug("🎨 HUDLayoutCoordinator: Added module \(type.rawValue), active count: \(activeModules.count)")
         }
 
         updateLayout()
@@ -198,7 +198,7 @@ class HUDLayoutCoordinator: ObservableObject {
             }
         }
 
-        print("🎨 getLeftEdge: notchLeftEdge=\(notchLeftEdge), leftmostVisibleEdge=\(leftmostVisibleEdge)")
+        logDebug("🎨 getLeftEdge: notchLeftEdge=\(notchLeftEdge), leftmostVisibleEdge=\(leftmostVisibleEdge)")
         return leftmostVisibleEdge
     }
 

@@ -102,6 +102,6 @@ class NotificationHUDHostingView<Content: View>: NSHostingView<Content> {
             height: notchDimensions.height
         )
 
-        print("🔔 NotificationHUDHostingView: Updated panel bounds - left=\(leftPanelBounds), right=\(rightPanelBounds), viewBounds=\(bounds)")
+        logDebug("🔔 NotificationHUDHostingView: Updated panel bounds - left=\(leftPanelBounds), right=\(rightPanelBounds), viewBounds=\(bounds)")
     }
 }

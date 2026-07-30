@@ -67,8 +67,7 @@ final class YabaiAdapter: WindowManagerProtocol {
     }
 
     func getWindowsForSpace(_ spaceIndex: Int) -> [WMWindow] {
-        return yabai.getAllWindows()
-            .filter { $0.space == spaceIndex }
+        return yabai.queryWindowsForSpaceSync(spaceIndex)
             .map { $0.toWMWindow() }
     }
 
