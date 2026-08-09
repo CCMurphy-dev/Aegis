@@ -133,6 +133,11 @@ class MenuBarViewModel: ObservableObject {
             if isFocusedSpaceFullscreen != wasFullscreen {
                 onFullscreenStateChanged?(isFocusedSpaceFullscreen)
             }
+        } else if isFocusedSpaceFullscreen {
+            // No focused space found (e.g. during display transition) — assume we left fullscreen
+            // so the window becomes interactive again (resets ignoresMouseEvents)
+            isFocusedSpaceFullscreen = false
+            onFullscreenStateChanged?(false)
         }
 
         // Fetch all windows once — reused for focused window check, launcher detection, and title observer

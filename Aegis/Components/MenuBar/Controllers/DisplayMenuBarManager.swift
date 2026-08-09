@@ -181,6 +181,11 @@ final class DisplayMenuBarManager {
         }
 
         activeDisplayIndices = targetDisplayIndices
+
+        // Verify window health after sync settles
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.verifyWindowHealth()
+        }
     }
 
     /// Resolve the effective mode (handles .auto based on display count)
@@ -300,17 +305,19 @@ final class DisplayMenuBarManager {
         scheduleDisplaySync()
     }
 
-    /// Debounced display sync to avoid duplicate handling from multiple sources
+    /// Debounced display sync — performs a full rebuild (same as wake/unlock)
+    /// to handle stale NSScreen references after monitor connect/disconnect
     private func scheduleDisplaySync() {
         displayChangeDebounceWorkItem?.cancel()
 
         let workItem = DispatchWorkItem { [weak self] in
-            self?.syncMenuBarsWithDisplays()
+            logInfo("Display change detected — performing full rebuild")
+            self?.rebuildAllMenuBars()
         }
         displayChangeDebounceWorkItem = workItem
 
-        // 0.3s delay to let system settle and coalesce multiple events
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: workItem)
+        // 0.5s delay to let macOS settle its display list
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: workItem)
     }
 
     // MARK: - Wake / Reconnect Rebuild
@@ -319,10 +326,6 @@ final class DisplayMenuBarManager {
     /// Called on screen wake or unlock, where NSScreen frames may have shifted
     /// but existing coordinators still hold stale window positions.
     func rebuildAllMenuBars() {
-        // Snapshot fullscreen state before tearing down so new windows start hidden
-        // if the display was already in a fullscreen space
-        let savedFullscreen = coordinatorsByDisplay.mapValues { $0.isCurrentlyFullscreen }
-
         for (_, coordinator) in coordinatorsByDisplay {
             coordinator.hide()
         }
@@ -332,22 +335,41 @@ final class DisplayMenuBarManager {
         hasValidYabaiDisplayData = false
 
         // Sync immediately, then again after the display has fully settled
+        // Note: we intentionally do NOT seed fullscreen state from the old coordinators.
+        // Display indices can shift during monitor connect/disconnect, so seeding by index
+        // could apply the wrong display's fullscreen state (e.g. external monitor's fullscreen
+        // state applied to laptop), leaving ignoresMouseEvents=true and blocking all clicks.
+        // performUpdate() will detect the correct fullscreen state within ~50ms.
         syncMenuBarsWithDisplays()
-
-        // Re-apply fullscreen state immediately so the window stays hidden and the VM
-        // baseline is correct for the next yabai diff (handles both stay-fullscreen and
-        // exit-fullscreen-during-lock cases)
-        for (displayIndex, coordinator) in coordinatorsByDisplay {
-            if savedFullscreen[displayIndex] == true {
-                coordinator.seedFullscreenState(true)
-            }
-        }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.syncMenuBarsWithDisplays()
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
             self?.syncMenuBarsWithDisplays()
+        }
+    }
+
+    // MARK: - Window Health Check
+
+    /// Timestamp of last health-check-triggered rebuild (prevents loops)
+    private var lastHealthCheckRebuild: Date = .distantPast
+
+    /// Verify all menu bar windows are healthy; rebuild if not
+    private func verifyWindowHealth() {
+        // Don't rebuild more than once per 5 seconds from health checks
+        guard Date().timeIntervalSince(lastHealthCheckRebuild) > 5.0 else { return }
+
+        for (displayIndex, coordinator) in coordinatorsByDisplay {
+            // Skip fullscreen displays — windows are intentionally hidden
+            if coordinator.isCurrentlyFullscreen { continue }
+
+            if !coordinator.isWindowHealthy {
+                logInfo("Menu bar window unhealthy on display \(displayIndex) — triggering rebuild")
+                lastHealthCheckRebuild = Date()
+                rebuildAllMenuBars()
+                return
+            }
         }
     }
 

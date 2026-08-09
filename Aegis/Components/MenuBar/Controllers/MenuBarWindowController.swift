@@ -51,6 +51,8 @@ class MenuBarWindowController: ObservableObject {
         hostingView.layer?.backgroundColor = NSColor.clear.cgColor
         menuBarWindow?.contentView = hostingView
         menuBarWindow?.makeKeyAndOrderFront(nil)
+        // Re-assert after orderFront — macOS can reset collection behavior during window server registration
+        menuBarWindow?.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
     }
 
     // MARK: - Window Configuration
@@ -130,6 +132,10 @@ class MenuBarWindowController: ObservableObject {
     // MARK: - Cleanup
 
     func hide() {
+        // Move off-screen and make invisible before orderOut to cleanly
+        // deregister from window server without breaking newly created windows
+        menuBarWindow?.alphaValue = 0
+        menuBarWindow?.setFrame(NSRect(x: -10000, y: -10000, width: 1, height: 1), display: false)
         menuBarWindow?.orderOut(nil)
         menuBarWindow = nil
     }
@@ -142,6 +148,16 @@ class MenuBarWindowController: ObservableObject {
 
     var isInFullscreenSpace: Bool {
         return currentSpaceIsFullscreen
+    }
+
+    /// Check if the window is in a healthy visible state
+    var isHealthy: Bool {
+        guard let window = menuBarWindow else { return false }
+        return window.isVisible
+            && window.alphaValue > 0
+            && window.frame.origin.x >= -1000
+            && window.collectionBehavior.contains(.canJoinAllSpaces)
+            && (!window.ignoresMouseEvents || currentSpaceIsFullscreen)
     }
 }
 
