@@ -8,6 +8,33 @@
 
         <!-- Latest Release -->
         <item>
+            <title>Version 1.1.0</title>
+            <sparkle:version>1.1.0</sparkle:version>
+            <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <pubDate>Wed, 20 Aug 2026 21:30:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>What's New in 1.1.0</h2>
+                <ul>
+                    <li><strong>App Switcher: Window Previews</strong> - Show window thumbnails instead of app icons in the switcher.</li>
+                    <li><strong>App Switcher: Command Palette</strong> - Type <code>:</code> in the switcher to access window manager commands.</li>
+                    <li><strong>Virtual Notch</strong> - Draw a virtual notch on external monitors that don't have a hardware notch, with configurable width and height.</li>
+                    <li><strong>CPU &amp; RAM Monitors</strong> - Live CPU and RAM usage in the system status bar with sparkline visualization.</li>
+                    <li><strong>Settings Rewrite</strong> - Reorganized into 4 tabs (General, Menu Bar, Notch HUD, Appearance) with all config options exposed.</li>
+                    <li><strong>Multi-Monitor Improvements</strong> - Better external monitor detection, NSScreen fallback when yabai is slow, configurable multi-monitor mode.</li>
+                    <li><strong>Fix: Config Feedback Loop</strong> - Settings no longer flip back due to auto-save/file-watcher race condition.</li>
+                    <li><strong>Fix: External Monitor Menu Bar</strong> - Menu bar now appears on external monitors without requiring a restart.</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/CCMurphy-Dev/Aegis/releases/download/v1.1.0/Aegis.app.zip"
+                length="5046026"
+                type="application/octet-stream"
+                sparkle:edSignature="g3wC/6pO2M6M1ONuCSjREK1HD/HCQuatl2AZQURf5nG8uBFV9yluBRayP1CyBRFfyADCOmhy0+YWKqIK0PsMCg==" />
+        </item>
+
+        <!-- Previous Releases -->
+        <item>
             <title>Version 1.0.36</title>
             <sparkle:version>1.0.36</sparkle:version>
             <sparkle:shortVersionString>1.0.36</sparkle:shortVersionString>
