@@ -46,10 +46,15 @@ final class AppSwitcherWindowController {
     private var hostingView: NSHostingView<AppSwitcherView>?
 
     // Layout constants for calculating selection position
-    private let rowHeight: CGFloat = 32
+    private let iconRowHeight: CGFloat = 32
+    private let previewRowHeight: CGFloat = 87
     private let padding: CGFloat = 12
     private let dividerHeight: CGFloat = 13
     private let searchBarHeight: CGFloat = 28 + 8  // height + padding
+
+    private var rowHeight: CGFloat {
+        AegisConfig.shared.appSwitcherShowPreviews ? previewRowHeight : iconRowHeight
+    }
 
     // Rapid scroll detection - disable animation during fast input
     private var lastUpdateTime: CFTimeInterval = 0
@@ -133,25 +138,52 @@ final class AppSwitcherWindowController {
         // Batch updates to reduce SwiftUI view recalculations
         // Update data properties first (before isVisible triggers display)
         viewModel.searchQuery = searchQuery
+        viewModel.commands = []  // Clear command mode
         viewModel.spaceGroups = spaceGroups
         viewModel.allWindows = allWindows
         viewModel.updateWindowIndexMap()  // Pre-compute once when windows change
         viewModel.setSelectedIndex(selectedIndex)
         viewModel.resetMouseTracking()
 
-        // Calculate window size based on content
-        let windowWidth: CGFloat = 380
+        // Calculate window size based on content and mode
+        let showPreviews = AegisConfig.shared.appSwitcherShowPreviews
+        let windowWidth: CGFloat = showPreviews ? 460 : 380
         let windowHeight: CGFloat = calculateHeight(for: spaceGroups, hasSearchQuery: !searchQuery.isEmpty)
         let windowSize = NSSize(width: windowWidth, height: windowHeight)
 
+        positionAndShow(size: windowSize, selectedIndex: selectedIndex)
+    }
+
+    func showCommands(commands: [PaletteCommand], selectedIndex: Int, searchQuery: String) {
+        viewModel.searchQuery = searchQuery
+        viewModel.commands = commands
+        viewModel.spaceGroups = []
+        viewModel.allWindows = []
+        viewModel.setSelectedIndex(selectedIndex)
+        viewModel.resetMouseTracking()
+
+        let windowWidth: CGFloat = 380
+        // Search bar + command rows
+        var height: CGFloat = 24 + 36  // padding + search bar
+        if commands.isEmpty {
+            height += 36
+        } else {
+            height += CGFloat(commands.count) * iconRowHeight
+        }
+        height = min(height, 500)
+
+        positionAndShow(size: NSSize(width: windowWidth, height: height), selectedIndex: selectedIndex)
+    }
+
+    private func positionAndShow(size: NSSize, selectedIndex: Int) {
         // Center on main screen - only update frame if size changed significantly
         if let screen = NSScreen.main {
             let screenFrame = screen.frame
             let origin = NSPoint(
-                x: screenFrame.midX - windowSize.width / 2,
-                y: screenFrame.midY - windowSize.height / 2 + 50
+                x: screenFrame.midX - size.width / 2,
+                y: screenFrame.midY - size.height / 2 + 50
             )
-            let newFrame = NSRect(origin: origin, size: windowSize)
+            let newFrame = NSRect(origin: origin, size: size)
 
             // Only call setFrame if frame actually changed (avoid expensive window resize)
             if let currentFrame = window?.frame, !currentFrame.equalTo(newFrame) {
@@ -185,13 +217,15 @@ final class AppSwitcherWindowController {
             return height
         }
 
+        let effectiveRowHeight = rowHeight
         for (index, group) in groups.enumerated() {
-            height += CGFloat(group.windows.count) * 32  // Window rows
+            height += CGFloat(group.windows.count) * effectiveRowHeight
             if index < groups.count - 1 {
                 height += 13  // Divider line + padding (1 + 6 + 6)
             }
         }
-        return min(height, 500)  // Cap height (increased for search)
+        let maxHeight: CGFloat = AegisConfig.shared.appSwitcherShowPreviews ? 700 : 500
+        return min(height, maxHeight)
     }
 
     func update(selectedIndex: Int) {
@@ -210,7 +244,6 @@ final class AppSwitcherWindowController {
         guard let overlay = selectionOverlay, let hostingView = hostingView else { return }
         let layer = overlay.selectionLayer
 
-        // Calculate Y position for the selected row
         let viewHeight = hostingView.bounds.height
         var y = padding  // Start from top padding
 
@@ -219,13 +252,35 @@ final class AppSwitcherWindowController {
             y += searchBarHeight
         }
 
-        // Find the row position
+        // Command mode — flat list, no space groups
+        if !viewModel.commands.isEmpty || viewModel.searchQuery.hasPrefix(":") {
+            y += CGFloat(index) * iconRowHeight
+            let rowY = viewHeight - y - iconRowHeight
+
+            let rowFrame = CGRect(
+                x: padding,
+                y: rowY,
+                width: hostingView.bounds.width - padding * 2,
+                height: iconRowHeight
+            )
+
+            CATransaction.begin()
+            if animated {
+                CATransaction.setAnimationDuration(0.1)
+                CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeInEaseOut))
+            } else {
+                CATransaction.setDisableActions(true)
+            }
+            layer.frame = rowFrame
+            CATransaction.commit()
+            return
+        }
+
+        // Window mode — find the row position across space groups
         var currentIndex = 0
         for (groupIndex, group) in viewModel.spaceGroups.enumerated() {
             for _ in group.windows {
                 if currentIndex == index {
-                    // Found our row - calculate frame
-                    // Note: CALayer uses bottom-left origin, SwiftUI uses top-left
                     let rowY = viewHeight - y - rowHeight
 
                     let rowFrame = CGRect(
@@ -249,7 +304,6 @@ final class AppSwitcherWindowController {
                 y += rowHeight
                 currentIndex += 1
             }
-            // Account for divider between groups
             if groupIndex < viewModel.spaceGroups.count - 1 {
                 y += dividerHeight
             }
@@ -272,8 +326,14 @@ final class AppSwitcherWindowController {
 class AppSwitcherViewModel: ObservableObject {
     @Published var spaceGroups: [SpaceGroup] = []
     @Published var allWindows: [SwitcherWindow] = []
+    @Published var commands: [PaletteCommand] = []
     @Published var isVisible: Bool = false
     @Published var searchQuery: String = ""
+
+    /// Whether to show window preview thumbnails instead of app icons
+    var showPreviews: Bool { AegisConfig.shared.appSwitcherShowPreviews }
+
+    var isCommandMode: Bool { searchQuery.hasPrefix(":") }
 
     // Selection is NOT @Published - managed via direct CALayer updates
     private(set) var selectedIndex: Int = 0
@@ -340,7 +400,8 @@ struct AppSwitcherView: View {
     @ObservedObject var viewModel: AppSwitcherViewModel
 
     // Row height for mouse position calculation - must match controller constants
-    private let rowHeight: CGFloat = 32
+    private var rowHeight: CGFloat { viewModel.showPreviews ? 87 : 32 }
+    private let commandRowHeight: CGFloat = 32
     private let padding: CGFloat = 12
     private let dividerHeight: CGFloat = 13
     private let searchBarHeight: CGFloat = 28 + 8  // height (28) + padding (8)
@@ -349,29 +410,48 @@ struct AppSwitcherView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Search bar (shown when there's a query)
             if !viewModel.searchQuery.isEmpty {
-                SearchBarView(query: viewModel.searchQuery)
+                SearchBarView(query: viewModel.searchQuery, isCommandMode: viewModel.isCommandMode)
                     .padding(.bottom, 8)
             }
 
-            // Window list - selection highlight rendered via CALayer overlay
-            ForEach(Array(viewModel.spaceGroups.enumerated()), id: \.element.id) { index, group in
-                SpaceGroupView(
-                    group: group,
-                    windowIndexMap: viewModel.windowIndexMap,
-                    isLast: index == viewModel.spaceGroups.count - 1
-                )
-            }
-
-            // Empty state when no matches
-            if viewModel.spaceGroups.isEmpty && !viewModel.searchQuery.isEmpty {
-                HStack {
-                    Spacer()
-                    Text("No matching windows")
-                        .font(.system(size: 11))
-                        .foregroundColor(.white.opacity(0.5))
-                    Spacer()
+            if viewModel.isCommandMode {
+                // Command palette mode
+                ForEach(Array(viewModel.commands.enumerated()), id: \.element.id) { index, command in
+                    CommandRowView(command: command, index: index)
                 }
-                .padding(.vertical, 12)
+
+                if viewModel.commands.isEmpty {
+                    HStack {
+                        Spacer()
+                        Text("No matching commands")
+                            .font(.system(size: 11))
+                            .foregroundColor(.white.opacity(0.5))
+                        Spacer()
+                    }
+                    .padding(.vertical, 12)
+                }
+            } else {
+                // Window list - selection highlight rendered via CALayer overlay
+                ForEach(Array(viewModel.spaceGroups.enumerated()), id: \.element.id) { index, group in
+                    SpaceGroupView(
+                        group: group,
+                        windowIndexMap: viewModel.windowIndexMap,
+                        isLast: index == viewModel.spaceGroups.count - 1,
+                        showPreview: viewModel.showPreviews
+                    )
+                }
+
+                // Empty state when no matches
+                if viewModel.spaceGroups.isEmpty && !viewModel.searchQuery.isEmpty {
+                    HStack {
+                        Spacer()
+                        Text("No matching windows")
+                            .font(.system(size: 11))
+                            .foregroundColor(.white.opacity(0.5))
+                        Spacer()
+                    }
+                    .padding(.vertical, 12)
+                }
             }
         }
         .padding(padding)
@@ -408,7 +488,7 @@ struct AppSwitcherView: View {
         .animation(.spring(response: 0.25, dampingFraction: 0.8), value: viewModel.isVisible)
     }
 
-    /// Calculate which window index the mouse is over based on Y position
+    /// Calculate which window/command index the mouse is over based on Y position
     private func indexForMouseLocation(_ location: CGPoint) -> Int? {
         var y = location.y - padding
 
@@ -417,6 +497,14 @@ struct AppSwitcherView: View {
             y -= searchBarHeight
         }
 
+        // Command mode — flat list
+        if viewModel.isCommandMode {
+            guard y >= 0 else { return nil }
+            let index = Int(y / commandRowHeight)
+            return index < viewModel.commands.count ? index : nil
+        }
+
+        // Window mode
         var windowIndex = 0
 
         for (groupIndex, group) in viewModel.spaceGroups.enumerated() {
@@ -582,6 +670,7 @@ struct SpaceGroupView: View {
     let group: SpaceGroup
     let windowIndexMap: [Int: Int]  // Pre-computed: window.id -> global index
     let isLast: Bool
+    let showPreview: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -607,7 +696,7 @@ struct SpaceGroupView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(group.windows) { window in
                         let globalIndex = windowIndexMap[window.id] ?? 0
-                        WindowRowView(window: window, index: globalIndex)
+                        WindowRowView(window: window, index: globalIndex, showPreview: showPreview)
                     }
                 }
             }
@@ -627,12 +716,13 @@ struct SpaceGroupView: View {
 /// Search bar showing the current filter query
 struct SearchBarView: View {
     let query: String
+    var isCommandMode: Bool = false
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass")
+            Image(systemName: isCommandMode ? "terminal" : "magnifyingglass")
                 .font(.system(size: 10))
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(isCommandMode ? .cyan.opacity(0.7) : .white.opacity(0.5))
 
             Text(query)
                 .font(.system(size: 11, weight: .medium))
@@ -640,7 +730,7 @@ struct SearchBarView: View {
 
             Spacer()
 
-            Text("⌫ to clear")
+            Text(isCommandMode ? "command mode" : "⌫ to clear")
                 .font(.system(size: 9))
                 .foregroundColor(.white.opacity(0.35))
         }
@@ -648,56 +738,41 @@ struct SearchBarView: View {
         .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(Color.white.opacity(0.08))
+                .fill(isCommandMode ? Color.cyan.opacity(0.08) : Color.white.opacity(0.08))
         )
     }
 }
 
-struct WindowRowView: View {
-    let window: SwitcherWindow
+struct CommandRowView: View {
+    let command: PaletteCommand
     let index: Int
 
     var body: some View {
         HStack(spacing: 8) {
-            // App icon with minimized/hidden overlay
-            ZStack(alignment: .bottomTrailing) {
-                if let icon = window.icon {
-                    Image(nsImage: icon)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 20, height: 20)
-                        .opacity(window.isMinimized || window.isHidden ? 0.5 : 1.0)
-                } else {
-                    Image(systemName: "app.fill")
-                        .font(.system(size: 16))
-                        .foregroundColor(.white.opacity(0.5))
-                        .frame(width: 20, height: 20)
-                }
+            Image(systemName: command.icon)
+                .font(.system(size: 12))
+                .foregroundColor(.cyan.opacity(0.8))
+                .frame(width: 20, height: 20)
 
-                // Status indicator badge
-                WindowStatusBadge(
-                    isMinimized: window.isMinimized,
-                    isHidden: window.isHidden,
-                    stackIndex: 0  // Switcher doesn't track stack state
-                )
-            }
-
-            // App name
-            Text(window.appName)
+            Text(command.label)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.white.opacity(window.isMinimized || window.isHidden ? 0.5 : 0.9))
+                .foregroundColor(.white.opacity(0.9))
                 .lineLimit(1)
-                .frame(width: 90, alignment: .leading)
 
-            // Window title
-            Text(window.title.isEmpty ? window.appName : window.title)
-                .font(.system(size: 11))
-                .foregroundColor(.white.opacity(window.isMinimized || window.isHidden ? 0.4 : 0.6))
+            Text(command.description)
+                .font(.system(size: 10))
+                .foregroundColor(.white.opacity(0.45))
                 .lineLimit(1)
 
             Spacer()
 
-            // Keyboard shortcut hint
+            Text(command.category)
+                .font(.system(size: 9, weight: .medium))
+                .foregroundColor(.white.opacity(0.3))
+                .padding(.horizontal, 5)
+                .padding(.vertical, 2)
+                .background(RoundedRectangle(cornerRadius: 3).fill(Color.white.opacity(0.06)))
+
             if index < 9 {
                 Text("⌘\(index + 1)")
                     .font(.system(size: 9, weight: .medium))
@@ -705,8 +780,148 @@ struct WindowRowView: View {
             }
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        // Selection highlight is rendered via CALayer overlay - no SwiftUI involvement
+        .frame(height: 32)
         .contentShape(Rectangle())
+    }
+}
+
+struct WindowRowView: View {
+    let window: SwitcherWindow
+    let index: Int
+    let showPreview: Bool
+
+    var body: some View {
+        if showPreview {
+            previewRow
+        } else {
+            iconRow
+        }
+    }
+
+    // MARK: - Icon Mode (default)
+
+    private var iconRow: some View {
+        HStack(spacing: 8) {
+            appIconView
+                .frame(width: 20, height: 20)
+
+            Text(window.appName)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.white.opacity(dimmed ? 0.5 : 0.9))
+                .lineLimit(1)
+                .frame(width: 90, alignment: .leading)
+
+            Text(displayTitle)
+                .font(.system(size: 11))
+                .foregroundColor(.white.opacity(dimmed ? 0.4 : 0.6))
+                .lineLimit(1)
+
+            Spacer()
+
+            shortcutHint
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
+    }
+
+    // MARK: - Preview Mode
+
+    private var previewRow: some View {
+        HStack(spacing: 10) {
+            // Thumbnail or fallback icon
+            if let thumbnail = window.thumbnail {
+                Image(nsImage: thumbnail)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 120, height: 75)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5)
+                    )
+                    .opacity(dimmed ? 0.5 : 1.0)
+            } else {
+                // Fallback: large app icon for minimized/hidden windows
+                ZStack {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.white.opacity(0.05))
+                        .frame(width: 120, height: 75)
+
+                    appIconView
+                        .frame(width: 32, height: 32)
+                }
+            }
+
+            // App name + title stacked vertically
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 5) {
+                    appIconView
+                        .frame(width: 14, height: 14)
+
+                    Text(window.appName)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.white.opacity(dimmed ? 0.5 : 0.9))
+                        .lineLimit(1)
+                }
+
+                Text(displayTitle)
+                    .font(.system(size: 10))
+                    .foregroundColor(.white.opacity(dimmed ? 0.4 : 0.55))
+                    .lineLimit(2)
+
+                if window.isMinimized || window.isHidden {
+                    Text(window.isMinimized ? "Minimized" : "Hidden")
+                        .font(.system(size: 9))
+                        .foregroundColor(.white.opacity(0.3))
+                }
+            }
+
+            Spacer()
+
+            shortcutHint
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
+    }
+
+    // MARK: - Shared Subviews
+
+    private var dimmed: Bool { window.isMinimized || window.isHidden }
+
+    private var displayTitle: String {
+        window.title.isEmpty ? window.appName : window.title
+    }
+
+    @ViewBuilder
+    private var appIconView: some View {
+        ZStack(alignment: .bottomTrailing) {
+            if let icon = window.icon {
+                Image(nsImage: icon)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .opacity(dimmed ? 0.5 : 1.0)
+            } else {
+                Image(systemName: "app.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(.white.opacity(0.5))
+            }
+
+            WindowStatusBadge(
+                isMinimized: window.isMinimized,
+                isHidden: window.isHidden,
+                stackIndex: 0
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var shortcutHint: some View {
+        if index < 9 {
+            Text("⌘\(index + 1)")
+                .font(.system(size: 9, weight: .medium))
+                .foregroundColor(.white.opacity(0.35))
+        }
     }
 }

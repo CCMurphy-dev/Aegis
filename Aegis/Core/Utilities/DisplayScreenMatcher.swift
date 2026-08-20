@@ -94,4 +94,30 @@ struct DisplayScreenMatcher {
     static func hasNotch(_ screen: NSScreen) -> Bool {
         return screen.safeAreaInsets.top > 0
     }
+
+    /// Returns all screens that should display a notch HUD.
+    /// Includes screens with a hardware notch, plus external screens when showVirtualNotch is enabled.
+    static func screensWithNotch() -> [NSScreen] {
+        let config = AegisConfig.shared
+        var result: [NSScreen] = []
+
+        for screen in NSScreen.screens {
+            if screen.safeAreaInsets.top > 0 {
+                result.append(screen)
+            } else if config.showVirtualNotch {
+                result.append(screen)
+            }
+        }
+
+        if result.isEmpty, let main = NSScreen.main {
+            result.append(main)
+        }
+
+        return result
+    }
+
+    /// Get the CGDirectDisplayID for an NSScreen
+    static func displayID(for screen: NSScreen) -> CGDirectDisplayID? {
+        return screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
+    }
 }

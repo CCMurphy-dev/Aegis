@@ -98,6 +98,7 @@ struct AegisConfigData: Codable {
     var appSwitcherShowMinimized: Bool?
     var appSwitcherShowHidden: Bool?
     var appSwitcherCmdScrollEnabled: Bool?
+    var appSwitcherShowPreviews: Bool?
 
     // Behavior Flags
     var showAppNameInExpansion: Bool?
@@ -182,8 +183,17 @@ struct AegisConfigData: Codable {
 
     // Master Toggles
     var showNotchHUD: Bool?       // Master toggle for entire notch HUD system
+    var showVirtualNotch: Bool?   // Show virtual notch on external displays
+    var virtualNotchWidth: Double? // Width of virtual notch pill
+    var virtualNotchHeight: Double? // Height of virtual notch pill
     var showOverlayHUD: Bool?     // Toggle for volume/brightness overlay
     var showSystemStatus: Bool?   // Toggle for system status panel (WiFi, time, battery, focus)
+    var showCPUMonitor: Bool?     // Toggle for CPU sparkline in system status
+    var showRAMMonitor: Bool?     // Toggle for RAM sparkline in system status
+    var cpuUpdateInterval: Double? // CPU/RAM sampling interval in seconds
+    var cpuSampleCount: Int?      // Number of samples in sparkline graph
+    var systemStatusOrder: [String]? // Order of system status components
+    var monitorDisplayStyle: String?  // "graph", "percentage", or "pill"
 
     // Menu Bar Component Toggles
     var showSpaceIndicators: Bool?  // Toggle for space indicator buttons (Yabai integration)
@@ -192,6 +202,9 @@ struct AegisConfigData: Codable {
 
     // App Launcher Settings
     var launcherApps: [String]?
+
+    // Command Palette
+    var customCommands: [[String: String]]?
 
     // Notification HUD Settings
     var showNotificationHUD: Bool?
@@ -376,6 +389,7 @@ extension AegisConfig {
         if let v = data.appSwitcherShowMinimized { appSwitcherShowMinimized = v }
         if let v = data.appSwitcherShowHidden { appSwitcherShowHidden = v }
         if let v = data.appSwitcherCmdScrollEnabled { appSwitcherCmdScrollEnabled = v }
+        if let v = data.appSwitcherShowPreviews { appSwitcherShowPreviews = v }
 
         // Behavior Flags
         if let v = data.showAppNameInExpansion { showAppNameInExpansion = v }
@@ -463,8 +477,17 @@ extension AegisConfig {
 
         // Master Toggles
         if let v = data.showNotchHUD { showNotchHUD = v }
+        if let v = data.showVirtualNotch { showVirtualNotch = v }
+        if let v = data.virtualNotchWidth { virtualNotchWidth = CGFloat(v) }
+        if let v = data.virtualNotchHeight { virtualNotchHeight = CGFloat(v) }
         if let v = data.showOverlayHUD { showOverlayHUD = v }
         if let v = data.showSystemStatus { showSystemStatus = v }
+        if let v = data.showCPUMonitor { showCPUMonitor = v }
+        if let v = data.showRAMMonitor { showRAMMonitor = v }
+        if let v = data.cpuUpdateInterval { cpuUpdateInterval = v }
+        if let v = data.cpuSampleCount { cpuSampleCount = v }
+        if let v = data.systemStatusOrder { systemStatusOrder = v }
+        if let v = data.monitorDisplayStyle, let style = MonitorDisplayStyle(rawValue: v) { monitorDisplayStyle = style }
 
         // Menu Bar Component Toggles
         if let v = data.showSpaceIndicators { showSpaceIndicators = v }
@@ -473,6 +496,7 @@ extension AegisConfig {
 
         // App Launcher Settings
         if let v = data.launcherApps { launcherApps = v }
+        if let v = data.customCommands { customCommands = v }
 
         // Notification HUD Settings
         if let v = data.showNotificationHUD { showNotificationHUD = v }
@@ -622,6 +646,7 @@ extension AegisConfig {
             appSwitcherShowMinimized: appSwitcherShowMinimized,
             appSwitcherShowHidden: appSwitcherShowHidden,
             appSwitcherCmdScrollEnabled: appSwitcherCmdScrollEnabled,
+            appSwitcherShowPreviews: appSwitcherShowPreviews,
 
             // Behavior Flags
             showAppNameInExpansion: showAppNameInExpansion,
@@ -705,8 +730,17 @@ extension AegisConfig {
 
             // Master Toggles
             showNotchHUD: showNotchHUD,
+            showVirtualNotch: showVirtualNotch,
+            virtualNotchWidth: Double(virtualNotchWidth),
+            virtualNotchHeight: Double(virtualNotchHeight),
             showOverlayHUD: showOverlayHUD,
             showSystemStatus: showSystemStatus,
+            showCPUMonitor: showCPUMonitor,
+            showRAMMonitor: showRAMMonitor,
+            cpuUpdateInterval: cpuUpdateInterval,
+            cpuSampleCount: cpuSampleCount,
+            systemStatusOrder: systemStatusOrder,
+            monitorDisplayStyle: monitorDisplayStyle.rawValue,
 
             // Menu Bar Component Toggles
             showSpaceIndicators: showSpaceIndicators,
@@ -715,6 +749,7 @@ extension AegisConfig {
 
             // App Launcher Settings
             launcherApps: launcherApps,
+            customCommands: customCommands.isEmpty ? nil : customCommands,
 
             // Notification HUD Settings
             showNotificationHUD: showNotificationHUD,
@@ -814,6 +849,7 @@ Only include settings you want to change - defaults are used for anything not sp
 | `appSwitcherCmdScrollEnabled` | bool | `false` | Enable Cmd+scroll to open/cycle app switcher |
 | `appSwitcherShowMinimized` | bool | `true` | Show minimized windows in switcher |
 | `appSwitcherShowHidden` | bool | `false` | Show hidden windows in switcher |
+| `appSwitcherShowPreviews` | bool | `false` | Show window preview thumbnails instead of app icons |
 
 ---
 

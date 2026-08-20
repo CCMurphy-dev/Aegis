@@ -29,6 +29,11 @@ struct NotchDimensions: Equatable {
         return NotchDimensions(width: width, height: height)
     }
 
+    /// Create virtual notch dimensions for an external display (no hardware notch)
+    static func virtual(width: CGFloat, height: CGFloat) -> NotchDimensions {
+        return NotchDimensions(width: width, height: height)
+    }
+
     /// Check if this screen has a notch
     var hasNotch: Bool {
         return height > 0

@@ -143,12 +143,13 @@ final class DisplayMenuBarManager {
             targetDisplayIndices = [1]
 
         case .perMonitor, .allShowAll:
-            // All displays get menu bars
-            if displays.isEmpty {
-                // Fallback: use NSScreen count
-                targetDisplayIndices = Set(1...max(1, screens.count))
+            // All displays get menu bars — use max of yabai and NSScreen count
+            // to handle cases where yabai hasn't detected a newly connected monitor yet
+            let maxDisplayCount = max(displays.count, screens.count)
+            if maxDisplayCount > 0 {
+                targetDisplayIndices = Set(1...maxDisplayCount)
             } else {
-                targetDisplayIndices = Set(displays.map { $0.index })
+                targetDisplayIndices = [1]
             }
 
         case .auto:
@@ -231,9 +232,23 @@ final class DisplayMenuBarManager {
                 }
             }
         } else {
-            // Single monitor or yabai has data but this display index not found
-            targetScreen = displayIndex == 1 ? NSScreen.main : nil
-            logInfo("Display \(displayIndex): fallback to \(displayIndex == 1 ? "main" : "nil")")
+            // Yabai has data but doesn't include this display index yet
+            // (monitor just connected, yabai hasn't detected it)
+            // Fall back to NSScreen matching like the displays-empty path
+            if displayIndex == 1 {
+                targetScreen = NSScreen.main
+                logInfo("Display \(displayIndex): yabai missing index, using NSScreen.main")
+            } else {
+                let nonMainScreens = NSScreen.screens.filter { $0 != NSScreen.main }
+                let index = displayIndex - 2
+                if index < nonMainScreens.count {
+                    targetScreen = nonMainScreens[index]
+                    logInfo("Display \(displayIndex): yabai missing index, using non-main screen \(index)")
+                } else {
+                    targetScreen = nil
+                    logInfo("Display \(displayIndex): yabai missing index, no matching screen found")
+                }
+            }
         }
 
         // Determine space filter mode
@@ -346,6 +361,10 @@ final class DisplayMenuBarManager {
             self?.syncMenuBarsWithDisplays()
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            self?.syncMenuBarsWithDisplays()
+        }
+        // Longer retry for external monitors where yabai may be very slow to detect
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
             self?.syncMenuBarsWithDisplays()
         }
     }

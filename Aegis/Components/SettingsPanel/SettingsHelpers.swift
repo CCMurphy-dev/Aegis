@@ -568,12 +568,13 @@ struct SettingsAeroSpaceSetupButton: View {
 struct SettingsCollapsibleSection<Content: View>: View {
     let title: String
     let icon: String?
-    @State private var isExpanded: Bool = true
+    @State private var isExpanded: Bool
     let content: () -> Content
 
-    init(title: String, icon: String? = nil, @ViewBuilder content: @escaping () -> Content) {
+    init(title: String, icon: String? = nil, initiallyExpanded: Bool = true, @ViewBuilder content: @escaping () -> Content) {
         self.title = title
         self.icon = icon
+        self._isExpanded = State(initialValue: initiallyExpanded)
         self.content = content
     }
 
@@ -612,6 +613,423 @@ struct SettingsCollapsibleSection<Content: View>: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+    }
+}
+
+/// Editable list of strings with add/remove (for excludedApps, launcherApps, etc.)
+struct SettingsStringListEditor: View {
+    let label: String
+    let description: String?
+    @Binding var items: [String]
+    let placeholder: String
+
+    @State private var newItem: String = ""
+
+    init(label: String, description: String? = nil, items: Binding<[String]>, placeholder: String = "Add item...") {
+        self.label = label
+        self.description = description
+        self._items = items
+        self.placeholder = placeholder
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.system(size: 12))
+                    .foregroundColor(Color.white.opacity(0.9))
+
+                if let description = description {
+                    Text(description)
+                        .font(.system(size: 10))
+                        .foregroundColor(Color.white.opacity(0.6))
+                }
+            }
+
+            // Existing items
+            ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                HStack(spacing: 6) {
+                    Text(item)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(Color.white.opacity(0.8))
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    Button(action: {
+                        items.remove(at: index)
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(Color.red.opacity(0.6))
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.white.opacity(0.05))
+                .cornerRadius(4)
+            }
+
+            // Add new item
+            HStack(spacing: 6) {
+                TextField(placeholder, text: $newItem)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 11))
+                    .onSubmit { addItem() }
+
+                Button("Add") { addItem() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.blue)
+                    .disabled(newItem.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func addItem() {
+        let trimmed = newItem.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        items.append(trimmed)
+        newItem = ""
+    }
+}
+
+/// Editable list for Set<String> (wraps to array binding)
+struct SettingsStringSetEditor: View {
+    let label: String
+    let description: String?
+    @Binding var items: Set<String>
+    let placeholder: String
+
+    init(label: String, description: String? = nil, items: Binding<Set<String>>, placeholder: String = "Add item...") {
+        self.label = label
+        self.description = description
+        self._items = items
+        self.placeholder = placeholder
+    }
+
+    var body: some View {
+        SettingsStringListEditor(
+            label: label,
+            description: description,
+            items: Binding(
+                get: { Array(items).sorted() },
+                set: { items = Set($0) }
+            ),
+            placeholder: placeholder
+        )
+    }
+}
+
+/// Reorderable list for system status order
+struct SettingsOrderEditor: View {
+    let label: String
+    let description: String?
+    @Binding var items: [String]
+    let allOptions: [String]
+
+    init(label: String, description: String? = nil, items: Binding<[String]>, allOptions: [String]) {
+        self.label = label
+        self.description = description
+        self._items = items
+        self.allOptions = allOptions
+    }
+
+    private let displayNames: [String: String] = [
+        "focus": "Focus Mode",
+        "cpu": "CPU Monitor",
+        "ram": "RAM Monitor",
+        "wifi": "WiFi",
+        "clock": "Clock",
+        "date": "Date",
+        "battery": "Battery"
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.system(size: 12))
+                    .foregroundColor(Color.white.opacity(0.9))
+
+                if let description = description {
+                    Text(description)
+                        .font(.system(size: 10))
+                        .foregroundColor(Color.white.opacity(0.6))
+                }
+            }
+
+            ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                HStack(spacing: 8) {
+                    // Move buttons
+                    VStack(spacing: 0) {
+                        Button(action: { moveUp(index) }) {
+                            Image(systemName: "chevron.up")
+                                .font(.system(size: 8, weight: .bold))
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .foregroundColor(index > 0 ? Color.white.opacity(0.6) : Color.white.opacity(0.2))
+                        .disabled(index == 0)
+
+                        Button(action: { moveDown(index) }) {
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 8, weight: .bold))
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .foregroundColor(index < items.count - 1 ? Color.white.opacity(0.6) : Color.white.opacity(0.2))
+                        .disabled(index >= items.count - 1)
+                    }
+
+                    Text(displayNames[item] ?? item.capitalized)
+                        .font(.system(size: 11))
+                        .foregroundColor(Color.white.opacity(0.8))
+
+                    Spacer()
+
+                    Button(action: { items.remove(at: index) }) {
+                        Image(systemName: "eye.slash")
+                            .font(.system(size: 10))
+                            .foregroundColor(Color.white.opacity(0.4))
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Color.white.opacity(0.05))
+                .cornerRadius(4)
+            }
+
+            // Show hidden items that can be re-added
+            let hidden = allOptions.filter { !items.contains($0) }
+            if !hidden.isEmpty {
+                HStack(spacing: 4) {
+                    Text("Hidden:")
+                        .font(.system(size: 10))
+                        .foregroundColor(Color.white.opacity(0.4))
+
+                    ForEach(hidden, id: \.self) { item in
+                        Button(action: { items.append(item) }) {
+                            Text(displayNames[item] ?? item.capitalized)
+                                .font(.system(size: 10))
+                                .foregroundColor(.blue.opacity(0.8))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.blue.opacity(0.1))
+                                .cornerRadius(3)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func moveUp(_ index: Int) {
+        guard index > 0 else { return }
+        items.swapAt(index, index - 1)
+    }
+
+    private func moveDown(_ index: Int) {
+        guard index < items.count - 1 else { return }
+        items.swapAt(index, index + 1)
+    }
+}
+
+// MARK: - Custom Commands Editor
+
+/// Editor for custom command palette commands (array of [String: String] dicts)
+struct SettingsCustomCommandsEditor: View {
+    let label: String
+    let description: String?
+    @Binding var commands: [[String: String]]
+
+    @State private var isAdding = false
+    @State private var editingIndex: Int? = nil
+    @State private var editLabel = ""
+    @State private var editCommand = ""
+    @State private var editIcon = ""
+    @State private var editDescription = ""
+
+    init(label: String, description: String? = nil, commands: Binding<[[String: String]]>) {
+        self.label = label
+        self.description = description
+        self._commands = commands
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.system(size: 12))
+                    .foregroundColor(Color.white.opacity(0.9))
+
+                if let description = description {
+                    Text(description)
+                        .font(.system(size: 10))
+                        .foregroundColor(Color.white.opacity(0.6))
+                }
+            }
+
+            // Existing commands
+            ForEach(Array(commands.enumerated()), id: \.offset) { index, cmd in
+                HStack(spacing: 8) {
+                    if let iconName = cmd["icon"], !iconName.isEmpty {
+                        Image(systemName: iconName)
+                            .font(.system(size: 11))
+                            .foregroundColor(Color.white.opacity(0.7))
+                            .frame(width: 16)
+                    }
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(cmd["label"] ?? "")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(Color.white.opacity(0.9))
+                        Text(cmd["command"] ?? "")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(Color.white.opacity(0.5))
+                            .lineLimit(1)
+                    }
+
+                    Spacer()
+
+                    Button(action: { startEditing(index) }) {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 10))
+                            .foregroundColor(Color.white.opacity(0.5))
+                    }
+                    .buttonStyle(PlainButtonStyle())
+
+                    Button(action: { commands.remove(at: index) }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(Color.red.opacity(0.6))
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(Color.white.opacity(0.05))
+                .cornerRadius(4)
+            }
+
+            // Add/Edit form
+            if isAdding || editingIndex != nil {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text("Label")
+                            .font(.system(size: 10))
+                            .foregroundColor(Color.white.opacity(0.6))
+                            .frame(width: 60, alignment: .trailing)
+                        TextField("e.g. Restart Yabai", text: $editLabel)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 11))
+                    }
+                    HStack(spacing: 6) {
+                        Text("Command")
+                            .font(.system(size: 10))
+                            .foregroundColor(Color.white.opacity(0.6))
+                            .frame(width: 60, alignment: .trailing)
+                        TextField("e.g. yabai --restart-service", text: $editCommand)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 11, design: .monospaced))
+                    }
+                    HStack(spacing: 6) {
+                        Text("Icon")
+                            .font(.system(size: 10))
+                            .foregroundColor(Color.white.opacity(0.6))
+                            .frame(width: 60, alignment: .trailing)
+                        TextField("SF Symbol (optional)", text: $editIcon)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 11))
+                    }
+                    HStack(spacing: 6) {
+                        Text("Description")
+                            .font(.system(size: 10))
+                            .foregroundColor(Color.white.opacity(0.6))
+                            .frame(width: 60, alignment: .trailing)
+                        TextField("Optional", text: $editDescription)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 11))
+                    }
+
+                    HStack {
+                        Spacer()
+                        Button("Cancel") { cancelEdit() }
+                            .buttonStyle(.plain)
+                            .font(.system(size: 11))
+                            .foregroundColor(Color.white.opacity(0.6))
+                        Button(editingIndex != nil ? "Update" : "Add") { saveCommand() }
+                            .buttonStyle(.plain)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.blue)
+                            .disabled(editLabel.trimmingCharacters(in: .whitespaces).isEmpty || editCommand.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
+                }
+                .padding(8)
+                .background(Color.white.opacity(0.03))
+                .cornerRadius(6)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+                )
+            } else {
+                Button(action: { isAdding = true }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus.circle")
+                            .font(.system(size: 11))
+                        Text("Add Command")
+                            .font(.system(size: 11))
+                    }
+                    .foregroundColor(.blue.opacity(0.8))
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func startEditing(_ index: Int) {
+        let cmd = commands[index]
+        editLabel = cmd["label"] ?? ""
+        editCommand = cmd["command"] ?? ""
+        editIcon = cmd["icon"] ?? ""
+        editDescription = cmd["description"] ?? ""
+        editingIndex = index
+        isAdding = false
+    }
+
+    private func cancelEdit() {
+        isAdding = false
+        editingIndex = nil
+        clearFields()
+    }
+
+    private func saveCommand() {
+        var cmd: [String: String] = [
+            "label": editLabel.trimmingCharacters(in: .whitespaces),
+            "command": editCommand.trimmingCharacters(in: .whitespaces)
+        ]
+        let icon = editIcon.trimmingCharacters(in: .whitespaces)
+        if !icon.isEmpty { cmd["icon"] = icon }
+        let desc = editDescription.trimmingCharacters(in: .whitespaces)
+        if !desc.isEmpty { cmd["description"] = desc }
+
+        if let index = editingIndex {
+            commands[index] = cmd
+        } else {
+            commands.append(cmd)
+        }
+        cancelEdit()
+    }
+
+    private func clearFields() {
+        editLabel = ""
+        editCommand = ""
+        editIcon = ""
+        editDescription = ""
     }
 }
 

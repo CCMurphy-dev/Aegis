@@ -2,6 +2,7 @@ import Foundation
 import AppKit
 import Carbon.HIToolbox
 import Combine
+import ScreenCaptureKit
 
 /// Service that intercepts Cmd+Tab to provide a custom app switcher
 /// Displays windows organized by space in a centered overlay
@@ -33,6 +34,23 @@ final class AppSwitcherService {
     /// Current search/filter query
     private(set) var searchQuery: String = ""
 
+    /// Whether command mode is active (query starts with ":")
+    var isCommandMode: Bool { searchQuery.hasPrefix(":") }
+
+    /// Command query without the ":" prefix
+    private var commandQuery: String {
+        isCommandMode ? String(searchQuery.dropFirst()) : ""
+    }
+
+    /// Filtered commands for command palette mode
+    private(set) var filteredCommands: [PaletteCommand] = []
+
+    /// All available commands (rebuilt each activation)
+    private var allCommands: [PaletteCommand] = []
+
+    /// Command registry
+    private var commandRegistry: CommandRegistry?
+
     /// The overlay window controller
     private var windowController: AppSwitcherWindowController?
 
@@ -45,6 +63,7 @@ final class AppSwitcherService {
     /// Set the window manager (called from AppDelegate after both are initialized)
     func setWindowManager(_ wm: WindowManagerProtocol) {
         self.windowManager = wm
+        self.commandRegistry = CommandRegistry(windowManager: wm)
     }
 
     /// Scroll accumulator for Cmd+scroll activation
@@ -174,10 +193,20 @@ final class AppSwitcherService {
         logInfo("AppSwitcherService stopped")
     }
 
-    /// Dismiss the switcher and switch to selected window
+    /// Dismiss the switcher and switch to selected window (or execute command)
     func confirmSelection() {
+        guard isActive else { return }
+
+        if isCommandMode {
+            guard selectedIndex < filteredCommands.count else { return }
+            let command = filteredCommands[selectedIndex]
+            dismissSwitcher()
+            command.action()
+            return
+        }
+
         let windows = searchQuery.isEmpty ? allWindows : filteredWindows
-        guard isActive, selectedIndex < windows.count else { return }
+        guard selectedIndex < windows.count else { return }
 
         let selectedWindow = windows[selectedIndex]
         dismissSwitcher()
@@ -290,8 +319,8 @@ final class AppSwitcherService {
             if isActive && cmdPressed {
                 if let num = keyCodeToNumber(keyCode), num >= 1 && num <= 9 {
                     let index = num - 1
-                    let windows = searchQuery.isEmpty ? allWindows : filteredWindows
-                    if index < windows.count {
+                    let count = isCommandMode ? filteredCommands.count : (searchQuery.isEmpty ? allWindows : filteredWindows).count
+                    if index < count {
                         DispatchQueue.main.async { [weak self] in
                             self?.selectedIndex = index
                             self?.updateWindow()
@@ -311,7 +340,8 @@ final class AppSwitcherService {
 
             // Handle character input for search (when switcher is active and Cmd is held)
             if isActive && cmdPressed {
-                if let char = keyCodeToChar(keyCode) {
+                let shiftPressed = flags.contains(.maskShift)
+                if let char = keyCodeToChar(keyCode, shift: shiftPressed) {
                     DispatchQueue.main.async { [weak self] in
                         self?.appendSearchChar(char)
                     }
@@ -397,13 +427,22 @@ final class AppSwitcherService {
         }
     }
 
-    private func keyCodeToChar(_ keyCode: Int64) -> Character? {
+    private func keyCodeToChar(_ keyCode: Int64, shift: Bool = false) -> Character? {
+        // Shifted characters first
+        if shift {
+            switch keyCode {
+            case 41: return ":"   // Shift+; = :
+            case 27: return "-"   // Shift+- (just pass through)
+            default: break
+            }
+        }
         // Map key codes to characters for search
         let keyMap: [Int64: Character] = [
             0: "a", 1: "s", 2: "d", 3: "f", 4: "h", 5: "g", 6: "z", 7: "x",
             8: "c", 9: "v", 11: "b", 12: "q", 13: "w", 14: "e", 15: "r",
             16: "y", 17: "t", 31: "o", 32: "u", 34: "i", 35: "p", 37: "l",
-            38: "j", 40: "k", 45: "n", 46: "m"
+            38: "j", 40: "k", 45: "n", 46: "m",
+            41: ";", 43: ",", 44: "/", 47: ".", 49: " ", 27: "-"
         ]
         return keyMap[keyCode]
     }
@@ -422,6 +461,25 @@ final class AppSwitcherService {
     }
 
     private func applySearchFilter() {
+        if isCommandMode {
+            // Command mode — filter commands instead of windows
+            let registry = commandRegistry ?? CommandRegistry(windowManager: windowManager)
+            if allCommands.isEmpty {
+                // Set focused window context for move-to-space commands
+                let focusedWindow = allWindows.first(where: { $0.hasFocus })
+                registry.focusedWindowId = focusedWindow?.id
+                allCommands = registry.allCommands()
+            }
+            filteredCommands = registry.filter(allCommands, query: commandQuery)
+
+            if selectedIndex >= filteredCommands.count {
+                selectedIndex = 0
+            }
+
+            updateWindowWithFilter()
+            return
+        }
+
         if searchQuery.isEmpty {
             filteredWindows = allWindows
         } else {
@@ -441,6 +499,15 @@ final class AppSwitcherService {
     }
 
     private func updateWindowWithFilter() {
+        if isCommandMode {
+            windowController?.showCommands(
+                commands: filteredCommands,
+                selectedIndex: selectedIndex,
+                searchQuery: searchQuery
+            )
+            return
+        }
+
         // Rebuild space groups based on filtered windows
         var filteredGroups: [SpaceGroup] = []
 
@@ -479,6 +546,9 @@ final class AppSwitcherService {
                 await refreshWindowsFromYabai()
             }
 
+            // Capture window thumbnails if preview mode is enabled
+            await captureWindowThumbnails()
+
             await MainActor.run {
                 guard !self.allWindows.isEmpty else {
                     logDebug("No windows to switch between")
@@ -502,13 +572,13 @@ final class AppSwitcherService {
     }
 
     private func cycleSelection(reverse: Bool) {
-        let windows = searchQuery.isEmpty ? allWindows : filteredWindows
-        guard !windows.isEmpty else { return }
+        let count = isCommandMode ? filteredCommands.count : (searchQuery.isEmpty ? allWindows : filteredWindows).count
+        guard count > 0 else { return }
 
         if reverse {
-            selectedIndex = (selectedIndex - 1 + windows.count) % windows.count
+            selectedIndex = (selectedIndex - 1 + count) % count
         } else {
-            selectedIndex = (selectedIndex + 1) % windows.count
+            selectedIndex = (selectedIndex + 1) % count
         }
 
         updateWindow()
@@ -519,6 +589,8 @@ final class AppSwitcherService {
         selectedIndex = 0
         searchQuery = ""
         filteredWindows = []
+        filteredCommands = []
+        allCommands = []
         hideWindow()
     }
 
@@ -779,6 +851,82 @@ final class AppSwitcherService {
             }
         }
     }
+
+    // MARK: - Window Thumbnail Capture
+
+    /// Capture thumbnails for all windows via ScreenCaptureKit
+    private func captureWindowThumbnails() async {
+        guard config.appSwitcherShowPreviews else { return }
+
+        do {
+            let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false)
+
+            // Build a lookup of SCWindow by windowID
+            var scWindowMap: [CGWindowID: SCWindow] = [:]
+            for scWindow in content.windows {
+                scWindowMap[scWindow.windowID] = scWindow
+            }
+
+            // Capture thumbnails concurrently
+            await withTaskGroup(of: (Int, NSImage?).self) { group in
+                for window in self.allWindows {
+                    // Skip minimized/hidden — no valid capture available
+                    if window.isMinimized || window.isHidden { continue }
+
+                    guard let scWindow = scWindowMap[CGWindowID(window.id)] else { continue }
+
+                    group.addTask {
+                        do {
+                            let filter = SCContentFilter(desktopIndependentWindow: scWindow)
+                            let config = SCStreamConfiguration()
+                            // Thumbnail size — fit within 160x100
+                            let aspectRatio = CGFloat(scWindow.frame.width) / max(CGFloat(scWindow.frame.height), 1)
+                            if aspectRatio > 1.6 {
+                                config.width = 160
+                                config.height = Int(160.0 / aspectRatio)
+                            } else {
+                                config.height = 100
+                                config.width = Int(100.0 * aspectRatio)
+                            }
+                            config.showsCursor = false
+                            config.captureResolution = .best
+
+                            let cgImage = try await SCScreenshotManager.captureImage(
+                                contentFilter: filter,
+                                configuration: config
+                            )
+                            let nsImage = NSImage(
+                                cgImage: cgImage,
+                                size: NSSize(width: config.width, height: config.height)
+                            )
+                            return (window.id, nsImage)
+                        } catch {
+                            return (window.id, nil)
+                        }
+                    }
+                }
+
+                // Apply thumbnails to windows
+                var thumbnails: [Int: NSImage] = [:]
+                for await (windowId, image) in group {
+                    if let image { thumbnails[windowId] = image }
+                }
+
+                // Update allWindows and spaceGroups with thumbnails
+                for i in self.allWindows.indices {
+                    self.allWindows[i].thumbnail = thumbnails[self.allWindows[i].id]
+                }
+                for gi in self.spaceGroups.indices {
+                    for wi in self.spaceGroups[gi].windows.indices {
+                        let wid = self.spaceGroups[gi].windows[wi].id
+                        self.spaceGroups[gi].windows[wi].thumbnail = thumbnails[wid]
+                    }
+                }
+            }
+        } catch {
+            logDebug("Failed to capture window thumbnails: \(error)")
+        }
+    }
 }
 
 // MARK: - Models
@@ -788,7 +936,7 @@ struct SpaceGroup: Identifiable {
     let spaceIndex: Int
     let spaceLabel: String?
     let isFocused: Bool
-    let windows: [SwitcherWindow]
+    var windows: [SwitcherWindow]
 }
 
 struct SwitcherWindow: Identifiable {
@@ -800,4 +948,5 @@ struct SwitcherWindow: Identifiable {
     let hasFocus: Bool
     let isMinimized: Bool
     let isHidden: Bool
+    var thumbnail: NSImage?
 }

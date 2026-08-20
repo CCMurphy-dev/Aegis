@@ -2,6 +2,12 @@ import Foundation
 import SwiftUI
 import Combine
 
+enum MonitorDisplayStyle: String, CaseIterable, Codable {
+    case graph = "graph"
+    case percentage = "percentage"
+    case pill = "pill"
+}
+
 enum AppTheme: String, CaseIterable, Codable {
     case dark = "dark"
     case light = "light"
@@ -317,6 +323,9 @@ class AegisConfig: ObservableObject {
     /// Enable Cmd+scroll to activate and cycle through the app switcher (opt-in)
     @Published var appSwitcherCmdScrollEnabled: Bool = false
 
+    /// Show window preview thumbnails instead of app icons in the switcher
+    @Published var appSwitcherShowPreviews: Bool = false
+
     // MARK: - Behavior Flags - Menu Bar
 
     /// Show app names under window titles when expanded
@@ -491,6 +500,11 @@ class AegisConfig: ObservableObject {
     /// When disabled, no notch HUD elements will appear (volume, brightness, media, device, focus, notifications)
     @Published var showNotchHUD: Bool = true
 
+    /// Show a virtual notch on external displays that don't have a hardware notch
+    @Published var showVirtualNotch: Bool = false
+    @Published var virtualNotchWidth: CGFloat = 180
+    @Published var virtualNotchHeight: CGFloat = 32
+
     /// Show the volume/brightness overlay HUD in the notch
     @Published var showOverlayHUD: Bool = true
 
@@ -564,6 +578,10 @@ class AegisConfig: ObservableObject {
         "com.apple.Terminal"
     ]
 
+    /// Custom commands for the command palette (triggered via : prefix in app switcher)
+    /// Each entry is a dict with "label", "command", and optionally "icon" and "description"
+    @Published var customCommands: [[String: String]] = []
+
     // MARK: - Notch HUD Icon & Text Settings
 
     /// Font size for notch HUD icons (volume, brightness)
@@ -621,6 +639,24 @@ class AegisConfig: ObservableObject {
 
     /// Show the system status panel (WiFi, time, date, battery, focus)
     @Published var showSystemStatus: Bool = true
+
+    /// Show CPU usage sparkline in system status
+    @Published var showCPUMonitor: Bool = false
+
+    /// Show RAM usage sparkline in system status
+    @Published var showRAMMonitor: Bool = false
+
+    /// CPU/RAM sampling interval in seconds
+    @Published var cpuUpdateInterval: Double = 2.0
+
+    /// Number of samples to show in sparkline graph
+    @Published var cpuSampleCount: Int = 20
+
+    /// Display style for CPU/RAM monitors: graph, percentage, or pill
+    @Published var monitorDisplayStyle: MonitorDisplayStyle = .graph
+
+    /// Order of system status components (components not listed are hidden)
+    @Published var systemStatusOrder: [String] = ["focus", "cpu", "ram", "wifi", "clock", "date", "battery"]
 
     // MARK: - Wallpaper Blur
 
@@ -711,6 +747,8 @@ class AegisConfig: ObservableObject {
     private var configFileWatcherResolved: DispatchSourceFileSystemObject?
     private var autoSaveCancellable: AnyCancellable?
     private var isLoadingPreferences = false
+    /// Timestamp of last auto-save, used to suppress file-watcher reloads
+    private var lastAutoSaveTime: Date = .distantPast
 
     private init() {
         isLoadingPreferences = true
@@ -731,7 +769,7 @@ class AegisConfig: ObservableObject {
             .sink { [weak self] _ in
                 guard let self = self, !self.isLoadingPreferences else { return }
                 self.savePreferences()
-                // Also save to JSON file since it takes priority on load
+                self.lastAutoSaveTime = Date()
                 self.saveToJSONFile()
             }
     }
@@ -799,6 +837,12 @@ class AegisConfig: ObservableObject {
     }
 
     private func reloadConfigFile() {
+        // Skip reload if we saved recently (prevents auto-save → file watcher → reload loop)
+        let elapsed = Date().timeIntervalSince(lastAutoSaveTime)
+        guard elapsed > 2.0 else {
+            logDebug("🔄 AegisConfig: Skipping reload — file change was from auto-save (\(String(format: "%.1f", elapsed))s ago)")
+            return
+        }
         reloadConfig()
     }
 
@@ -921,6 +965,7 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(appSwitcherShowMinimized, forKey: "appSwitcherShowMinimized")
         UserDefaults.standard.set(appSwitcherShowHidden, forKey: "appSwitcherShowHidden")
         UserDefaults.standard.set(appSwitcherCmdScrollEnabled, forKey: "appSwitcherCmdScrollEnabled")
+        UserDefaults.standard.set(appSwitcherShowPreviews, forKey: "appSwitcherShowPreviews")
 
         // Interaction Thresholds
         UserDefaults.standard.set(dragDistanceThreshold, forKey: "dragDistanceThreshold")
@@ -970,6 +1015,9 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(visualizerAnimationDuration, forKey: "visualizerAnimationDuration")
         UserDefaults.standard.set(visualizerUseBlurEffect, forKey: "visualizerUseBlurEffect")
         UserDefaults.standard.set(showNotchHUD, forKey: "showNotchHUD")
+        UserDefaults.standard.set(showVirtualNotch, forKey: "showVirtualNotch")
+        UserDefaults.standard.set(virtualNotchWidth, forKey: "virtualNotchWidth")
+        UserDefaults.standard.set(virtualNotchHeight, forKey: "virtualNotchHeight")
         UserDefaults.standard.set(showOverlayHUD, forKey: "showOverlayHUD")
         UserDefaults.standard.set(showMediaHUD, forKey: "showMusicHUD")
         UserDefaults.standard.set(mediaHUDRightPanelMode.rawValue, forKey: "musicHUDRightPanelMode")
@@ -982,6 +1030,9 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(showFocusHUD, forKey: "showFocusHUD")
         UserDefaults.standard.set(focusHUDAutoHideDelay, forKey: "focusHUDAutoHideDelay")
         UserDefaults.standard.set(launcherApps, forKey: "launcherApps")
+        if let data = try? JSONSerialization.data(withJSONObject: customCommands) {
+            UserDefaults.standard.set(data, forKey: "customCommands")
+        }
         UserDefaults.standard.set(notificationExcludedApps, forKey: "notificationExcludedApps")
         UserDefaults.standard.set(notchHUDIconSize, forKey: "notchHUDIconSize")
         UserDefaults.standard.set(notchHUDValueFontSize, forKey: "notchHUDValueFontSize")
@@ -1003,6 +1054,12 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(batteryCriticalThreshold, forKey: "batteryCriticalThreshold")
         UserDefaults.standard.set(showFocusName, forKey: "showFocusName")
         UserDefaults.standard.set(showSystemStatus, forKey: "showSystemStatus")
+        UserDefaults.standard.set(showCPUMonitor, forKey: "showCPUMonitor")
+        UserDefaults.standard.set(showRAMMonitor, forKey: "showRAMMonitor")
+        UserDefaults.standard.set(cpuUpdateInterval, forKey: "cpuUpdateInterval")
+        UserDefaults.standard.set(cpuSampleCount, forKey: "cpuSampleCount")
+        UserDefaults.standard.set(monitorDisplayStyle.rawValue, forKey: "monitorDisplayStyle")
+        UserDefaults.standard.set(systemStatusOrder, forKey: "systemStatusOrder")
         UserDefaults.standard.set(showSpaceIndicators, forKey: "showSpaceIndicators")
         UserDefaults.standard.set(showAppLauncher, forKey: "showAppLauncher")
         UserDefaults.standard.set(showContextButton, forKey: "showContextButton")
@@ -1235,6 +1292,9 @@ class AegisConfig: ObservableObject {
         if let val = UserDefaults.standard.object(forKey: "appSwitcherCmdScrollEnabled") as? Bool {
             appSwitcherCmdScrollEnabled = val
         }
+        if let val = UserDefaults.standard.object(forKey: "appSwitcherShowPreviews") as? Bool {
+            appSwitcherShowPreviews = val
+        }
 
         // Interaction Thresholds
         if let val = UserDefaults.standard.object(forKey: "dragDistanceThreshold") as? Double {
@@ -1366,6 +1426,15 @@ class AegisConfig: ObservableObject {
         if let val = UserDefaults.standard.object(forKey: "showNotchHUD") as? Bool {
             showNotchHUD = val
         }
+        if let val = UserDefaults.standard.object(forKey: "showVirtualNotch") as? Bool {
+            showVirtualNotch = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "virtualNotchWidth") as? CGFloat {
+            virtualNotchWidth = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "virtualNotchHeight") as? CGFloat {
+            virtualNotchHeight = val
+        }
         if let val = UserDefaults.standard.object(forKey: "showOverlayHUD") as? Bool {
             showOverlayHUD = val
         }
@@ -1402,6 +1471,10 @@ class AegisConfig: ObservableObject {
         }
         if let val = UserDefaults.standard.object(forKey: "launcherApps") as? [String] {
             launcherApps = val
+        }
+        if let data = UserDefaults.standard.data(forKey: "customCommands"),
+           let val = try? JSONSerialization.jsonObject(with: data) as? [[String: String]] {
+            customCommands = val
         }
         if let val = UserDefaults.standard.object(forKey: "notificationExcludedApps") as? [String] {
             notificationExcludedApps = val
@@ -1461,6 +1534,25 @@ class AegisConfig: ObservableObject {
         }
         if let val = UserDefaults.standard.object(forKey: "showSystemStatus") as? Bool {
             showSystemStatus = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "showCPUMonitor") as? Bool {
+            showCPUMonitor = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "showRAMMonitor") as? Bool {
+            showRAMMonitor = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "cpuUpdateInterval") as? Double {
+            cpuUpdateInterval = val
+        }
+        if let val = UserDefaults.standard.object(forKey: "cpuSampleCount") as? Int {
+            cpuSampleCount = val
+        }
+        if let val = UserDefaults.standard.string(forKey: "monitorDisplayStyle"),
+           let style = MonitorDisplayStyle(rawValue: val) {
+            monitorDisplayStyle = style
+        }
+        if let val = UserDefaults.standard.object(forKey: "systemStatusOrder") as? [String] {
+            systemStatusOrder = val
         }
         if let val = UserDefaults.standard.object(forKey: "showSpaceIndicators") as? Bool {
             showSpaceIndicators = val
@@ -1571,6 +1663,7 @@ class AegisConfig: ObservableObject {
         appSwitcherShowMinimized = true
         appSwitcherShowHidden = false
         appSwitcherCmdScrollEnabled = false
+        appSwitcherShowPreviews = false
 
         dragDistanceThreshold = 3
         swipeDestroyThreshold = -120
@@ -1631,6 +1724,7 @@ class AegisConfig: ObservableObject {
             "com.apple.ActivityMonitor",
             "com.apple.Terminal"
         ]
+        customCommands = []
         notchHUDIconSize = 13
         notchHUDValueFontSize = 13
         notchHUDInnerPadding = 8
@@ -1657,6 +1751,12 @@ class AegisConfig: ObservableObject {
         multiMonitorMode = .auto
         enableWallpaperBlur = false
         wallpaperBlurIntensity = 0.85
+        showCPUMonitor = false
+        showRAMMonitor = false
+        cpuUpdateInterval = 2.0
+        cpuSampleCount = 20
+        monitorDisplayStyle = .graph
+        systemStatusOrder = ["focus", "cpu", "ram", "wifi", "clock", "date", "battery"]
 
         savePreferences()
     }

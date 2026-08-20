@@ -5,7 +5,7 @@ import SwiftUI
 class AppDelegate: NSObject, NSApplicationDelegate {
 
     var displayMenuBarManager: DisplayMenuBarManager?
-    var notchHUDController: NotchHUDController?
+    var notchHUDManager: NotchHUDManager?
 
     var windowManager: WindowManagerProtocol?
     var systemInfoService: SystemInfoService?
@@ -34,7 +34,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         startEventListening()
 
         // 🎬 DIAGNOSTICS: Uncomment to enable frame-by-frame animation logging
-        notchHUDController?.enableAnimationDiagnostics(true)
+        notchHUDManager?.enableAnimationDiagnostics(true)
 
         // Show startup notification with status
         StartupNotificationService.showStartupNotification(windowManagerName: windowManager?.name ?? "Yabai")
@@ -142,7 +142,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         logInfo("Aegis shutting down")
         displayMenuBarManager?.hide()
-        notchHUDController?.hide()
+        notchHUDManager?.hide()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -192,21 +192,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Setup Notch HUD
     private func setupNotchHUD() {
         guard let systemInfoService, let musicService, let eventRouter, let windowManager else { return }
-        notchHUDController = NotchHUDController(
+        notchHUDManager = NotchHUDManager(
             systemInfoService: systemInfoService,
             musicService: musicService,
             eventRouter: eventRouter,
             windowManager: windowManager
         )
+        notchHUDManager?.setup()
 
-        // CRITICAL: Prepare windows at app startup (before any interactions)
-        notchHUDController?.prepareWindows()
-
-        // Connect HUD visibility to menu bar
-        if let displayMenuBarManager, let notchHUDController {
-            displayMenuBarManager.connectHUDVisibility(from: notchHUDController)
+        // Connect HUD visibility to menu bar (uses primary/hardware-notch controller)
+        if let displayMenuBarManager {
+            notchHUDManager?.connectHUDVisibility(to: displayMenuBarManager)
         }
-
     }
 
     // MARK: - Setup Wake/Unlock Notifications
@@ -242,7 +239,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         displayMenuBarManager?.rebuildAllMenuBars()
         // Small delay to let system fully wake before restoring HUD
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.notchHUDController?.handleScreenWake()
+            self?.notchHUDManager?.handleScreenWake()
         }
     }
 
@@ -252,7 +249,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         displayMenuBarManager?.rebuildAllMenuBars()
         // Longer delay for unlock as system is still initializing after login
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            self?.notchHUDController?.handleScreenUnlock()
+            self?.notchHUDManager?.handleScreenUnlock()
         }
     }
 
@@ -260,7 +257,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         logInfo("Display configuration changed - recalculating notch dimensions")
         // Brief delay to let display settle
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-            self?.notchHUDController?.handleDisplayConfigChange()
+            self?.notchHUDManager?.handleDisplayConfigChange()
         }
     }
 
@@ -292,7 +289,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
 
             let isMuted = data["isMuted"] as? Bool ?? false
-            self?.notchHUDController?.showVolume(level: level, isMuted: isMuted)
+            self?.notchHUDManager?.showVolume(level: level, isMuted: isMuted)
         }
 
         router.subscribe(to: .brightnessChanged) { [weak self] data in
@@ -305,22 +302,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             } else {
                 return
             }
-            self?.notchHUDController?.showBrightness(level: level)
+            self?.notchHUDManager?.showBrightness(level: level)
         }
 
         router.subscribe(to: .mediaPlaybackChanged) { [weak self] data in
             guard let info = data["info"] as? MediaInfo else { return }
-            self?.notchHUDController?.showMedia(info: info)
+            self?.notchHUDManager?.showMedia(info: info)
         }
 
         router.subscribe(to: .bluetoothDeviceConnected) { [weak self] data in
             guard let device = data["device"] as? BluetoothDeviceInfo else { return }
-            self?.notchHUDController?.showDeviceConnected(device: device)
+            self?.notchHUDManager?.showDeviceConnected(device: device)
         }
 
         router.subscribe(to: .bluetoothDeviceDisconnected) { [weak self] data in
             guard let device = data["device"] as? BluetoothDeviceInfo else { return }
-            self?.notchHUDController?.showDeviceDisconnected(device: device)
+            self?.notchHUDManager?.showDeviceDisconnected(device: device)
         }
 
         router.subscribe(to: .focusChanged) { [weak self] data in
@@ -328,7 +325,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let focusName = data["focusName"] as? String
             let symbolName = data["symbolName"] as? String
             let status = FocusStatus(isEnabled: isEnabled, focusName: focusName, symbolName: symbolName)
-            self?.notchHUDController?.showFocusChanged(status: status)
+            self?.notchHUDManager?.showFocusChanged(status: status)
         }
 
         router.subscribe(to: .notificationReceived) { [weak self] data in
@@ -350,7 +347,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
 
-            self?.notchHUDController?.showNotification(
+            self?.notchHUDManager?.showNotification(
                 appName: appName,
                 title: title,
                 body: body,

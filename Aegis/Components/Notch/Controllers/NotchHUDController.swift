@@ -8,12 +8,19 @@ class NotchHUDController: ObservableObject {
     private let eventRouter: EventRouter
     private let windowManager: WindowManagerProtocol
 
+    /// The screen this controller targets
+    let targetScreen: NSScreen
+    /// Whether this controller renders a virtual notch (external display)
+    let isVirtualNotch: Bool
+
     // Separate windows for music, volume/brightness, device connection, focus, and notifications
     private var mediaWindow: NSWindow!
     private var overlayWindow: NSWindow!
     private var deviceWindow: NSWindow!
     private var focusWindow: NSWindow!
     private var notificationWindow: NSWindow!
+    /// Window rendering the virtual notch pill (only for virtual notch controllers)
+    private var virtualNotchWindow: NSWindow?
 
     private var hideWorkItem: DispatchWorkItem?  // Scheduled hide for overlay HUD
     private var isAnimatingOverlay = false  // Track if overlay is mid-animation
@@ -70,11 +77,15 @@ class NotchHUDController: ObservableObject {
     init(systemInfoService: SystemInfoService,
          musicService: MediaService,
          eventRouter: EventRouter,
-         windowManager: WindowManagerProtocol) {
+         windowManager: WindowManagerProtocol,
+         targetScreen: NSScreen? = nil,
+         isVirtualNotch: Bool = false) {
         self.systemInfoService = systemInfoService
         self.musicService = musicService
         self.eventRouter = eventRouter
         self.windowManager = windowManager
+        self.targetScreen = targetScreen ?? DisplayScreenMatcher.screenWithNotch() ?? NSScreen.main!
+        self.isVirtualNotch = isVirtualNotch
 
         // Set up Yabai integration for notification clicks
         notificationViewModel.openAppHandler = { [weak self] appName, bundleIdentifier in
@@ -156,6 +167,16 @@ class NotchHUDController: ObservableObject {
             .store(in: &cancellables)
     }
 
+    /// Calculate notch dimensions for this controller's target screen
+    private func calculateNotchDimensions() -> NotchDimensions {
+        if isVirtualNotch {
+            let config = AegisConfig.shared
+            return NotchDimensions.virtual(width: config.virtualNotchWidth, height: config.virtualNotchHeight)
+        } else {
+            return NotchDimensions.calculate(for: targetScreen)
+        }
+    }
+
     // MARK: - Window Preparation (called once at app startup)
 
     /// Prepare windows at app startup - MUST be called before any HUD interactions
@@ -165,16 +186,15 @@ class NotchHUDController: ObservableObject {
         prepareDeviceWindow()
         prepareFocusWindow()
         prepareNotificationWindow()
+        if isVirtualNotch {
+            prepareVirtualNotchWindow()
+        }
     }
 
     private func prepareOverlayWindow() {
-        guard let screen = DisplayScreenMatcher.screenWithNotch() else {
-            assertionFailure("No notch screen available during overlay window preparation")
-            return
-        }
-
-        let notchHeight = screen.safeAreaInsets.top
-        let notchDimensions = NotchDimensions.calculate(for: screen)
+        let screen = targetScreen
+        let notchDimensions = calculateNotchDimensions()
+        let notchHeight = notchDimensions.height
         self.notchDimensions = notchDimensions  // Store for width calculations
 
         logDebug("🪟 prepareOverlayWindow: notchHeight=\(notchHeight), notchWidth=\(notchDimensions.width), screen=\(screen.frame)")
@@ -230,13 +250,9 @@ class NotchHUDController: ObservableObject {
     }
 
     private func prepareMediaWindow() {
-        guard let screen = DisplayScreenMatcher.screenWithNotch() else {
-            assertionFailure("No notch screen available during music window preparation")
-            return
-        }
-
-        let notchHeight = screen.safeAreaInsets.top
-        let notchDimensions = NotchDimensions.calculate(for: screen)
+        let screen = targetScreen
+        let notchDimensions = calculateNotchDimensions()
+        let notchHeight = notchDimensions.height
 
         // Calculate HUD dimensions
         // sideMaxWidth = notchHeight * 4 on each side
@@ -298,13 +314,9 @@ class NotchHUDController: ObservableObject {
     }
 
     private func prepareDeviceWindow() {
-        guard let screen = DisplayScreenMatcher.screenWithNotch() else {
-            assertionFailure("No notch screen available during device window preparation")
-            return
-        }
-
-        let notchHeight = screen.safeAreaInsets.top
-        let notchDimensions = NotchDimensions.calculate(for: screen)
+        let screen = targetScreen
+        let notchDimensions = calculateNotchDimensions()
+        let notchHeight = notchDimensions.height
 
         // Calculate HUD dimensions - wider to fit device name
         let panelWidth = notchDimensions.height * 3.5
@@ -351,13 +363,9 @@ class NotchHUDController: ObservableObject {
     }
 
     private func prepareFocusWindow() {
-        guard let screen = DisplayScreenMatcher.screenWithNotch() else {
-            assertionFailure("No notch screen available during focus window preparation")
-            return
-        }
-
-        let notchHeight = screen.safeAreaInsets.top
-        let notchDimensions = NotchDimensions.calculate(for: screen)
+        let screen = targetScreen
+        let notchDimensions = calculateNotchDimensions()
+        let notchHeight = notchDimensions.height
 
         // Calculate HUD dimensions - same as device HUD
         let panelWidth = notchDimensions.height * 3.5
@@ -404,13 +412,9 @@ class NotchHUDController: ObservableObject {
     }
 
     private func prepareNotificationWindow() {
-        guard let screen = DisplayScreenMatcher.screenWithNotch() else {
-            assertionFailure("No notch screen available during notification window preparation")
-            return
-        }
-
-        let notchHeight = screen.safeAreaInsets.top
-        let notchDimensions = NotchDimensions.calculate(for: screen)
+        let screen = targetScreen
+        let notchDimensions = calculateNotchDimensions()
+        let notchHeight = notchDimensions.height
 
         // Calculate HUD dimensions - match actual view panel widths
         // Left panel: square for icon (notchDimensions.height)
@@ -482,6 +486,44 @@ class NotchHUDController: ObservableObject {
         notificationWindow.setFrameOrigin(NSPoint(x: -10000, y: -10000))
 
         logDebug("🔔 prepareNotificationWindow: Notification HUD window prepared with size \(windowFrame.size)")
+    }
+
+    private func prepareVirtualNotchWindow() {
+        let dims = calculateNotchDimensions()
+        let screen = targetScreen
+
+        let vnFrame = NSRect(
+            x: screen.frame.midX - dims.width / 2,
+            y: screen.frame.origin.y + screen.frame.height - dims.height,
+            width: dims.width,
+            height: dims.height
+        )
+
+        let view = VirtualNotchView(dimensions: dims)
+        let hostingView = NSHostingView(rootView: view)
+        if #available(macOS 13, *) { hostingView.sceneBridgingOptions = [] }
+        hostingView.frame = NSRect(origin: .zero, size: vnFrame.size)
+
+        let window = AegisOverlayWindow(
+            contentRect: vnFrame,
+            styleMask: [.borderless, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        // One level above the HUD windows so the notch pill masks panel edge overlap
+        window.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.popUpMenuWindow)) + 1)
+        window.ignoresMouseEvents = true
+        window.hasShadow = false
+        window.collectionBehavior = hudWindowBehavior
+        window.isReleasedWhenClosed = false
+        window.contentView = hostingView
+        window.alphaValue = 1
+        window.orderFront(nil)
+
+        virtualNotchWindow = window
+        logDebug("🖥️ prepareVirtualNotchWindow: Virtual notch prepared at \(vnFrame)")
     }
 
     // MARK: - Show HUDs
@@ -782,10 +824,11 @@ class NotchHUDController: ObservableObject {
     private func showNotificationHUD() {
         logDebug("🔔 showNotificationHUD() called - currentlyVisible: \(notificationViewModel.isVisible)")
 
-        guard let screen = DisplayScreenMatcher.screenWithNotch(), let notchDimensions = notchDimensions else {
-            logDebug("🔔 showNotificationHUD: No notch screen or notch dimensions available")
+        guard let notchDimensions = notchDimensions else {
+            logDebug("🔔 showNotificationHUD: No notch dimensions available")
             return
         }
+        let screen = targetScreen
 
         // Only increment overlay counter when transitioning from hidden to visible
         // This prevents counter mismatch if show is called multiple times
@@ -797,7 +840,7 @@ class NotchHUDController: ObservableObject {
         // Calculate HUD dimensions to resize window to only cover the HUD area
         // This is critical - by limiting the window size, clicks outside the HUD
         // will pass through to the menu bar and other UI elements
-        let notchHeight = screen.safeAreaInsets.top
+        let notchHeight = notchDimensions.height
         // Match actual view panel widths - left is icon, right is text
         let leftPanelWidth = notchDimensions.height
         let rightPanelWidth = min(notchDimensions.height * 3, 150)
@@ -1195,6 +1238,7 @@ class NotchHUDController: ObservableObject {
         hideDeviceHUD()
         hideFocusHUD()
         hideNotificationHUD()
+        virtualNotchWindow?.orderOut(nil)
     }
 
     // MARK: - Screen Wake/Unlock Handlers
@@ -1205,9 +1249,7 @@ class NotchHUDController: ObservableObject {
         mediaViewModel.isDismissed = false
 
         // Recalculate notch dimensions in case display changed during sleep
-        if let screen = DisplayScreenMatcher.screenWithNotch() {
-            notchDimensions = NotchDimensions.calculate(for: screen)
-        }
+        notchDimensions = calculateNotchDimensions()
 
         // Force republish current media info if music is playing
         // This triggers showMedia() through the event router
@@ -1222,10 +1264,8 @@ class NotchHUDController: ObservableObject {
         logInfo("🔓 Screen unlock detected - reinitializing HUD state")
 
         // Recalculate notch dimensions in case display changed
-        if let screen = DisplayScreenMatcher.screenWithNotch() {
-            notchDimensions = NotchDimensions.calculate(for: screen)
-            logInfo("📐 Recalculated notch dimensions: \(notchDimensions?.width ?? 0)x\(notchDimensions?.height ?? 0)")
-        }
+        notchDimensions = calculateNotchDimensions()
+        logInfo("📐 Recalculated notch dimensions: \(notchDimensions?.width ?? 0)x\(notchDimensions?.height ?? 0)")
 
         // Ensure all windows are properly ordered and positioned
         reinitializeWindowState()
@@ -1243,14 +1283,13 @@ class NotchHUDController: ObservableObject {
         logInfo("🖥️ Display config changed - recalculating layout")
 
         // Recalculate notch dimensions for new screen configuration
-        if let screen = DisplayScreenMatcher.screenWithNotch() {
-            let newDimensions = NotchDimensions.calculate(for: screen)
-            notchDimensions = newDimensions
-            logInfo("📐 New notch dimensions: \(newDimensions.width)x\(newDimensions.height)")
+        let newDimensions = calculateNotchDimensions()
+        notchDimensions = newDimensions
+        logInfo("📐 New notch dimensions: \(newDimensions.width)x\(newDimensions.height)")
 
-            // Always reposition — screen origin can shift even when notch size is unchanged
-            repositionAllWindows()
-        }
+        // Re-assert window ordering and collection behavior (same as unlock)
+        reinitializeWindowState()
+        repositionAllWindows()
     }
 
     /// Reinitialize window state after screen unlock
@@ -1275,12 +1314,17 @@ class NotchHUDController: ObservableObject {
         deviceWindow.collectionBehavior = hudWindowBehavior
         focusWindow.collectionBehavior = hudWindowBehavior
         notificationWindow.collectionBehavior = hudWindowBehavior
+
+        if let vnw = virtualNotchWindow {
+            vnw.orderFront(nil)
+            vnw.ignoresMouseEvents = true
+            vnw.collectionBehavior = hudWindowBehavior
+        }
     }
 
     /// Reposition all HUD windows for new screen geometry
     private func repositionAllWindows() {
-        guard let screen = DisplayScreenMatcher.screenWithNotch() else { return }
-        let screenFrame = screen.frame
+        let screenFrame = targetScreen.frame
 
         // All HUD windows span the full screen — SwiftUI content centres itself
         // inside the window using .frame(maxWidth: .infinity). Setting a narrow
@@ -1291,6 +1335,16 @@ class NotchHUDController: ObservableObject {
         focusWindow.setFrame(screenFrame, display: true)
         // notificationWindow is excluded: it is either hidden at (-10000,-10000)
         // or actively positioned by showNotification() with its own frame logic.
+
+        if let vnw = virtualNotchWindow, let dims = notchDimensions {
+            let vnFrame = NSRect(
+                x: screenFrame.midX - dims.width / 2,
+                y: screenFrame.origin.y + screenFrame.height - dims.height,
+                width: dims.width,
+                height: dims.height
+            )
+            vnw.setFrame(vnFrame, display: true)
+        }
     }
 
     // MARK: - Diagnostics

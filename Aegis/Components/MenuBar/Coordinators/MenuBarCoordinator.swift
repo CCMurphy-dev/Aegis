@@ -155,6 +155,9 @@ class MenuBarCoordinator {
     /// Current fullscreen state of this coordinator's display (for snapshot before rebuild)
     var isCurrentlyFullscreen: Bool { windowController.isInFullscreenSpace }
 
+    /// Whether the menu bar window is in a healthy visible state
+    var isWindowHealthy: Bool { windowController.isHealthy }
+
     /// Immediately apply a known fullscreen state to the window and seed the VM
     /// so the next yabai poll correctly diffs from this baseline.
     func seedFullscreenState(_ isFullscreen: Bool) {
