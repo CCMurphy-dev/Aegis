@@ -254,8 +254,9 @@ class NotchHUDController: ObservableObject {
         let notchDimensions = calculateNotchDimensions()
         let notchHeight = notchDimensions.height
 
-        // Calculate HUD dimensions — multiplier is user-configurable
-        let sideMaxWidth = notchDimensions.height * CGFloat(AegisConfig.shared.mediaHUDSidePanelMultiplier)
+        // Calculate HUD dimensions
+        // sideMaxWidth = notchHeight * 4 on each side
+        let sideMaxWidth = notchDimensions.height * 4
         let totalHUDWidth = sideMaxWidth + notchDimensions.width + sideMaxWidth
 
         // Window frame: full screen (needed for proper SwiftUI layout)

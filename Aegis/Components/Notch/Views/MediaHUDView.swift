@@ -63,17 +63,17 @@ struct MediaHUDView: View {
         // Take the wider of title/artist, add padding
         let textWidth = max(titleWidth, artistWidth) + 24  // 24 for horizontal padding
 
-        // Cap at a reasonable max width, but allow expansion beyond base
-        let maxWidth: CGFloat = 200
-        return min(max(baseRightPanelWidth, textWidth), maxWidth)
+        // Cap at configurable max width, but allow expansion beyond base
+        return min(max(baseRightPanelWidth, textWidth), config.mediaHUDTrackInfoMaxWidth)
     }
 
     // Current right panel width (animated between base and expanded)
     private var rightPanelWidth: CGFloat {
-        if shouldShowTrackInfo && useExpandedWidth {
-            return expandedRightPanelWidth
+        if shouldShowTrackInfo {
+            return useExpandedWidth ? expandedRightPanelWidth : baseRightPanelWidth
         }
-        return baseRightPanelWidth
+        // Visualizer mode: compact width matching album art side
+        return leftPanelWidth
     }
 
     // Use symmetric max width for centering (same pattern as MinimalHUDWrapper)

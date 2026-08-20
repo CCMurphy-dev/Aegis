@@ -104,7 +104,7 @@ https://github.com/user-attachments/assets/95c7d4cf-5b05-4b03-b176-f2a5e10938bd
 </tr>
 </table>
 
-- **Media** - Album art with visualizer or track info (static or marquee scrolling for long titles)
+- **Media** - Album art with visualizer or track info (static or marquee scrolling for long titles). Compact panel in visualizer mode, configurable width for track info
   - Works with Music, Spotify, Safari, Chrome, Firefox, YouTube, and more
 - **Notifications** - Intercepts system notifications, click to open source app
 - **Virtual notch** - Renders a virtual notch on external monitors without a hardware notch, with configurable width and height

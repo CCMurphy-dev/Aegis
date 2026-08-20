@@ -151,7 +151,7 @@ struct AegisConfigData: Codable {
     var notchHUDTopPadding: Double?
     var notchHUDAutoHideDelay: Double?
     var minimalHUDVerticalPadding: Double?
-    var mediaHUDSidePanelMultiplier: Double?
+    var mediaHUDTrackInfoMaxWidth: Double?
     var musicHUDVerticalPadding: Double?
 
     // Notch Settings - Music HUD
@@ -443,7 +443,7 @@ extension AegisConfig {
         if let v = data.notchHUDTopPadding { notchHUDTopPadding = CGFloat(v) }
         if let v = data.notchHUDAutoHideDelay { notchHUDAutoHideDelay = v }
         if let v = data.minimalHUDVerticalPadding { minimalHUDVerticalPadding = CGFloat(v) }
-        if let v = data.mediaHUDSidePanelMultiplier { mediaHUDSidePanelMultiplier = CGFloat(v) }
+        if let v = data.mediaHUDTrackInfoMaxWidth { mediaHUDTrackInfoMaxWidth = CGFloat(v) }
         if let v = data.musicHUDVerticalPadding { mediaHUDVerticalPadding = CGFloat(v) }
 
         // Notch Settings - Media HUD
@@ -701,7 +701,7 @@ extension AegisConfig {
             notchHUDTopPadding: Double(notchHUDTopPadding),
             notchHUDAutoHideDelay: notchHUDAutoHideDelay,
             minimalHUDVerticalPadding: Double(minimalHUDVerticalPadding),
-            mediaHUDSidePanelMultiplier: Double(mediaHUDSidePanelMultiplier),
+            mediaHUDTrackInfoMaxWidth: Double(mediaHUDTrackInfoMaxWidth),
             musicHUDVerticalPadding: Double(mediaHUDVerticalPadding),
 
             // Notch Settings - Media HUD
