@@ -455,6 +455,9 @@ class AegisConfig: ObservableObject {
     /// Vertical padding for minimal HUD
     @Published var minimalHUDVerticalPadding: CGFloat = 12
 
+    /// Side panel width multiplier for media HUD (relative to notch height)
+    @Published var mediaHUDSidePanelMultiplier: Double = 4.0
+
     /// Vertical padding for media HUD
     @Published var mediaHUDVerticalPadding: CGFloat = 8
 
@@ -1002,6 +1005,7 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(notchHUDTopPadding, forKey: "notchHUDTopPadding")
         UserDefaults.standard.set(notchHUDAutoHideDelay, forKey: "notchHUDAutoHideDelay")
         UserDefaults.standard.set(minimalHUDVerticalPadding, forKey: "minimalHUDVerticalPadding")
+        UserDefaults.standard.set(mediaHUDSidePanelMultiplier, forKey: "mediaHUDSidePanelMultiplier")
         UserDefaults.standard.set(mediaHUDVerticalPadding, forKey: "musicHUDVerticalPadding")
         UserDefaults.standard.set(albumArtSize, forKey: "albumArtSize")
         UserDefaults.standard.set(albumArtPadding, forKey: "albumArtPadding")
@@ -1387,6 +1391,9 @@ class AegisConfig: ObservableObject {
         if let val = UserDefaults.standard.object(forKey: "minimalHUDVerticalPadding") as? Double {
             minimalHUDVerticalPadding = CGFloat(val)
         }
+        if let val = UserDefaults.standard.object(forKey: "mediaHUDSidePanelMultiplier") as? Double {
+            mediaHUDSidePanelMultiplier = CGFloat(val)
+        }
         if let val = UserDefaults.standard.object(forKey: "musicHUDVerticalPadding") as? Double {
             mediaHUDVerticalPadding = CGFloat(val)
         }
@@ -1696,6 +1703,7 @@ class AegisConfig: ObservableObject {
         notchHUDTopPadding = 8
         notchHUDAutoHideDelay = 1.5
         minimalHUDVerticalPadding = 12
+        mediaHUDSidePanelMultiplier = 4.0
         mediaHUDVerticalPadding = 8
         albumArtSize = 40
         albumArtPadding = 10

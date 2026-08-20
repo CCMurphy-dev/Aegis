@@ -100,6 +100,7 @@ struct SettingsNotchHUDTab: View {
 
                 if config.showMediaHUD {
                     SettingsCollapsibleSection(title: "Fine Tuning: Media", icon: "music.note", initiallyExpanded: false) {
+                        SettingsDoubleSlider(label: "Side Panel Width", value: $config.mediaHUDSidePanelMultiplier, range: 2.0...8.0, step: 0.5, unit: "x")
                         SettingsSlider(label: "Album Art Size", value: $config.albumArtSize, range: 20...80, step: 5, unit: "px")
                         SettingsSlider(label: "Album Art Padding", value: $config.albumArtPadding, range: 0...20, step: 2, unit: "px")
                         SettingsSlider(label: "Media HUD V Padding", value: $config.mediaHUDVerticalPadding, range: 2...20, step: 1, unit: "px")

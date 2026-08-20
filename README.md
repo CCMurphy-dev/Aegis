@@ -54,7 +54,7 @@ https://github.com/user-attachments/assets/9291ffb2-c68c-4b17-8cf9-52b5d76a1c27
 
 https://github.com/user-attachments/assets/3c384235-ff87-451d-add1-aac5967bf806
 
-- **System status** - Battery, WiFi, Focus mode, clock
+- **System status** - Battery, WiFi, Focus mode, clock, CPU & RAM monitors with sparkline visualization
 - **Multi-display support** - Menu bars on all connected monitors with configurable modes (auto, primary only, per-monitor, all show all)
 
 ### Notch HUD
@@ -107,14 +107,16 @@ https://github.com/user-attachments/assets/95c7d4cf-5b05-4b03-b176-f2a5e10938bd
 - **Media** - Album art with visualizer or track info (static or marquee scrolling for long titles)
   - Works with Music, Spotify, Safari, Chrome, Firefox, YouTube, and more
 - **Notifications** - Intercepts system notifications, click to open source app
+- **Virtual notch** - Renders a virtual notch on external monitors without a hardware notch, with configurable width and height
 
 ### App Switcher
-- **Cmd+Tab replacement** - Window previews with app icons
+- **Cmd+Tab replacement** - Custom app/window switcher with app icons or window preview thumbnails
+- **Command palette** - Type `:` in the switcher to access window manager commands (rotate, flip, balance, etc.)
 - **Scroll navigation** - Two-finger scroll to cycle through windows
 - **Cmd+scroll activation** - Optional gesture to open switcher (configurable)
 
 ### Other
-- **Customizable** - JSON config file with hot-reload, plus Settings panel with custom theme color pickers and saveable presets
+- **Customizable** - JSON config file with hot-reload, plus 4-tab Settings panel (General, Menu Bar, Notch HUD, Appearance) with all options exposed, theme color pickers, and saveable presets
 - **Auto-updates** - Built-in update checking via Sparkle
 - **Energy efficient** - Coalescing event gate, fixed-duration animations, and non-reactive view isolation for minimal CPU usage
 
@@ -167,7 +169,7 @@ Rift connects automatically via its Mach subscription API — no setup needed.
 ## Requirements
 
 - macOS 14.0+ (Sonoma)
-- Apple Silicon Mac with notch (recommended)
+- Apple Silicon Mac (notch recommended; virtual notch available for external monitors)
 - One of: Yabai, AeroSpace, or Rift
 
 ## Documentation
