@@ -16,6 +16,11 @@ class StartupNotificationService: NSObject, UNUserNotificationCenterDelegate {
             lines.append("Rift: \(running ? "Running" : "Not running")")
             lines.append("The aegis-rift link is \(running ? "active" : "inactive")")
 
+        case "Paneru":
+            let running = PaneruCommandActor.isPaneruDaemonRunning()
+            lines.append("Paneru: \(running ? "Running" : "Not running")")
+            lines.append("The aegis-paneru link is \(running ? "active" : "inactive")")
+
         case "AeroSpace":
             let running = AeroSpaceCommandActor.isAeroSpaceRunning()
             lines.append("AeroSpace: \(running ? "Running" : "Not running")")

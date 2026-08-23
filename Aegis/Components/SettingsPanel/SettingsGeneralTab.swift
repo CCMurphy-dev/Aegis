@@ -35,6 +35,8 @@ struct SettingsGeneralTab: View {
                 SettingsAeroSpaceSetupButton()
             case "Rift":
                 SettingsWMInfoRow(wmName: "Rift")
+            case "Paneru":
+                SettingsWMInfoRow(wmName: "Paneru")
             default:
                 SettingsYabaiSetupButton()
             }
