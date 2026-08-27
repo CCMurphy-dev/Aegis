@@ -271,6 +271,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.displayMenuBarManager?.updateSpaces()
         }
 
+        // A native fullscreen transition can change only a display's native
+        // space while the Rift workspace list stays identical. Refresh the
+        // per-display menu-bar visibility even when indicators are disabled.
+        router.subscribe(to: .displaysChanged) { [weak self] _ in
+            self?.displayMenuBarManager?.updateSpaces()
+        }
+
         router.subscribe(to: .windowsChanged) { [weak self] _ in
             // Skip window updates if space indicators are disabled
             guard AegisConfig.shared.showSpaceIndicators else { return }

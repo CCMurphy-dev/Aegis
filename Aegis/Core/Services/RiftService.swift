@@ -316,7 +316,18 @@ final class RiftService {
                 }
             }
             invalidateFocusedWorkspaceCache()
-            scheduleRefresh(scope: .workspacesAndWindows, source: "sub:workspace_changed")
+            // A workspace switch can also move the display between a managed
+            // native space, an unmanaged space, and a native fullscreen space.
+            // Refresh the display snapshot before publishing the workspace
+            // change so menu bars make their decision from the same transition.
+            scheduleRefresh(scope: .all, source: "sub:workspace_changed")
+
+        case "space_changed", "active_space_changed", "display_changed", "native_fullscreen_changed":
+            // These names are accepted for newer Rift event payloads. Rift
+            // versions that do not emit them still reach this path through
+            // NSWorkspace.activeSpaceDidChangeNotification below.
+            invalidateFocusedWorkspaceCache()
+            scheduleRefresh(scope: .all, source: "sub:\(event.type)")
 
         case "windows_changed":
             // Use workspace index from event to map windows to correct virtual workspace
@@ -395,7 +406,7 @@ final class RiftService {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
             guard let self = self else { return }
             guard Date().timeIntervalSince(self.lastSubscriptionEventTime) >= 0.5 else { return }
-            self.scheduleRefresh(scope: .workspacesAndWindows, source: "activeSpaceChanged")
+            self.scheduleRefresh(scope: .all, source: "activeSpaceChanged")
         }
     }
 
@@ -440,9 +451,12 @@ final class RiftService {
         case .workspacesAndWindows:
             await refreshWorkspaces()
         case .all:
-            async let d: () = refreshDisplays()
-            async let w: () = refreshWorkspaces()
-            _ = await (d, w)
+            // Keep this sequential. refreshWorkspaces can publish
+            // `.spaceChanged`, and its subscribers immediately query displays.
+            // The display cache must therefore describe the same native-space
+            // transition before that callback is delivered.
+            await refreshDisplays()
+            await refreshWorkspaces()
         }
     }
 
@@ -596,11 +610,19 @@ final class RiftService {
             let json = try await command.run(["query", "displays"])
             let decoded = try JSONDecoder().decode([RiftDisplay].self, from: Data(json.utf8))
 
+            let currentSnapshots = Dictionary(uniqueKeysWithValues: decoded.map {
+                (Int($0.screenId), RiftDisplayChangeSnapshot(display: $0))
+            })
+
             let displaysChanged = dataQueue.sync { [weak self] () -> Bool in
                 guard let self = self else { return false }
-                let oldIds = Set(self.displays.keys)
-                let newIds = Set(decoded.map { Int($0.screenId) })
-                return oldIds != newIds
+                let previousSnapshots = self.displays.mapValues {
+                    RiftDisplayChangeSnapshot(display: $0)
+                }
+                return RiftDisplayChangeDetector.hasChanges(
+                    previous: previousSnapshots,
+                    current: currentSnapshots
+                )
             }
 
             dataQueue.sync(flags: .barrier) { [weak self] in
