@@ -204,6 +204,7 @@ extension Space {
             index: index,
             display: display,
             label: label,
+            workspaceName: label,
             layoutType: WMLayoutType.fromYabai(type),
             isFocused: focused,
             isFullscreen: isNativeFullscreen

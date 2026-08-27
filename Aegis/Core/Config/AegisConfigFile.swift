@@ -25,6 +25,8 @@ struct AegisConfigData: Codable {
     var spaceIndicatorSpacing: Double?
     var systemIconSpacing: Double?
     var systemIconSize: Double?
+    var workspaceLabelStyle: String?
+    var workspaceLabelOverrides: [String: String]?
     var layoutButtonWidth: Double?
     var buttonLabelExpandedWidth: Double?
     var systemStatusWidth: Double?
@@ -318,6 +320,10 @@ extension AegisConfig {
         if let v = data.spaceIndicatorSpacing { spaceIndicatorSpacing = CGFloat(v) }
         if let v = data.systemIconSpacing { systemIconSpacing = CGFloat(v) }
         if let v = data.systemIconSize { systemIconSize = CGFloat(v) }
+        if let raw = data.workspaceLabelStyle, let style = WorkspaceLabelStyle(rawValue: raw) {
+            workspaceLabelStyle = style
+        }
+        if let v = data.workspaceLabelOverrides { workspaceLabelOverrides = v }
         if let v = data.layoutButtonWidth { layoutButtonWidth = CGFloat(v) }
         if let v = data.buttonLabelExpandedWidth { buttonLabelExpandedWidth = CGFloat(v) }
         if let v = data.systemStatusWidth { systemStatusWidth = CGFloat(v) }
@@ -577,6 +583,8 @@ extension AegisConfig {
             spaceIndicatorSpacing: Double(spaceIndicatorSpacing),
             systemIconSpacing: Double(systemIconSpacing),
             systemIconSize: Double(systemIconSize),
+            workspaceLabelStyle: workspaceLabelStyle.rawValue,
+            workspaceLabelOverrides: workspaceLabelOverrides.isEmpty ? nil : workspaceLabelOverrides,
             layoutButtonWidth: Double(layoutButtonWidth),
             buttonLabelExpandedWidth: Double(buttonLabelExpandedWidth),
             systemStatusWidth: Double(systemStatusWidth),
@@ -954,6 +962,8 @@ You can add bundle identifiers (e.g., `"com.apple.mail"`) or partial app name ma
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `maxAppIconsPerSpace` | int | `3` | Max window icons per space before overflow menu |
+| `workspaceLabelStyle` | string | `"index"` | Workspace indicator labels: `"index"` or unique name abbreviations (`"nameInitial"`) |
+| `workspaceLabelOverrides` | object | `{}` | Explicit workspace indicator labels keyed by the original workspace label |
 | `excludedApps` | [string] | `["Finder", "Aegis"]` | Base apps to hide from space indicators (launcher apps are automatically excluded) |
 | `showAppNameInExpansion` | bool | `false` | Show app name below window title when expanded |
 | `autoExpandFocusedWindow` | bool | `true` | Automatically expand the focused window's title |

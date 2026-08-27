@@ -12,14 +12,121 @@ import AppKit
 
 // MARK: - Unified Data Models
 
+/// Controls the text shown in the menu bar for each workspace.
+enum WorkspaceLabelStyle: String, CaseIterable, Codable {
+    case index = "index"
+    case nameInitial = "nameInitial"
+
+    var displayName: String {
+        switch self {
+        case .index: return "Index"
+        case .nameInitial: return "Name Initials"
+        }
+    }
+}
+
 struct WMSpace: Identifiable, Equatable {
     let id: Int
     var index: Int             // Mutable for optimistic reorder
     let display: Int           // Display index (1-based)
     let label: String?
+    let workspaceName: String? // Semantic name, independent of the display label
     let layoutType: WMLayoutType
     let isFocused: Bool
     let isFullscreen: Bool     // Native macOS fullscreen
+}
+
+/// Produces the compact labels used by menu bar workspace indicators.
+///
+/// Name labels start with one Unicode grapheme and grow only when needed to
+/// disambiguate a case-insensitive collision. Empty or indistinguishable
+/// names retain the window manager's existing numeric label.
+enum WorkspaceLabelFormatter {
+    static func numericLabel(for space: WMSpace) -> String {
+        guard let label = space.label?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !label.isEmpty else {
+            return "\(space.index)"
+        }
+        return label
+    }
+
+    static func labels(
+        for spaces: [WMSpace],
+        style: WorkspaceLabelStyle,
+        overrides: [String: String] = [:]
+    ) -> [Int: String] {
+        let selectedLabels: [Int: String]
+        if style == .nameInitial {
+            let names = spaces.map { $0.workspaceName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "" }
+            let graphemes = names.map(Array.init)
+            var lengths = graphemes.map { $0.isEmpty ? 0 : 1 }
+            var numericFallbacks = Set<Int>()
+
+            // Resolve collisions across generated prefixes and original-label
+            // fallbacks. A fallback label is reserved, so a name such as
+            // "0Ops" grows beyond "0" when another workspace falls back to
+            // its original "0" label.
+            while true {
+                var groups: [String: [Int]] = [:]
+                for index in spaces.indices {
+                    let label: String
+                    if numericFallbacks.contains(index) || graphemes[index].isEmpty {
+                        label = numericLabel(for: spaces[index])
+                    } else {
+                        label = String(graphemes[index].prefix(lengths[index]))
+                    }
+                    groups[comparisonKey(label), default: []].append(index)
+                }
+
+                var changed = false
+                for indices in groups.values where indices.count > 1 {
+                    let extendable = indices.filter {
+                        !numericFallbacks.contains($0) && lengths[$0] < graphemes[$0].count
+                    }
+                    if extendable.isEmpty {
+                        let generated = indices.filter { !numericFallbacks.contains($0) }
+                        if !generated.isEmpty {
+                            numericFallbacks.formUnion(generated)
+                            changed = true
+                        }
+                    } else {
+                        for index in extendable {
+                            lengths[index] += 1
+                        }
+                        changed = true
+                    }
+                }
+
+                if !changed { break }
+            }
+
+            selectedLabels = Dictionary(uniqueKeysWithValues: spaces.enumerated().map { index, space in
+                guard !graphemes[index].isEmpty, !numericFallbacks.contains(index) else {
+                    return (space.id, numericLabel(for: space))
+                }
+                return (space.id, String(graphemes[index].prefix(lengths[index])))
+            })
+        } else {
+            selectedLabels = Dictionary(uniqueKeysWithValues: spaces.map { ($0.id, numericLabel(for: $0)) })
+        }
+
+        // Explicit labels win over either generated name labels or the
+        // original WM label. Whitespace-only values intentionally do nothing.
+        return Dictionary(uniqueKeysWithValues: spaces.map { space in
+            let originalLabel = numericLabel(for: space)
+            if let override = overrides[originalLabel]?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !override.isEmpty {
+                return (space.id, override)
+            }
+            return (space.id, selectedLabels[space.id] ?? numericLabel(for: space))
+        })
+    }
+
+    private static func comparisonKey(_ value: String) -> String {
+        // lowercased() is locale-independent and preserves Unicode grapheme
+        // boundaries while making prefix comparisons case-insensitive.
+        value.lowercased().precomposedStringWithCanonicalMapping
+    }
 }
 
 struct WMWindow: Identifiable {

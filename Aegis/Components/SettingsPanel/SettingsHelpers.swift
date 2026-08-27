@@ -197,6 +197,29 @@ struct SettingsEnumPicker<T: RawRepresentable & CaseIterable & Hashable>: View w
     }
 }
 
+/// Picker for the compact labels shown by workspace indicators.
+struct SettingsWorkspaceLabelStylePicker: View {
+    let label: String
+    @Binding var selection: WorkspaceLabelStyle
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.system(size: 12))
+                .foregroundColor(Color.white.opacity(0.9))
+
+            Picker("", selection: $selection) {
+                ForEach(WorkspaceLabelStyle.allCases, id: \.self) { style in
+                    Text(style.displayName)
+                        .tag(style)
+                }
+            }
+            .pickerStyle(SegmentedPickerStyle())
+        }
+        .padding(.vertical, 4)
+    }
+}
+
 /// Picker specifically for MultiMonitorMode with proper display names
 struct SettingsMultiMonitorPicker: View {
     let label: String
@@ -720,6 +743,95 @@ struct SettingsStringSetEditor: View {
             ),
             placeholder: placeholder
         )
+    }
+}
+
+/// Editable key-value map for settings such as explicit workspace labels.
+struct SettingsStringDictionaryEditor: View {
+    let label: String
+    let description: String?
+    @Binding var items: [String: String]
+
+    @State private var newKey = ""
+    @State private var newValue = ""
+
+    init(label: String, description: String? = nil, items: Binding<[String: String]>) {
+        self.label = label
+        self.description = description
+        self._items = items
+    }
+
+    private var sortedKeys: [String] {
+        items.keys.sorted()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.system(size: 12))
+                    .foregroundColor(Color.white.opacity(0.9))
+
+                if let description = description {
+                    Text(description)
+                        .font(.system(size: 10))
+                        .foregroundColor(Color.white.opacity(0.6))
+                }
+            }
+
+            ForEach(sortedKeys, id: \.self) { key in
+                HStack(spacing: 6) {
+                    Text(key)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(Color.white.opacity(0.75))
+                        .frame(minWidth: 40, alignment: .leading)
+
+                    TextField("Displayed label", text: Binding(
+                        get: { items[key] ?? "" },
+                        set: { items[key] = $0 }
+                    ))
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 11))
+
+                    Button(action: { items.removeValue(forKey: key) }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(Color.red.opacity(0.6))
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.white.opacity(0.05))
+                .cornerRadius(4)
+            }
+
+            HStack(spacing: 6) {
+                TextField("Original label", text: $newKey)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 11, design: .monospaced))
+
+                TextField("Displayed label", text: $newValue)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 11))
+                    .onSubmit { addItem() }
+
+                Button("Add") { addItem() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.blue)
+                    .disabled(newKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func addItem() {
+        let key = newKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else { return }
+        items[key] = newValue
+        newKey = ""
+        newValue = ""
     }
 }
 

@@ -207,6 +207,11 @@ class MenuBarViewModel: ObservableObject {
         // Each SpaceViewModel only publishes if its data changed
         spaceStore.update(
             spaces: spaces,
+            displayLabelsBySpaceId: WorkspaceLabelFormatter.labels(
+                for: spaces,
+                style: AegisConfig.shared.workspaceLabelStyle,
+                overrides: AegisConfig.shared.workspaceLabelOverrides
+            ),
             windowIconsBySpace: windowIconsBySpace,
             allWindowIconsBySpace: allWindowIconsBySpace,
             focusedIndexBySpace: focusedIndexBySpace,

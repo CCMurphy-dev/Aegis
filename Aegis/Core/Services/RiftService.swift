@@ -484,19 +484,18 @@ final class RiftService {
             }
 
             // Check if workspaces changed
+            let currentWorkspaceSnapshots = Dictionary(uniqueKeysWithValues: decoded.map { workspace in
+                (workspace.index + 1, RiftWorkspaceChangeSnapshot(workspace: workspace))
+            })
             let workspacesChanged = dataQueue.sync { [weak self] () -> Bool in
                 guard let self = self else { return false }
-                let oldIds = Set(self.workspaces.keys)
-                let newIds = Set(decoded.map { $0.index + 1 })
-                if oldIds != newIds { return true }
-                for ws in decoded {
-                    let key = ws.index + 1
-                    if let old = self.workspaces[key],
-                       old.isActive != ws.isActive || old.layoutMode != ws.layoutMode {
-                        return true
-                    }
+                let previousWorkspaceSnapshots = self.workspaces.mapValues {
+                    RiftWorkspaceChangeSnapshot(workspace: $0)
                 }
-                return false
+                return RiftWorkspaceChangeDetector.hasChanges(
+                    previous: previousWorkspaceSnapshots,
+                    current: currentWorkspaceSnapshots
+                )
             }
 
             // Check if windows changed

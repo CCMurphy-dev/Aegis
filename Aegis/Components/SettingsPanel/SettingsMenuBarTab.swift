@@ -57,6 +57,17 @@ struct SettingsMenuBarTab: View {
                         isOn: $config.showAppNameInExpansion
                     )
 
+                    SettingsWorkspaceLabelStylePicker(
+                        label: "Workspace Labels",
+                        selection: $config.workspaceLabelStyle
+                    )
+
+                    SettingsStringDictionaryEditor(
+                        label: "Workspace Label Overrides",
+                        description: "Optional labels keyed by the original workspace label (for example, 0 → Flow)",
+                        items: $config.workspaceLabelOverrides
+                    )
+
                     SettingsToggle(
                         label: "Auto-Expand Focused Window",
                         description: "Always show the focused window's title",

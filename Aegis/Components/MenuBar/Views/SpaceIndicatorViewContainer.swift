@@ -58,6 +58,7 @@ struct SpaceIndicatorViewContainer: View {
     var body: some View {
         SpaceIndicatorView(
             space: spaceViewModel.space,
+            displayLabel: spaceViewModel.displayLabel,
             isActive: spaceViewModel.isActive,
             windowIcons: spaceViewModel.windowIcons,
             allWindowIcons: spaceViewModel.allWindowIcons,

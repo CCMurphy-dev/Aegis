@@ -43,6 +43,35 @@ enum ContextButtonMenuOnlyPreference {
     }
 }
 
+enum WorkspaceLabelStylePreference {
+    static let key = "workspaceLabelStyle"
+    static let defaultValue = WorkspaceLabelStyle.index
+
+    static func load(from defaults: UserDefaults = .standard) -> WorkspaceLabelStyle {
+        guard let rawValue = defaults.string(forKey: key),
+              let style = WorkspaceLabelStyle(rawValue: rawValue) else {
+            return defaultValue
+        }
+        return style
+    }
+}
+
+enum WorkspaceLabelOverridesPreference {
+    static let key = "workspaceLabelOverrides"
+    static let defaultValue: [String: String] = [:]
+
+    static func load(from defaults: UserDefaults = .standard) -> [String: String] {
+        guard let stored = defaults.dictionary(forKey: key) else {
+            return defaultValue
+        }
+        return stored.reduce(into: [:]) { result, entry in
+            if let value = entry.value as? String {
+                result[entry.key] = value
+            }
+        }
+    }
+}
+
 /// Centralized configuration for all Aegis UI elements, behaviors, and visual parameters
 /// This singleton provides @Published properties that can be observed by SwiftUI views
 /// and persisted via UserDefaults for user customization
@@ -83,6 +112,12 @@ class AegisConfig: ObservableObject {
 
     /// Spacing between system status icons (battery, wifi, etc.)
     @Published var systemIconSpacing: CGFloat = 12
+
+    /// How workspace indicators are labeled in the menu bar.
+    @Published var workspaceLabelStyle: WorkspaceLabelStyle = WorkspaceLabelStylePreference.defaultValue
+
+    /// Explicit workspace indicator labels, keyed by the original WM label.
+    @Published var workspaceLabelOverrides: [String: String] = WorkspaceLabelOverridesPreference.defaultValue
 
     /// Size of system status icons
     @Published var systemIconSize: CGFloat = 14
@@ -907,6 +942,8 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(spaceIndicatorSpacing, forKey: "spaceIndicatorSpacing")
         UserDefaults.standard.set(systemIconSpacing, forKey: "systemIconSpacing")
         UserDefaults.standard.set(systemIconSize, forKey: "systemIconSize")
+        UserDefaults.standard.set(workspaceLabelStyle.rawValue, forKey: WorkspaceLabelStylePreference.key)
+        UserDefaults.standard.set(workspaceLabelOverrides, forKey: WorkspaceLabelOverridesPreference.key)
         UserDefaults.standard.set(layoutButtonWidth, forKey: "layoutButtonWidth")
         UserDefaults.standard.set(buttonLabelExpandedWidth, forKey: "buttonLabelExpandedWidth")
         UserDefaults.standard.set(systemStatusWidth, forKey: "systemStatusWidth")
@@ -1118,6 +1155,8 @@ class AegisConfig: ObservableObject {
         if let val = UserDefaults.standard.object(forKey: "systemIconSize") as? Double {
             systemIconSize = CGFloat(val)
         }
+        workspaceLabelStyle = WorkspaceLabelStylePreference.load()
+        workspaceLabelOverrides = WorkspaceLabelOverridesPreference.load()
         if let val = UserDefaults.standard.object(forKey: "layoutButtonWidth") as? Double {
             layoutButtonWidth = CGFloat(val)
         }
@@ -1618,6 +1657,8 @@ class AegisConfig: ObservableObject {
         spaceIndicatorSpacing = 8
         systemIconSpacing = 12
         systemIconSize = 14
+        workspaceLabelStyle = WorkspaceLabelStylePreference.defaultValue
+        workspaceLabelOverrides = WorkspaceLabelOverridesPreference.defaultValue
         layoutButtonWidth = 32
         buttonLabelExpandedWidth = 95
         systemStatusWidth = 150

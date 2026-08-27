@@ -26,6 +26,7 @@ final class SpaceViewModelStore: ObservableObject {
     /// Only creates/destroys ViewModels when spaces are added/removed
     /// Individual SpaceViewModels handle their own change detection
     func update(spaces: [WMSpace],
+                displayLabelsBySpaceId: [Int: String],
                 windowIconsBySpace: [Int: [WindowIcon]],
                 allWindowIconsBySpace: [Int: [WindowIcon]],
                 focusedIndexBySpace: [Int: Int],
@@ -48,6 +49,7 @@ final class SpaceViewModelStore: ObservableObject {
         for space in spaces {
             viewModels[space.id]?.update(
                 space: space,
+                displayLabel: displayLabelsBySpaceId[space.id] ?? WorkspaceLabelFormatter.numericLabel(for: space),
                 windowIcons: windowIconsBySpace[space.index] ?? [],
                 allWindowIcons: allWindowIconsBySpace[space.index] ?? [],
                 focusedIndex: focusedIndexBySpace[space.index],

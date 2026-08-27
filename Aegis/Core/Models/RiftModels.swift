@@ -27,6 +27,46 @@ struct RiftWorkspace: Codable {
     }
 }
 
+/// The workspace fields that affect Aegis's workspace indicators.
+struct RiftWorkspaceChangeSnapshot: Equatable {
+    let index: Int
+    let name: String
+    let layoutMode: String
+    let isActive: Bool
+
+    init(index: Int, name: String, layoutMode: String, isActive: Bool) {
+        self.index = index
+        self.name = name
+        self.layoutMode = layoutMode
+        self.isActive = isActive
+    }
+
+    init(workspace: RiftWorkspace) {
+        self.init(
+            index: workspace.index,
+            name: workspace.name,
+            layoutMode: workspace.layoutMode,
+            isActive: workspace.isActive
+        )
+    }
+}
+
+/// Pure change detection for the subset of Rift workspace data Aegis displays.
+enum RiftWorkspaceChangeDetector {
+    static func hasChanges(
+        previous: [Int: RiftWorkspaceChangeSnapshot],
+        current: [Int: RiftWorkspaceChangeSnapshot]
+    ) -> Bool {
+        guard previous.count == current.count,
+              Set(previous.keys) == Set(current.keys) else {
+            return true
+        }
+        return current.contains { key, snapshot in
+            previous[key] != snapshot
+        }
+    }
+}
+
 // MARK: - Window
 
 struct RiftWindowId: Codable, Hashable {

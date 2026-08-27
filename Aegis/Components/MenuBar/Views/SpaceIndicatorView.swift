@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 
 struct SpaceIndicatorView: View {
     let space: WMSpace
+    let displayLabel: String
     let isActive: Bool
     let windowIcons: [WindowIcon]
     let allWindowIcons: [WindowIcon]
@@ -69,10 +70,10 @@ struct SpaceIndicatorView: View {
     // MARK: - Sub-views to help type checker
 
     private var spaceNumberView: some View {
-        Text(space.label?.isEmpty == false ? space.label! : "\(space.index)")
+        Text(displayLabel)
             .font(.system(size: 12, weight: .semibold))
             .foregroundColor(ThemeColors.primaryText(opacity: isActive ? 1.0 : 0.6))
-            .frame(width: 16)
+            .frame(minWidth: 16)
             .onTapGesture {
                 onSpaceClick?()
             }
@@ -150,7 +151,9 @@ struct SpaceIndicatorView: View {
     private var dotXPosition: CGFloat {
         guard let idx = focusedIndex else { return 0 }
         // Starting position: left padding + space number + spacing after space number
-        var xPosition: CGFloat = 8 + 16 + 6
+        let spaceLabelFont = NSFont.systemFont(ofSize: 12, weight: .semibold)
+        let spaceLabelWidth = max(16, displayLabel.width(using: spaceLabelFont))
+        var xPosition: CGFloat = 8 + spaceLabelWidth + 6
 
         // Add width of all icons before the focused one
         let iconsToCheck = displayedIcons
@@ -421,6 +424,7 @@ struct SpaceIndicatorView: View {
         // or right-clicks a different icon (which will collapse this one)
     }
 }
+
 
 // MARK: - Overflow Menu
 
@@ -1179,4 +1183,3 @@ private struct ExpandableWindowIcon: View, Equatable {
         }
     }
 }
-
