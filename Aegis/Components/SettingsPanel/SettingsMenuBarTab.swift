@@ -15,6 +15,12 @@ struct SettingsMenuBarTab: View {
                 )
 
                 SettingsToggle(
+                    label: "Menu-Only Context Button",
+                    description: "Open the full context menu on click instead of cycling actions",
+                    isOn: $config.contextButtonMenuOnly
+                )
+
+                SettingsToggle(
                     label: "Space Indicators",
                     description: "Show space indicator buttons (Yabai integration)",
                     isOn: $config.showSpaceIndicators

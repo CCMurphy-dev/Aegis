@@ -106,6 +106,7 @@ struct AegisConfigData: Codable {
     var useSwipeToDestroySpace: Bool?
     var enableLayoutActionHaptics: Bool?
     var expandContextButtonOnScroll: Bool?
+    var contextButtonMenuOnly: Bool?
     var launchAtLogin: Bool?
 
     // Behavior Settings - Auto-Hide & Delays
@@ -398,6 +399,7 @@ extension AegisConfig {
         if let v = data.useSwipeToDestroySpace { useSwipeToDestroySpace = v }
         if let v = data.enableLayoutActionHaptics { enableLayoutActionHaptics = v }
         if let v = data.expandContextButtonOnScroll { expandContextButtonOnScroll = v }
+        if let v = data.contextButtonMenuOnly { contextButtonMenuOnly = v }
         if let v = data.launchAtLogin { launchAtLogin = v }
 
         // Behavior Settings - Auto-Hide & Delays
@@ -656,6 +658,7 @@ extension AegisConfig {
             useSwipeToDestroySpace: useSwipeToDestroySpace,
             enableLayoutActionHaptics: enableLayoutActionHaptics,
             expandContextButtonOnScroll: expandContextButtonOnScroll,
+            contextButtonMenuOnly: contextButtonMenuOnly,
             launchAtLogin: launchAtLogin,
 
             // Behavior Settings - Auto-Hide & Delays
@@ -965,6 +968,7 @@ You can add bundle identifiers (e.g., `"com.apple.mail"`) or partial app name ma
 | `launchAtLogin` | bool | `true` | Start Aegis when macOS starts |
 | `enableLayoutActionHaptics` | bool | `true` | Haptic feedback on layout actions |
 | `expandContextButtonOnScroll` | bool | `true` | Show label when scrolling context button (disable to save CPU) |
+| `contextButtonMenuOnly` | bool | `false` | Open the context menu on click instead of cycling actions |
 | `windowIconExpansionAutoCollapseDelay` | number | `2.0` | Seconds before expanded window collapses |
 
 ---

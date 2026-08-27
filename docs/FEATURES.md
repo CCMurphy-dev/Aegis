@@ -28,6 +28,8 @@ Shows the currently focused window with quick actions.
   - Split layouts
 - **Expands on hover** to show full title
 
+By default, left-click executes the selected layout action and scrolling cycles through actions. Right-click opens the full context menu. With `contextButtonMenuOnly` enabled, both clicks open the menu, scrolling is ignored, and the button shows `≡ Menu`.
+
 ### 3. App Launcher
 Quick-access button for floating utility apps.
 

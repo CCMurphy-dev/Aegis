@@ -176,7 +176,7 @@ Each space shows:
 
 ### Layout Actions Button
 
-Left-click cycles through layout actions. Right-click opens the full context menu.
+By default, left-click executes the selected layout action and scrolling cycles through actions. Right-click opens the full context menu. Enable `contextButtonMenuOnly` to make both left-click and right-click open the menu; scrolling is then ignored and the button stays on the `≡ Menu` indicator.
 
 **Scroll wheel actions:**
 - Scroll up/down to cycle through: Rotate 90°, Rotate 180°, Rotate 270°, Balance, Flip X, Flip Y, Toggle Layout

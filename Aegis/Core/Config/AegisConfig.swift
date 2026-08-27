@@ -34,6 +34,15 @@ struct ColorPreset: Codable, Identifiable, Equatable {
     var borderColor: String?
 }
 
+enum ContextButtonMenuOnlyPreference {
+    static let key = "contextButtonMenuOnly"
+    static let defaultValue = false
+
+    static func load(from defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: key) as? Bool ?? defaultValue
+    }
+}
+
 /// Centralized configuration for all Aegis UI elements, behaviors, and visual parameters
 /// This singleton provides @Published properties that can be observed by SwiftUI views
 /// and persisted via UserDefaults for user customization
@@ -343,6 +352,9 @@ class AegisConfig: ObservableObject {
     /// Expand context button label when scrolling to select action
     /// When disabled, only the icon changes - saves CPU from SwiftUI re-renders
     @Published var expandContextButtonOnScroll: Bool = true
+
+    /// Open the context menu on primary click instead of selecting an action
+    @Published var contextButtonMenuOnly: Bool = ContextButtonMenuOnlyPreference.defaultValue
 
     /// Launch Aegis automatically when macOS starts
     @Published var launchAtLogin: Bool = true {
@@ -960,6 +972,7 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(useSwipeToDestroySpace, forKey: "useSwipeToDestroySpace")
         UserDefaults.standard.set(enableLayoutActionHaptics, forKey: "enableLayoutActionHaptics")
         UserDefaults.standard.set(expandContextButtonOnScroll, forKey: "expandContextButtonOnScroll")
+        UserDefaults.standard.set(contextButtonMenuOnly, forKey: ContextButtonMenuOnlyPreference.key)
         UserDefaults.standard.set(windowIconExpansionAutoCollapseDelay, forKey: "windowIconExpansionAutoCollapseDelay")
         UserDefaults.standard.set(actionLabelAutoHideDelay, forKey: "actionLabelAutoHideDelay")
 
@@ -1276,6 +1289,7 @@ class AegisConfig: ObservableObject {
         if let val = UserDefaults.standard.object(forKey: "expandContextButtonOnScroll") as? Bool {
             expandContextButtonOnScroll = val
         }
+        contextButtonMenuOnly = ContextButtonMenuOnlyPreference.load()
         if let val = UserDefaults.standard.object(forKey: "windowIconExpansionAutoCollapseDelay") as? Double {
             windowIconExpansionAutoCollapseDelay = val
         }
@@ -1663,6 +1677,7 @@ class AegisConfig: ObservableObject {
         useSwipeToDestroySpace = true
         enableLayoutActionHaptics = true
         expandContextButtonOnScroll = true
+        contextButtonMenuOnly = ContextButtonMenuOnlyPreference.defaultValue
         windowIconExpansionAutoCollapseDelay = 2.0
         actionLabelAutoHideDelay = 1.5
 
