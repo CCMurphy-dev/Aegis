@@ -266,7 +266,6 @@ final class AppSwitcherService {
         let flags = event.flags
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         let cmdPressed = flags.contains(.maskCommand)
-        let tabKeyCode: Int64 = 48
 
         switch type {
         case .flagsChanged:
@@ -283,13 +282,12 @@ final class AppSwitcherService {
             }
 
         case .keyDown:
-            if cmdPressed && keyCode == tabKeyCode {
-                let shiftPressed = flags.contains(.maskShift)
+            if let reverse = AppSwitcherShortcutMatcher.reverseDirection(for: keyCode, flags: flags) {
                 DispatchQueue.main.async { [weak self] in
                     if self?.isActive == true {
-                        self?.cycleSelection(reverse: shiftPressed)
+                        self?.cycleSelection(reverse: reverse)
                     } else {
-                        self?.activateSwitcher(reverse: shiftPressed)
+                        self?.activateSwitcher(reverse: reverse)
                     }
                 }
                 return nil
@@ -350,7 +348,7 @@ final class AppSwitcherService {
             }
 
         case .keyUp:
-            if isActive && keyCode == tabKeyCode {
+            if isActive && AppSwitcherShortcutMatcher.reverseDirection(for: keyCode, flags: flags) != nil {
                 return nil
             }
 
