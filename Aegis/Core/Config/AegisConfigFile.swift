@@ -27,6 +27,7 @@ struct AegisConfigData: Codable {
     var systemIconSize: Double?
     var workspaceLabelStyle: String?
     var workspaceLabelOverrides: [String: String]?
+    var hideEmptyWorkspaces: Bool?
     var layoutButtonWidth: Double?
     var buttonLabelExpandedWidth: Double?
     var systemStatusWidth: Double?
@@ -324,6 +325,7 @@ extension AegisConfig {
             workspaceLabelStyle = style
         }
         if let v = data.workspaceLabelOverrides { workspaceLabelOverrides = v }
+        if let v = data.hideEmptyWorkspaces { hideEmptyWorkspaces = v }
         if let v = data.layoutButtonWidth { layoutButtonWidth = CGFloat(v) }
         if let v = data.buttonLabelExpandedWidth { buttonLabelExpandedWidth = CGFloat(v) }
         if let v = data.systemStatusWidth { systemStatusWidth = CGFloat(v) }
@@ -585,6 +587,7 @@ extension AegisConfig {
             systemIconSize: Double(systemIconSize),
             workspaceLabelStyle: workspaceLabelStyle.rawValue,
             workspaceLabelOverrides: workspaceLabelOverrides.isEmpty ? nil : workspaceLabelOverrides,
+            hideEmptyWorkspaces: hideEmptyWorkspaces,
             layoutButtonWidth: Double(layoutButtonWidth),
             buttonLabelExpandedWidth: Double(buttonLabelExpandedWidth),
             systemStatusWidth: Double(systemStatusWidth),
@@ -964,6 +967,7 @@ You can add bundle identifiers (e.g., `"com.apple.mail"`) or partial app name ma
 | `maxAppIconsPerSpace` | int | `3` | Max window icons per space before overflow menu |
 | `workspaceLabelStyle` | string | `"index"` | Workspace indicator labels: `"index"` or unique name abbreviations (`"nameInitial"`) |
 | `workspaceLabelOverrides` | object | `{}` | Explicit workspace indicator labels keyed by the original workspace label |
+| `hideEmptyWorkspaces` | bool | `false` | Hide inactive workspaces with no managed windows from the menu bar |
 | `excludedApps` | [string] | `["Finder", "Aegis"]` | Base apps to hide from space indicators (launcher apps are automatically excluded) |
 | `showAppNameInExpansion` | bool | `false` | Show app name below window title when expanded |
 | `autoExpandFocusedWindow` | bool | `true` | Automatically expand the focused window's title |

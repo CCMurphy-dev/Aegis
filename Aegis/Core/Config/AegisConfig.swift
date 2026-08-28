@@ -72,6 +72,15 @@ enum WorkspaceLabelOverridesPreference {
     }
 }
 
+enum HideEmptyWorkspacesPreference {
+    static let key = "hideEmptyWorkspaces"
+    static let defaultValue = false
+
+    static func load(from defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: key) as? Bool ?? defaultValue
+    }
+}
+
 /// Centralized configuration for all Aegis UI elements, behaviors, and visual parameters
 /// This singleton provides @Published properties that can be observed by SwiftUI views
 /// and persisted via UserDefaults for user customization
@@ -118,6 +127,10 @@ class AegisConfig: ObservableObject {
 
     /// Explicit workspace indicator labels, keyed by the original WM label.
     @Published var workspaceLabelOverrides: [String: String] = WorkspaceLabelOverridesPreference.defaultValue
+
+    /// Hide inactive workspaces with no managed windows from the menu bar.
+    /// Shortcuts and context menus continue to expose every workspace.
+    @Published var hideEmptyWorkspaces: Bool = HideEmptyWorkspacesPreference.defaultValue
 
     /// Size of system status icons
     @Published var systemIconSize: CGFloat = 14
@@ -944,6 +957,7 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(systemIconSize, forKey: "systemIconSize")
         UserDefaults.standard.set(workspaceLabelStyle.rawValue, forKey: WorkspaceLabelStylePreference.key)
         UserDefaults.standard.set(workspaceLabelOverrides, forKey: WorkspaceLabelOverridesPreference.key)
+        UserDefaults.standard.set(hideEmptyWorkspaces, forKey: HideEmptyWorkspacesPreference.key)
         UserDefaults.standard.set(layoutButtonWidth, forKey: "layoutButtonWidth")
         UserDefaults.standard.set(buttonLabelExpandedWidth, forKey: "buttonLabelExpandedWidth")
         UserDefaults.standard.set(systemStatusWidth, forKey: "systemStatusWidth")
@@ -1157,6 +1171,7 @@ class AegisConfig: ObservableObject {
         }
         workspaceLabelStyle = WorkspaceLabelStylePreference.load()
         workspaceLabelOverrides = WorkspaceLabelOverridesPreference.load()
+        hideEmptyWorkspaces = HideEmptyWorkspacesPreference.load()
         if let val = UserDefaults.standard.object(forKey: "layoutButtonWidth") as? Double {
             layoutButtonWidth = CGFloat(val)
         }
@@ -1659,6 +1674,7 @@ class AegisConfig: ObservableObject {
         systemIconSize = 14
         workspaceLabelStyle = WorkspaceLabelStylePreference.defaultValue
         workspaceLabelOverrides = WorkspaceLabelOverridesPreference.defaultValue
+        hideEmptyWorkspaces = HideEmptyWorkspacesPreference.defaultValue
         layoutButtonWidth = 32
         buttonLabelExpandedWidth = 95
         systemStatusWidth = 150

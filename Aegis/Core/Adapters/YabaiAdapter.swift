@@ -13,6 +13,11 @@ import AppKit
 
 final class YabaiAdapter: WindowManagerProtocol {
 
+    private static func isManagedWindow(_ window: WindowInfo) -> Bool {
+        window.role == "AXWindow" &&
+        (window.subrole == "AXStandardWindow" || window.isMinimized)
+    }
+
     // MARK: - Identity
 
     let name = "Yabai"
@@ -41,15 +46,21 @@ final class YabaiAdapter: WindowManagerProtocol {
     // MARK: - Queries — Spaces
 
     func getCurrentSpaces() -> [WMSpace] {
-        return yabai.getCurrentSpaces().map { $0.toWMSpace() }
+        let windowCounts = Dictionary(grouping: yabai.getAllWindows().filter(Self.isManagedWindow), by: { $0.space })
+            .mapValues(\.count)
+        return yabai.getCurrentSpaces().map { $0.toWMSpace(windowCount: windowCounts[$0.index] ?? 0, windowCountIsKnown: yabai.hasWindowSnapshot) }
     }
 
     func getSpacesForDisplay(_ displayIndex: Int) -> [WMSpace] {
-        return yabai.getSpacesForDisplay(displayIndex).map { $0.toWMSpace() }
+        let windowCounts = Dictionary(grouping: yabai.getAllWindows().filter(Self.isManagedWindow), by: { $0.space })
+            .mapValues(\.count)
+        return yabai.getSpacesForDisplay(displayIndex).map { $0.toWMSpace(windowCount: windowCounts[$0.index] ?? 0, windowCountIsKnown: yabai.hasWindowSnapshot) }
     }
 
     func getFocusedSpace() -> WMSpace? {
-        return yabai.getFocusedSpaceSync()?.toWMSpace()
+        guard let space = yabai.getFocusedSpaceSync() else { return nil }
+        let count = yabai.getAllWindows().filter { $0.space == space.index && Self.isManagedWindow($0) }.count
+        return space.toWMSpace(windowCount: count, windowCountIsKnown: yabai.hasWindowSnapshot)
     }
 
     func getFocusedSpaceIndex() -> Int {
@@ -198,7 +209,7 @@ final class YabaiAdapter: WindowManagerProtocol {
 // MARK: - Type Conversions
 
 extension Space {
-    func toWMSpace() -> WMSpace {
+    func toWMSpace(windowCount: Int = 0, windowCountIsKnown: Bool = false) -> WMSpace {
         WMSpace(
             id: id,
             index: index,
@@ -207,7 +218,9 @@ extension Space {
             workspaceName: label,
             layoutType: WMLayoutType.fromYabai(type),
             isFocused: focused,
-            isFullscreen: isNativeFullscreen
+            isFullscreen: isNativeFullscreen,
+            windowCount: windowCount,
+            windowCountIsKnown: windowCountIsKnown
         )
     }
 }

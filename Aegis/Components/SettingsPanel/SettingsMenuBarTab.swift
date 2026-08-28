@@ -57,6 +57,12 @@ struct SettingsMenuBarTab: View {
                         isOn: $config.showAppNameInExpansion
                     )
 
+                    SettingsToggle(
+                        label: "Hide Empty Workspaces",
+                        description: "Hide inactive workspaces with no managed windows",
+                        isOn: $config.hideEmptyWorkspaces
+                    )
+
                     SettingsWorkspaceLabelStylePicker(
                         label: "Workspace Labels",
                         selection: $config.workspaceLabelStyle

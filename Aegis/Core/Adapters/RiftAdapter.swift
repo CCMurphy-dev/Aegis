@@ -189,7 +189,9 @@ extension RiftWorkspace {
             workspaceName: name,
             layoutType: WMLayoutType.fromRift(layoutMode),
             isFocused: isActive,
-            isFullscreen: false
+            isFullscreen: false,
+            windowCount: windowCount,
+            windowCountIsKnown: true
         )
     }
 }

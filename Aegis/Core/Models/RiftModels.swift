@@ -33,12 +33,14 @@ struct RiftWorkspaceChangeSnapshot: Equatable {
     let name: String
     let layoutMode: String
     let isActive: Bool
+    let windowCount: Int
 
-    init(index: Int, name: String, layoutMode: String, isActive: Bool) {
+    init(index: Int, name: String, layoutMode: String, isActive: Bool, windowCount: Int = 0) {
         self.index = index
         self.name = name
         self.layoutMode = layoutMode
         self.isActive = isActive
+        self.windowCount = windowCount
     }
 
     init(workspace: RiftWorkspace) {
@@ -46,8 +48,17 @@ struct RiftWorkspaceChangeSnapshot: Equatable {
             index: workspace.index,
             name: workspace.name,
             layoutMode: workspace.layoutMode,
-            isActive: workspace.isActive
+            isActive: workspace.isActive,
+            windowCount: workspace.windowCount
         )
+    }
+}
+
+/// Rift returns window records only for workspaces with a fresh window list.
+/// A reported zero is also fresh data and must clear any cached windows.
+enum RiftWorkspaceWindowCachePolicy {
+    static func hasAuthoritativeWindowData(for workspace: RiftWorkspace) -> Bool {
+        workspace.windowCount == 0 || !workspace.windows.isEmpty
     }
 }
 

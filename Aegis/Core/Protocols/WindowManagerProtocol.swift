@@ -34,6 +34,53 @@ struct WMSpace: Identifiable, Equatable {
     let layoutType: WMLayoutType
     let isFocused: Bool
     let isFullscreen: Bool     // Native macOS fullscreen
+    /// Number of managed windows in this workspace, including windows that
+    /// are hidden from the menu-bar icon list.
+    let windowCount: Int
+    /// False while the WM has not completed a window snapshot. A failed or
+    /// partial refresh must not turn previously occupied spaces into empty
+    /// ones for the bar.
+    let windowCountIsKnown: Bool
+
+    init(
+        id: Int,
+        index: Int,
+        display: Int,
+        label: String?,
+        workspaceName: String?,
+        layoutType: WMLayoutType,
+        isFocused: Bool,
+        isFullscreen: Bool,
+        windowCount: Int = 0,
+        windowCountIsKnown: Bool = false
+    ) {
+        self.id = id
+        self.index = index
+        self.display = display
+        self.label = label
+        self.workspaceName = workspaceName
+        self.layoutType = layoutType
+        self.isFocused = isFocused
+        self.isFullscreen = isFullscreen
+        self.windowCount = windowCount
+        self.windowCountIsKnown = windowCountIsKnown
+    }
+}
+
+/// Selects which workspaces the menu-bar indicator displays. This does not
+/// change the workspaces exposed to shortcuts, menus, or WM commands.
+enum WorkspaceVisibilityPolicy {
+    static func visibleSpaces(
+        _ spaces: [WMSpace],
+        hideEmpty: Bool,
+        previousCounts: [Int: Int] = [:]
+    ) -> [WMSpace] {
+        guard hideEmpty else { return spaces }
+        return spaces.filter {
+            let count = $0.windowCountIsKnown ? $0.windowCount : (previousCounts[$0.id] ?? 0)
+            return count > 0 || $0.isFocused
+        }
+    }
 }
 
 /// Produces the compact labels used by menu bar workspace indicators.

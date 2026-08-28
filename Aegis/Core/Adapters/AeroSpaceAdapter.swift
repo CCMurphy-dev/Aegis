@@ -51,7 +51,9 @@ final class AeroSpaceAdapter: WindowManagerProtocol {
                 workspaceName: ws.name,
                 layoutType: .tiling,   // AeroSpace doesn't expose per-workspace layout in queries
                 isFocused: ws.isFocused,
-                isFullscreen: false
+                isFullscreen: false,
+                windowCount: ws.windows.count,
+                windowCountIsKnown: aero.hasWindowSnapshot
             )
         }
     }
