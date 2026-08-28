@@ -40,6 +40,14 @@ actor RiftCommandActor {
 
     /// Check if the Rift daemon is actually running (not just rift-cli installed)
     nonisolated static func isRiftDaemonRunning() -> Bool {
+        riftDaemonPID() != nil
+    }
+
+    /// PID of the running daemon, used to detect daemon restarts. A restarted
+    /// daemon silently orphans existing subscriptions, so callers must
+    /// reconnect on pid change. `pgrep -x rift` is safe here: the CLI is named
+    /// "rift-cli", not "rift".
+    nonisolated static func riftDaemonPID() -> pid_t? {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep")
         task.arguments = ["-x", "rift"]
@@ -49,9 +57,12 @@ actor RiftCommandActor {
         do {
             try task.run()
             task.waitUntilExit()
-            return task.terminationStatus == 0
+            guard task.terminationStatus == 0 else { return nil }
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            let text = String(decoding: data, as: UTF8.self)
+            return text.split(whereSeparator: \.isNewline).first.flatMap { pid_t($0) }
         } catch {
-            return false
+            return nil
         }
     }
 
@@ -177,9 +188,18 @@ final class RiftService {
 
     private let dataQueue = DispatchQueue(label: "com.aegis.rift.data", attributes: .concurrent)
 
-    // Event subscription process
+    // Event subscription process.
+    // The whole subscription lifecycle (spawn / termination / reconnect) is
+    // confined to `subscriptionQueue` — it must never touch the main thread.
     private var subscriptionProcess: Process?
     private var lineBuffer = ""
+    private let subscriptionQueue = DispatchQueue(label: "com.aegis.rift.subscription")
+    private var retryPending = false
+    private var retryAttempt = 0
+    private var subscriptionGeneration = 0
+    private var subscribedDaemonPID: pid_t?
+    private var daemonWatchdog: DispatchSourceTimer?
+    private static let retryBackoff: [TimeInterval] = [1, 2, 5, 10, 30]
 
     // Coalescing gate (identical pattern to YabaiService)
     private enum RefreshScope: Int, Comparable {
@@ -216,7 +236,21 @@ final class RiftService {
             await executeRefresh(scope: .all, source: "init")
         }
 
-        startSubscription()
+        subscriptionQueue.async { [weak self] in
+            self?.startSubscription()
+        }
+
+        // Periodic watchdog: a restarted daemon orphans the subscription
+        // without any termination signal, and refresh-driven checks only run
+        // when the user interacts. One pgrep per 10s is negligible.
+        let watchdog = DispatchSource.makeTimerSource(queue: subscriptionQueue)
+        watchdog.schedule(deadline: .now() + 10, repeating: 10)
+        watchdog.setEventHandler { [weak self] in
+            self?.reconnectIfDaemonChanged()
+        }
+        watchdog.resume()
+        daemonWatchdog = watchdog
+
         setupWorkspaceFallback()
         logInfo("RiftService ready")
     }
@@ -226,21 +260,33 @@ final class RiftService {
     }
 
     func stop() {
-        subscriptionProcess?.terminate()
-        subscriptionProcess = nil
+        // Invalidate pending retries before tearing down.
+        subscriptionQueue.sync {
+            subscriptionGeneration += 1
+            retryPending = false
+            daemonWatchdog?.cancel()
+            daemonWatchdog = nil
+            subscriptionProcess?.terminate()
+            subscriptionProcess = nil
+        }
         NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
 
     // MARK: - Event Subscription
 
+    /// Must be called on `subscriptionQueue`.
     private func startSubscription() {
+        // Never stack subscriptions: one live process, no retry in flight.
+        guard subscriptionProcess?.isRunning != true, !retryPending else { return }
+
         guard let path = command.riftCliPath else {
             logError("Cannot start Rift event subscription: rift-cli not found")
             return
         }
 
         guard RiftCommandActor.isRiftDaemonRunning() else {
-            logWarning("Rift daemon not running, skipping subscription (will retry via fallback)")
+            logWarning("Rift daemon not running, will retry with backoff")
+            scheduleRetry()
             return
         }
 
@@ -252,10 +298,23 @@ final class RiftService {
         process.standardOutput = pipe
         process.standardError = Pipe()
 
+        process.terminationHandler = { [weak self] terminated in
+            self?.subscriptionQueue.async {
+                // Ignore stale terminations: a reconnect may already have
+                // replaced subscriptionProcess by the time the old process's
+                // SIGTERM is delivered.
+                guard let self = self, self.subscriptionProcess === terminated else { return }
+                self.handleSubscriptionTerminated()
+            }
+        }
+
         pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             guard !data.isEmpty else {
-                self?.handleSubscriptionTerminated()
+                // EOF: unregister immediately or the handler keeps firing in a
+                // busy loop. Termination itself is handled once by
+                // `terminationHandler` above.
+                handle.readabilityHandler = nil
                 return
             }
             let raw = String(decoding: data, as: UTF8.self)
@@ -263,15 +322,22 @@ final class RiftService {
         }
 
         do {
+            lineBuffer = ""
             try process.run()
             self.subscriptionProcess = process
+            self.subscribedDaemonPID = RiftCommandActor.riftDaemonPID()
             logInfo("Rift event subscription started")
         } catch {
             logError("Failed to start rift-cli subscribe: \(error)")
+            scheduleRetry()
         }
     }
 
     private func processIncomingData(_ raw: String) {
+        // Receiving data means the connection is healthy — reset the backoff.
+        subscriptionQueue.async { [weak self] in
+            self?.retryAttempt = 0
+        }
         lineBuffer += raw
         while let newlineIndex = lineBuffer.firstIndex(of: "\n") {
             let line = String(lineBuffer[lineBuffer.startIndex..<newlineIndex])
@@ -283,15 +349,41 @@ final class RiftService {
         }
     }
 
+    /// Must run on `subscriptionQueue`. Single-flight: only the first
+    /// termination signal for a given process schedules a retry.
     private func handleSubscriptionTerminated() {
-        logWarning("Rift subscription process terminated, will retry if daemon is running")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
-            guard RiftCommandActor.isRiftDaemonRunning() else {
-                logInfo("Rift daemon not running, deferring subscription reconnect")
-                return
-            }
-            self?.startSubscription()
+        guard subscriptionProcess != nil else { return }
+        subscriptionProcess = nil
+        logWarning("Rift subscription process terminated, will retry with backoff")
+        scheduleRetry()
+    }
+
+    /// Must run on `subscriptionQueue`.
+    private func scheduleRetry() {
+        guard !retryPending else { return }
+        retryPending = true
+        let delay = Self.retryBackoff[min(retryAttempt, Self.retryBackoff.count - 1)]
+        retryAttempt += 1
+        let generation = subscriptionGeneration
+        subscriptionQueue.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self = self, self.subscriptionGeneration == generation else { return }
+            self.retryPending = false
+            self.startSubscription()
         }
+    }
+
+    /// Must run on `subscriptionQueue`. A restarted daemon silently orphans
+    /// the subscription — detect the pid change and reconnect.
+    private func reconnectIfDaemonChanged() {
+        guard let pid = RiftCommandActor.riftDaemonPID() else { return }
+        guard subscribedDaemonPID != pid else { return }
+        logWarning("Rift daemon restarted (pid \(subscribedDaemonPID.map(String.init) ?? "none") -> \(pid)), reconnecting subscription")
+        subscribedDaemonPID = pid
+        subscriptionProcess?.terminate()
+        subscriptionProcess = nil
+        retryAttempt = 0
+        retryPending = false
+        startSubscription()
     }
 
     private func handleRiftEventLine(_ line: String) {
@@ -427,6 +519,12 @@ final class RiftService {
     }
 
     private func executeRefresh(scope: RefreshScope, source: String = "unknown") async {
+        // A restarted daemon orphans the subscription without any termination
+        // signal — check on every refresh (debounced below) and reconnect.
+        subscriptionQueue.async { [weak self] in
+            self?.reconnectIfDaemonChanged()
+        }
+
         let now = Date()
         let timeSinceLast = now.timeIntervalSince(lastRefreshTime)
         if timeSinceLast < debounceInterval { return }
