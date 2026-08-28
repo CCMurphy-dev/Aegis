@@ -10,7 +10,10 @@ struct AegisSurfacePalette {
     let background: NSColor
     let foreground: NSColor
     let secondaryForeground: NSColor
+    let tertiaryForeground: NSColor
     let border: NSColor
+    let selectionFill: NSColor
+    let selectionBorder: NSColor
 }
 
 enum AegisSurfaceRenderingMode: Equatable {
@@ -23,13 +26,15 @@ final class AegisSurfaceAppearance: ObservableObject {
     static let shared = AegisSurfaceAppearance()
 
     @Published private(set) var reduceTransparency: Bool
+    private let workspaceNotificationCenter: NotificationCenter
     private var observer: NSObjectProtocol?
 
     init(workspace: NSWorkspace = .shared) {
         reduceTransparency = workspace.accessibilityDisplayShouldReduceTransparency
-        observer = NotificationCenter.default.addObserver(
+        workspaceNotificationCenter = workspace.notificationCenter
+        observer = workspaceNotificationCenter.addObserver(
             forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
-            object: workspace,
+            object: nil,
             queue: .main
         ) { [weak self, weak workspace] _ in
             guard let self, let workspace else { return }
@@ -39,7 +44,7 @@ final class AegisSurfaceAppearance: ObservableObject {
     }
 
     deinit {
-        if let observer { NotificationCenter.default.removeObserver(observer) }
+        if let observer { workspaceNotificationCenter.removeObserver(observer) }
     }
 
     /// Kept pure so availability and accessibility behavior can be tested
@@ -108,7 +113,10 @@ final class AegisSurfaceAppearance: ObservableObject {
                 background: background,
                 foreground: foreground,
                 secondaryForeground: foreground.withAlphaComponent(0.78),
-                border: border
+                tertiaryForeground: foreground.withAlphaComponent(0.55),
+                border: border,
+                selectionFill: foreground.withAlphaComponent(0.15),
+                selectionBorder: border.withAlphaComponent(0.7)
             )
         }
 
@@ -117,7 +125,10 @@ final class AegisSurfaceAppearance: ObservableObject {
                 background: NSColor.windowBackgroundColor,
                 foreground: NSColor.labelColor,
                 secondaryForeground: NSColor.secondaryLabelColor,
-                border: NSColor.separatorColor
+                tertiaryForeground: NSColor.tertiaryLabelColor,
+                border: NSColor.separatorColor,
+                selectionFill: NSColor.controlAccentColor.withAlphaComponent(0.18),
+                selectionBorder: NSColor.controlAccentColor.withAlphaComponent(0.55)
             )
         }
 
@@ -127,7 +138,10 @@ final class AegisSurfaceAppearance: ObservableObject {
             background: background,
             foreground: foreground,
             secondaryForeground: foreground.withAlphaComponent(0.78),
-            border: foreground.withAlphaComponent(0.28)
+            tertiaryForeground: foreground.withAlphaComponent(0.55),
+            border: foreground.withAlphaComponent(0.28),
+            selectionFill: foreground.withAlphaComponent(0.15),
+            selectionBorder: foreground.withAlphaComponent(0.35)
         )
     }
 

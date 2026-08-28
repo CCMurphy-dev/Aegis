@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		833A42582F1921F7006F4B26 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 83SPARKLE022F15000000002 /* Sparkle */; };
 		A6915E010000000000000001 /* AegisSurfaceAppearanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6915E020000000000000001 /* AegisSurfaceAppearanceTests.swift */; };
+		A6915E040000000000000001 /* AppSwitcherSurfaceAppearanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6915E050000000000000001 /* AppSwitcherSurfaceAppearanceTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -46,6 +47,7 @@
 		83DF29CE2F13893700C8A7A1 /* AegisTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AegisTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		83DF29D82F13893700C8A7A1 /* AegisUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AegisUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A6915E020000000000000001 /* AegisSurfaceAppearanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AegisSurfaceAppearanceTests.swift; sourceTree = "<group>"; };
+		A6915E050000000000000001 /* AppSwitcherSurfaceAppearanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSwitcherSurfaceAppearanceTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
@@ -111,6 +113,7 @@
 			isa = PBXGroup;
 			children = (
 				A6915E020000000000000001 /* AegisSurfaceAppearanceTests.swift */,
+				A6915E050000000000000001 /* AppSwitcherSurfaceAppearanceTests.swift */,
 			);
 			path = AegisTests;
 			sourceTree = "<group>";
@@ -299,6 +302,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A6915E010000000000000001 /* AegisSurfaceAppearanceTests.swift in Sources */,
+				A6915E040000000000000001 /* AppSwitcherSurfaceAppearanceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

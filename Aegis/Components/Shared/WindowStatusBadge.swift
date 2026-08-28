@@ -6,6 +6,8 @@ struct WindowStatusBadge: View {
     let isMinimized: Bool
     let isHidden: Bool
     let stackIndex: Int
+    var stackBackground: Color = Color.white.opacity(0.2)
+    var stackForeground: Color = Color.white.opacity(0.9)
 
     var body: some View {
         Group {
@@ -20,11 +22,11 @@ struct WindowStatusBadge: View {
             } else if stackIndex > 0 {
                 ZStack {
                     Circle()
-                        .fill(Color.white.opacity(0.2))
+                        .fill(stackBackground)
                         .frame(width: 10, height: 10)
                     Text("⧉")
                         .font(.system(size: 6, weight: .bold))
-                        .foregroundColor(.white.opacity(0.9))
+                        .foregroundColor(stackForeground)
                 }
             }
         }
