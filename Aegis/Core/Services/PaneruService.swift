@@ -43,18 +43,31 @@ actor PaneruCommandActor {
 
     /// Check if the Paneru daemon is actually running (not just the binary installed)
     nonisolated static func isPaneruDaemonRunning() -> Bool {
+        paneruDaemonPID() != nil
+    }
+
+    /// PID of the running daemon, used to detect daemon restarts. A restarted
+    /// daemon silently orphans existing subscriptions (the subscribe CLI never
+    /// notices the old daemon died), so callers must reconnect on pid change.
+    /// Matches only the bare daemon binary — the `subscribe` CLI is also named
+    /// "paneru" and must not count (it can outlive the daemon as a zombie).
+    nonisolated static func paneruDaemonPID() -> pid_t? {
+        guard let path = findPaneru() else { return nil }
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep")
-        task.arguments = ["-x", "paneru"]
+        task.arguments = ["-xf", path]
         let pipe = Pipe()
         task.standardOutput = pipe
         task.standardError = pipe
         do {
             try task.run()
             task.waitUntilExit()
-            return task.terminationStatus == 0
+            guard task.terminationStatus == 0 else { return nil }
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            let text = String(decoding: data, as: UTF8.self)
+            return text.split(whereSeparator: \.isNewline).first.flatMap { pid_t($0) }
         } catch {
-            return false
+            return nil
         }
     }
 
@@ -182,6 +195,8 @@ final class PaneruService {
     private var retryPending = false
     private var retryAttempt = 0
     private var subscriptionGeneration = 0
+    private var subscribedDaemonPID: pid_t?
+    private var daemonWatchdog: DispatchSourceTimer?
     private static let retryBackoff: [TimeInterval] = [1, 2, 5, 10, 30]
 
     // Coalescing gate (identical pattern to RiftService)
@@ -219,6 +234,18 @@ final class PaneruService {
         subscriptionQueue.async { [weak self] in
             self?.startSubscription()
         }
+
+        // Periodic watchdog: a restarted daemon orphans the subscription
+        // without any termination signal, and refresh-driven checks only run
+        // when the user interacts. One pgrep per 10s is negligible.
+        let watchdog = DispatchSource.makeTimerSource(queue: subscriptionQueue)
+        watchdog.schedule(deadline: .now() + 10, repeating: 10)
+        watchdog.setEventHandler { [weak self] in
+            self?.reconnectIfDaemonChanged()
+        }
+        watchdog.resume()
+        daemonWatchdog = watchdog
+
         setupWorkspaceFallback()
         logInfo("PaneruService ready")
     }
@@ -232,6 +259,8 @@ final class PaneruService {
         subscriptionQueue.sync {
             subscriptionGeneration += 1
             retryPending = false
+            daemonWatchdog?.cancel()
+            daemonWatchdog = nil
             subscriptionProcess?.terminate()
             subscriptionProcess = nil
         }
@@ -264,9 +293,13 @@ final class PaneruService {
         process.standardOutput = pipe
         process.standardError = Pipe()
 
-        process.terminationHandler = { [weak self] _ in
+        process.terminationHandler = { [weak self] terminated in
             self?.subscriptionQueue.async {
-                self?.handleSubscriptionTerminated()
+                // Ignore stale terminations: a reconnect may already have
+                // replaced subscriptionProcess by the time the old process's
+                // SIGTERM is delivered.
+                guard let self = self, self.subscriptionProcess === terminated else { return }
+                self.handleSubscriptionTerminated()
             }
         }
 
@@ -287,6 +320,7 @@ final class PaneruService {
             lineBuffer = ""
             try process.run()
             self.subscriptionProcess = process
+            self.subscribedDaemonPID = PaneruCommandActor.paneruDaemonPID()
             logInfo("Paneru event subscription started")
         } catch {
             logError("Failed to start paneru subscribe: \(error)")
@@ -333,6 +367,21 @@ final class PaneruService {
         }
     }
 
+    /// Must run on `subscriptionQueue`. The subscribe CLI never notices when
+    /// the daemon exits — a restarted daemon silently orphans the subscription.
+    /// Detect the pid change and reconnect.
+    private func reconnectIfDaemonChanged() {
+        guard let pid = PaneruCommandActor.paneruDaemonPID() else { return }
+        guard subscribedDaemonPID != pid else { return }
+        logWarning("Paneru daemon restarted (pid \(subscribedDaemonPID.map(String.init) ?? "none") -> \(pid)), reconnecting subscription")
+        subscribedDaemonPID = pid
+        subscriptionProcess?.terminate()
+        subscriptionProcess = nil
+        retryAttempt = 0
+        retryPending = false
+        startSubscription()
+    }
+
     private func handlePaneruEventLine(_ line: String) {
         lastSubscriptionEventTime = Date()
 
@@ -348,7 +397,7 @@ final class PaneruService {
             if let active = event.active {
                 dataQueue.sync(flags: .barrier) { [weak self] in
                     guard let self = self else { return }
-                    self.activeWorkspaceIndex = active.virtualWorkspaceNumber
+                    self.activeWorkspaceIndex = active.virtualWorkspaceNumber ?? 1
                     self.activeNativeWorkspaceId = active.nativeWorkspaceId ?? 0
                 }
             }
@@ -419,6 +468,12 @@ final class PaneruService {
     }
 
     private func executeRefresh(scope: RefreshScope, source: String = "unknown") async {
+        // A restarted daemon orphans the subscription without any termination
+        // signal — check on every refresh (debounced below) and reconnect.
+        subscriptionQueue.async { [weak self] in
+            self?.reconnectIfDaemonChanged()
+        }
+
         let now = Date()
         let timeSinceLast = now.timeIntervalSince(lastRefreshTime)
         if timeSinceLast < debounceInterval { return }
@@ -492,7 +547,7 @@ final class PaneruService {
                         self.windowToWorkspace[window.windowId] = row.number
                     }
                 }
-                self.activeWorkspaceIndex = state.active.virtualWorkspaceNumber
+                self.activeWorkspaceIndex = state.active.virtualWorkspaceNumber ?? 1
                 self.activeNativeWorkspaceId = state.active.nativeWorkspaceId ?? 0
             }
 

@@ -24,7 +24,7 @@ struct PaneruState: Codable {
 struct PaneruActive: Codable {
     let displayId: Int?            // Can be null
     let nativeWorkspaceId: Int?    // Can be null when no row is active
-    let virtualWorkspaceNumber: Int
+    let virtualWorkspaceNumber: Int?  // Can be null while the daemon starts up
     let focusedWindowId: Int?
     let focusedBundleId: String?
     let focusedAppName: String?
