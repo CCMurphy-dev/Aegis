@@ -278,15 +278,18 @@ final class AppSwitcherWindowController {
 
         // Window mode — find the row position across space groups
         var currentIndex = 0
+        let labelColumnWidth = SwitcherSpaceLabelLayout.columnWidth(
+            for: viewModel.spaceGroups.map(\.displayLabel)
+        )
         for (groupIndex, group) in viewModel.spaceGroups.enumerated() {
             for _ in group.windows {
                 if currentIndex == index {
                     let rowY = viewHeight - y - rowHeight
 
                     let rowFrame = CGRect(
-                        x: padding + 20 + 8,  // padding + space number width + spacing
+                        x: padding + labelColumnWidth + 8,
                         y: rowY,
-                        width: hostingView.bounds.width - padding * 2 - 20 - 8,
+                        width: hostingView.bounds.width - padding * 2 - labelColumnWidth - 8,
                         height: rowHeight
                     )
 
@@ -432,12 +435,16 @@ struct AppSwitcherView: View {
                 }
             } else {
                 // Window list - selection highlight rendered via CALayer overlay
+                let labelColumnWidth = SwitcherSpaceLabelLayout.columnWidth(
+                    for: viewModel.spaceGroups.map(\.displayLabel)
+                )
                 ForEach(Array(viewModel.spaceGroups.enumerated()), id: \.element.id) { index, group in
                     SpaceGroupView(
                         group: group,
                         windowIndexMap: viewModel.windowIndexMap,
                         isLast: index == viewModel.spaceGroups.count - 1,
-                        showPreview: viewModel.showPreviews
+                        showPreview: viewModel.showPreviews,
+                        labelColumnWidth: labelColumnWidth
                     )
                 }
 
@@ -666,30 +673,44 @@ class MouseTrackingNSView: NSView {
     }
 }
 
+enum SwitcherSpaceLabelLayout {
+    static let minimumColumnWidth: CGFloat = 20
+    static let maximumColumnWidth: CGFloat = 96
+
+    static func columnWidth(for labels: [String]) -> CGFloat {
+        let font = NSFont.systemFont(ofSize: 12, weight: .semibold)
+        let widestLabel = labels.map { $0.width(using: font) }.max() ?? 0
+        return min(maximumColumnWidth, max(minimumColumnWidth, ceil(widestLabel) + 8))
+    }
+}
+
 struct SpaceGroupView: View {
     let group: SpaceGroup
     let windowIndexMap: [Int: Int]  // Pre-computed: window.id -> global index
     let isLast: Bool
     let showPreview: Bool
+    let labelColumnWidth: CGFloat
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center, spacing: 8) {
                 // Space number on the left with vertical connector line
                 VStack(spacing: 0) {
-                    Text("\(group.spaceIndex)")
+                    Text(group.displayLabel)
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(group.isFocused ? .white : .white.opacity(0.5))
-                        .frame(width: 20, alignment: .center)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(width: labelColumnWidth, alignment: .leading)
                 }
-                .frame(width: 20)
+                .frame(width: labelColumnWidth)
                 .overlay(alignment: .trailing) {
                     // Vertical connector line
                     Rectangle()
                         .fill(Color.white.opacity(0.15))
                         .frame(width: 1)
                         .padding(.vertical, 4)
-                        .offset(x: 12)
+                        .offset(x: 4)
                 }
 
                 // Windows column - selection highlight is rendered via CALayer overlay
@@ -707,7 +728,7 @@ struct SpaceGroupView: View {
                     .fill(Color.white.opacity(0.1))
                     .frame(height: 1)
                     .padding(.vertical, 6)
-                    .padding(.leading, 32)
+                    .padding(.leading, labelColumnWidth + 12)
             }
         }
     }
