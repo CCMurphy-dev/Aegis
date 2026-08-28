@@ -227,7 +227,6 @@ final class AppSwitcherActionRefreshCoordinator {
         }
     }
 }
-
 enum AppSwitcherActionSelectionPolicy {
     static func index(
         in windows: [SwitcherWindow],
@@ -239,5 +238,83 @@ enum AppSwitcherActionSelectionPolicy {
             return retainedIndex
         }
         return min(index, windows.count - 1)
+    }
+}
+
+enum AppSwitcherLeftShiftTapResult: Equatable {
+    case ignored
+    case consume
+    case reverse
+}
+
+/// Recognizes a standalone left Shift tap while Cmd+Tab is open.
+///
+/// The policy keeps reverse intent separate from release suppression. The
+/// event tap remains in charge of normal Cmd+Shift+Tab and all selection
+/// movement, which prevents this opt-in shortcut from duplicating reverse
+/// navigation.
+struct AppSwitcherLeftShiftTapPolicy {
+    static let leftShiftKeyCode: Int64 = 56
+    static let rightShiftKeyCode: Int64 = 60
+
+    private var awaitingRelease = false
+    private var suppressLeftShiftRelease = false
+
+    mutating func flagsChanged(
+        keyCode: Int64,
+        flags: CGEventFlags,
+        enabled: Bool,
+        switcherIsActive: Bool,
+        rightShiftIsHeld: Bool = false
+    ) -> AppSwitcherLeftShiftTapResult {
+        if keyCode == Self.leftShiftKeyCode,
+           !flags.contains(.maskShift),
+           suppressLeftShiftRelease {
+            suppressLeftShiftRelease = false
+            defer { awaitingRelease = false }
+            return enabled && switcherIsActive && flags.contains(.maskCommand) && awaitingRelease
+                ? .reverse
+                : .consume
+        }
+
+        guard enabled, switcherIsActive else {
+            reset()
+            return .ignored
+        }
+
+        guard keyCode == Self.leftShiftKeyCode else {
+            reset()
+            return .ignored
+        }
+
+        guard flags.contains(.maskCommand) else {
+            reset()
+            return .ignored
+        }
+
+        if flags.contains(.maskShift) {
+            guard !flags.contains(.maskControl),
+                  !flags.contains(.maskAlternate),
+                  !rightShiftIsHeld else {
+                awaitingRelease = false
+                return .ignored
+            }
+            awaitingRelease = true
+            suppressLeftShiftRelease = true
+            return .consume
+        }
+
+        guard awaitingRelease else { return .ignored }
+        awaitingRelease = false
+        return .reverse
+    }
+
+    mutating func keyPressedWhileHeld() {
+        // Cmd+Shift+Tab and every other chord must use their normal handler.
+        awaitingRelease = false
+    }
+
+    mutating func reset() {
+        awaitingRelease = false
     }
 }

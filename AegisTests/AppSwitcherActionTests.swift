@@ -143,6 +143,23 @@ final class AppSwitcherActionRefreshCoordinatorTests: XCTestCase {
         }
         XCTAssertEqual(refreshes, 0)
     }
+
+    func testCancelInvalidatesCompletionBeforeCommandModeCanRetry() throws {
+        let coordinator = AppSwitcherActionRefreshCoordinator()
+        let token = try XCTUnwrap(coordinator.begin())
+        var refreshes = 0
+        var completion: (() -> Void)?
+
+        coordinator.scheduleRefreshes(for: token) { finished in
+            refreshes += 1
+            completion = finished
+        }
+        XCTAssertEqual(refreshes, 1)
+
+        coordinator.cancel()
+        completion?()
+        XCTAssertEqual(refreshes, 1)
+    }
 }
 
 final class AppSwitcherWindowIdentityTests: XCTestCase {

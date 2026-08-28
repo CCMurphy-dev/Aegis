@@ -73,6 +73,8 @@ final class AppSwitcherService {
     /// Key-up events for action keys whose key-down event Aegis consumed.
     private var consumedActionKeyUps = AppSwitcherConsumedKeyUpPolicy()
 
+    /// Stateful recognizer for the optional left Shift reverse shortcut.
+    private var leftShiftTapPolicy = AppSwitcherLeftShiftTapPolicy()
     /// Cached app icons by name - persists across activations
     private var appIconCache: [String: NSImage] = [:]
 
@@ -277,9 +279,31 @@ final class AppSwitcherService {
 
         switch type {
         case .flagsChanged:
+            switch leftShiftTapPolicy.flagsChanged(
+                keyCode: keyCode,
+                flags: flags,
+                enabled: config.appSwitcherLeftShiftReverseEnabled,
+                switcherIsActive: isActive,
+                rightShiftIsHeld: CGEventSource.keyState(
+                    .combinedSessionState,
+                    key: CGKeyCode(AppSwitcherLeftShiftTapPolicy.rightShiftKeyCode)
+                )
+            ) {
+            case .reverse:
+                DispatchQueue.main.async { [weak self] in
+                    self?.cycleSelection(reverse: true)
+                }
+                return nil
+            case .consume:
+                return nil
+            case .ignored:
+                break
+            }
+
             if !cmdPressed {
                 // Cmd released - reset scroll accumulator
                 cmdScrollAccumulator = 0
+                leftShiftTapPolicy.reset()
 
                 if isActive {
                     DispatchQueue.main.async { [weak self] in
@@ -290,6 +314,10 @@ final class AppSwitcherService {
             }
 
         case .keyDown:
+            if isActive && keyCode != AppSwitcherLeftShiftTapPolicy.leftShiftKeyCode {
+                leftShiftTapPolicy.keyPressedWhileHeld()
+            }
+
             if cmdPressed && keyCode == tabKeyCode {
                 let shiftPressed = flags.contains(.maskShift)
                 if isActive {
@@ -655,6 +683,7 @@ final class AppSwitcherService {
 
     private func dismissSwitcher() {
         actionRefreshCoordinator.cancel()
+        leftShiftTapPolicy.reset()
         isActive = false
         isActivationPending = false
         selectedIndex = 0
@@ -991,7 +1020,7 @@ final class AppSwitcherService {
                         windowManagerID: window.id,
                         pid: window.pid,
                         bundleIdentifier: nil,
-                    title: window.title,
+                        title: window.title,
                         appName: window.app,
                         spaceIndex: window.space,
                         icon: icon,

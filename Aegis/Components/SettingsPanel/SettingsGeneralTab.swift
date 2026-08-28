@@ -65,6 +65,12 @@ struct SettingsGeneralTab: View {
                     )
 
                     SettingsToggle(
+                        label: "Left Shift Goes Back",
+                        description: "Tap left Shift while Cmd+Tab is open to select the previous window",
+                        isOn: $config.appSwitcherLeftShiftReverseEnabled
+                    )
+
+                    SettingsToggle(
                         label: "Cmd+Scroll to Open",
                         description: "Enable Cmd+scroll to open/cycle app switcher",
                         isOn: $config.appSwitcherCmdScrollEnabled

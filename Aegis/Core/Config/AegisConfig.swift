@@ -329,6 +329,9 @@ class AegisConfig: ObservableObject {
     /// Choose between the original type-to-filter behaviour and W/Q actions.
     @Published var appSwitcherKeyboardMode: AppSwitcherKeyboardMode = .filter
 
+    /// Allow a left Shift tap to move backward while Cmd+Tab is open.
+    @Published var appSwitcherLeftShiftReverseEnabled: Bool = false
+
 
     // MARK: - Behavior Flags - Menu Bar
 
@@ -974,6 +977,7 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(appSwitcherCmdScrollEnabled, forKey: "appSwitcherCmdScrollEnabled")
         UserDefaults.standard.set(appSwitcherShowPreviews, forKey: "appSwitcherShowPreviews")
         UserDefaults.standard.set(appSwitcherKeyboardMode.rawValue, forKey: "appSwitcherKeyboardMode")
+        UserDefaults.standard.set(appSwitcherLeftShiftReverseEnabled, forKey: "appSwitcherLeftShiftReverseEnabled")
 
         // Interaction Thresholds
         UserDefaults.standard.set(dragDistanceThreshold, forKey: "dragDistanceThreshold")
@@ -1307,6 +1311,9 @@ class AegisConfig: ObservableObject {
         if let raw = UserDefaults.standard.string(forKey: "appSwitcherKeyboardMode"),
            let mode = AppSwitcherKeyboardMode(rawValue: raw) {
             appSwitcherKeyboardMode = mode
+        }
+        if let val = UserDefaults.standard.object(forKey: "appSwitcherLeftShiftReverseEnabled") as? Bool {
+            appSwitcherLeftShiftReverseEnabled = val
         }
 
         // Interaction Thresholds
@@ -1681,6 +1688,7 @@ class AegisConfig: ObservableObject {
         appSwitcherCmdScrollEnabled = false
         appSwitcherShowPreviews = false
         appSwitcherKeyboardMode = .filter
+        appSwitcherLeftShiftReverseEnabled = false
 
         dragDistanceThreshold = 3
         swipeDestroyThreshold = -120
