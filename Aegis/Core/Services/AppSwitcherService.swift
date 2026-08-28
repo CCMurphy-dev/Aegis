@@ -4,9 +4,269 @@ import Carbon.HIToolbox
 import Combine
 import ScreenCaptureKit
 
+/// The lifecycle state of the event tap used by the Cmd+Tab switcher.
+enum AppSwitcherHealth: String, CaseIterable, Equatable {
+    case disabled
+    case permissionRequired
+    case starting
+    case running
+    case recovering
+    case failed
+
+    var displayName: String {
+        switch self {
+        case .disabled: return "Disabled"
+        case .permissionRequired: return "Accessibility required"
+        case .starting: return "Starting"
+        case .running: return "Active"
+        case .recovering: return "Recovering"
+        case .failed: return "Failed"
+        }
+    }
+}
+
+/// Small, side-effect-free part of the event-tap recovery policy.
+/// Keeping the timings and transitions here makes the failure modes easy to
+/// exercise without creating a global event tap in a test process.
+struct AppSwitcherRecoveryPolicy {
+    static let permissionPollInterval: TimeInterval = 2
+    static let permissionPollDuration: TimeInterval = 60
+    static let tapRecoveryDelays: [TimeInterval] = [1, 2, 4]
+}
+
+/// The small runtime surface needed by the recovery coordinator. The real
+/// service supplies the CoreGraphics implementation; tests can supply a fake
+/// runtime without creating an event tap or requesting Accessibility access.
+@MainActor
+protocol AppSwitcherRecoveryRuntime: AnyObject {
+    var eventTapIsInstalled: Bool { get }
+    var eventTapIsUsable: Bool { get }
+    func accessibilityTrusted(prompt: Bool) -> Bool
+    func createEventTap() -> Bool
+    func reenableEventTap() -> Bool
+    func teardownEventTap()
+}
+
+/// Owns the event-tap lifecycle policy and its bounded retry scheduling.
+/// Keeping this separate from the switcher UI makes permission and recovery
+/// transitions deterministic to test.
+@MainActor
+final class AppSwitcherRecoveryCoordinator {
+    typealias Schedule = (_ delay: TimeInterval, _ action: @escaping () -> Void) -> DispatchWorkItem
+    typealias Clock = () -> Date
+
+    private weak var runtime: AppSwitcherRecoveryRuntime?
+    private let schedule: Schedule
+    private let clock: Clock
+    private let onHealthChange: (AppSwitcherHealth) -> Void
+    private var permissionPollTask: DispatchWorkItem?
+    private var permissionPollDeadline: Date?
+    private var recoveryTasks: [DispatchWorkItem] = []
+    private var watchdogTask: DispatchWorkItem?
+    private var hasPromptedForAccessibility = false
+
+    static let watchdogInterval: TimeInterval = 5
+
+    private(set) var health: AppSwitcherHealth = .disabled {
+        didSet {
+            guard oldValue != health else { return }
+            onHealthChange(health)
+        }
+    }
+
+    init(
+        runtime: AppSwitcherRecoveryRuntime,
+        schedule: Schedule? = nil,
+        clock: @escaping Clock = Date.init,
+        onHealthChange: @escaping (AppSwitcherHealth) -> Void = { _ in }
+    ) {
+        self.runtime = runtime
+        self.schedule = schedule ?? Self.defaultSchedule
+        self.clock = clock
+        self.onHealthChange = onHealthChange
+    }
+
+    func start(enabled: Bool) {
+        guard enabled else {
+            stop()
+            return
+        }
+
+        cancelPermissionPolling()
+        guard let runtime else {
+            health = .failed
+            return
+        }
+        if runtime.eventTapIsUsable {
+            health = .running
+            beginWatchdog()
+            return
+        }
+        if runtime.eventTapIsInstalled {
+            // A stale Mach port must not block a fresh tap from being made.
+            runtime.teardownEventTap()
+        }
+
+        health = .starting
+        let prompt = !hasPromptedForAccessibility
+        hasPromptedForAccessibility = true
+        guard runtime.accessibilityTrusted(prompt: prompt) else {
+            health = .permissionRequired
+            beginPermissionPolling()
+            return
+        }
+
+        cancelRecovery()
+        if runtime.createEventTap() {
+            health = .running
+            beginWatchdog()
+        } else {
+            beginRecovery()
+        }
+    }
+
+    func retry(enabled: Bool) {
+        cancelPermissionPolling()
+        cancelRecovery()
+        start(enabled: enabled)
+    }
+
+    func stop() {
+        cancelPermissionPolling()
+        cancelRecovery()
+        cancelWatchdog()
+        runtime?.teardownEventTap()
+        health = .disabled
+    }
+
+    func tapDisabled(enabled: Bool) {
+        guard enabled else {
+            stop()
+            return
+        }
+        guard let runtime, runtime.eventTapIsInstalled, runtime.reenableEventTap() else {
+            runtime?.teardownEventTap()
+            beginRecovery()
+            return
+        }
+        health = .running
+        beginWatchdog()
+    }
+
+    private static let defaultSchedule: Schedule = { delay, action in
+        let task = DispatchWorkItem(block: action)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: task)
+        return task
+    }
+
+    private func beginPermissionPolling() {
+        guard permissionPollTask == nil else { return }
+        permissionPollDeadline = clock().addingTimeInterval(AppSwitcherRecoveryPolicy.permissionPollDuration)
+        schedulePermissionPoll()
+    }
+
+    private func schedulePermissionPoll() {
+        permissionPollTask = schedule(AppSwitcherRecoveryPolicy.permissionPollInterval) { [weak self] in
+            guard let self else { return }
+            self.permissionPollTask = nil
+            guard let deadline = self.permissionPollDeadline, self.clock() < deadline else {
+                self.permissionPollDeadline = nil
+                return
+            }
+            guard let runtime = self.runtime else { return }
+            if runtime.accessibilityTrusted(prompt: false) {
+                self.start(enabled: true)
+            } else {
+                self.schedulePermissionPoll()
+            }
+        }
+    }
+
+    private func cancelPermissionPolling() {
+        permissionPollTask?.cancel()
+        permissionPollTask = nil
+        permissionPollDeadline = nil
+    }
+
+    private func beginRecovery() {
+        guard recoveryTasks.isEmpty else { return }
+        cancelWatchdog()
+        health = .recovering
+        for delay in AppSwitcherRecoveryPolicy.tapRecoveryDelays {
+            let task = schedule(delay) { [weak self] in
+                self?.attemptRecovery()
+            }
+            recoveryTasks.append(task)
+        }
+        let finalTask = schedule((AppSwitcherRecoveryPolicy.tapRecoveryDelays.last ?? 4) + 0.05) { [weak self] in
+            if let self, self.runtime?.eventTapIsUsable == true {
+                self.cancelRecovery()
+                self.beginWatchdog()
+                return
+            }
+            guard let self else { return }
+            self.cancelRecovery()
+            if self.health != .permissionRequired {
+                self.health = .failed
+            }
+        }
+        recoveryTasks.append(finalTask)
+    }
+
+    private func attemptRecovery() {
+        guard let runtime else { return }
+        guard !runtime.eventTapIsUsable else {
+            health = .running
+            beginWatchdog()
+            return
+        }
+        if runtime.eventTapIsInstalled {
+            runtime.teardownEventTap()
+        }
+        guard runtime.accessibilityTrusted(prompt: false) else {
+            health = .permissionRequired
+            beginPermissionPolling()
+            return
+        }
+        guard runtime.createEventTap() else { return }
+        cancelRecovery()
+        health = .running
+        beginWatchdog()
+    }
+
+    private func cancelRecovery() {
+        recoveryTasks.forEach { $0.cancel() }
+        recoveryTasks.removeAll()
+    }
+
+    private func beginWatchdog() {
+        guard watchdogTask == nil else { return }
+        scheduleWatchdog()
+    }
+
+    private func scheduleWatchdog() {
+        watchdogTask = schedule(Self.watchdogInterval) { [weak self] in
+            guard let self else { return }
+            self.watchdogTask = nil
+            guard self.health == .running else { return }
+            guard let runtime = self.runtime, runtime.eventTapIsUsable else {
+                self.runtime?.teardownEventTap()
+                self.beginRecovery()
+                return
+            }
+            self.scheduleWatchdog()
+        }
+    }
+
+    private func cancelWatchdog() {
+        watchdogTask?.cancel()
+        watchdogTask = nil
+    }
+}
+
 /// Service that intercepts Cmd+Tab to provide a custom app switcher
 /// Displays windows organized by space in a centered overlay
-final class AppSwitcherService {
+final class AppSwitcherService: ObservableObject {
 
     static let shared = AppSwitcherService()
 
@@ -18,6 +278,9 @@ final class AppSwitcherService {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private(set) var isActive: Bool = false
+
+    /// Current event-tap health, exposed to the General settings tab.
+    @Published private(set) var health: AppSwitcherHealth = .disabled
 
     /// Currently selected index in the flat list of all windows
     private(set) var selectedIndex: Int = 0
@@ -75,6 +338,12 @@ final class AppSwitcherService {
     /// Whether the icon cache needs refreshing (set true when apps change)
     private var iconCacheNeedsRefresh: Bool = true
 
+    // Event-tap recovery is isolated behind an injectable coordinator.
+    private lazy var recoveryCoordinator = AppSwitcherRecoveryCoordinator(
+        runtime: self,
+        onHealthChange: { [weak self] health in self?.health = health }
+    )
+
     // MARK: - Init
 
     private init() {
@@ -108,6 +377,13 @@ final class AppSwitcherService {
                     self?.stop()
                 }
             }
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applicationDidBecomeActive),
+            name: NSApplication.didBecomeActiveNotification,
+            object: nil
+        )
     }
 
     @objc private func appDidLaunchOrTerminate(_ notification: Notification) {
@@ -149,47 +425,45 @@ final class AppSwitcherService {
         stop()
         // Remove workspace notification observers
         NSWorkspace.shared.notificationCenter.removeObserver(self)
+        NotificationCenter.default.removeObserver(self)
     }
 
     // MARK: - Public API
 
     /// Start intercepting Cmd+Tab
     func start() {
-        guard config.appSwitcherEnabled else {
-            logInfo("AppSwitcherService disabled in settings")
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.start() }
             return
         }
 
-        guard eventTap == nil else {
-            logDebug("AppSwitcherService already running")
-            return
-        }
+        recoveryCoordinator.start(enabled: config.appSwitcherEnabled)
+    }
 
-        // Check accessibility permissions
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        let trusted = AXIsProcessTrustedWithOptions(options)
+    /// Retry after the user grants Accessibility or presses Retry in Settings.
+    func retry() {
+        recoveryCoordinator.retry(enabled: config.appSwitcherEnabled)
+    }
 
-        if !trusted {
-            logWarning("Accessibility permission not granted - app switcher will not work")
-            return
-        }
+    /// Opens the narrow Accessibility preference pane used by the status row.
+    func openAccessibilitySettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else { return }
+        NSWorkspace.shared.open(url)
+    }
 
-        setupEventTap()
+    @objc private func applicationDidBecomeActive() {
+        guard config.appSwitcherEnabled else { return }
+        // Activation is a useful, low-cost point to recover after the user
+        // returns from System Settings or macOS re-enables the event tap.
+        retry()
     }
 
     /// Stop intercepting Cmd+Tab
     func stop() {
-        if let runLoopSource = runLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
-            self.runLoopSource = nil
-        }
-
-        if let eventTap = eventTap {
-            CGEvent.tapEnable(tap: eventTap, enable: false)
-            self.eventTap = nil
-        }
+        recoveryCoordinator.stop()
 
         dismissSwitcher()
+        health = .disabled
         logInfo("AppSwitcherService stopped")
     }
 
@@ -222,7 +496,8 @@ final class AppSwitcherService {
 
     // MARK: - Event Tap Setup
 
-    private func setupEventTap() {
+    @discardableResult
+    private func setupEventTap() -> Bool {
         let eventMask: CGEventMask = (1 << CGEventType.keyDown.rawValue) |
                                       (1 << CGEventType.keyUp.rawValue) |
                                       (1 << CGEventType.flagsChanged.rawValue) |
@@ -242,24 +517,29 @@ final class AppSwitcherService {
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
             logError("Failed to create event tap - accessibility permission may be required")
-            return
+            return false
+        }
+
+        guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) else {
+            CGEvent.tapEnable(tap: tap, enable: false)
+            logError("Failed to create event tap run-loop source")
+            return false
         }
 
         eventTap = tap
-        runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-        CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+        runLoopSource = source
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
 
         logInfo("AppSwitcherService event tap enabled")
+        return true
     }
 
     // MARK: - Event Handling
 
     private func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            if let tap = eventTap {
-                CGEvent.tapEnable(tap: tap, enable: true)
-            }
+            recoveryCoordinator.tapDisabled(enabled: config.appSwitcherEnabled)
             return Unmanaged.passRetained(event)
         }
 
@@ -923,6 +1203,43 @@ final class AppSwitcherService {
             }
         } catch {
             logDebug("Failed to capture window thumbnails: \(error)")
+        }
+    }
+}
+
+extension AppSwitcherService: AppSwitcherRecoveryRuntime {
+    var eventTapIsInstalled: Bool {
+        eventTap != nil
+    }
+
+    var eventTapIsUsable: Bool {
+        guard let eventTap, runLoopSource != nil else { return false }
+        return CGEvent.tapIsEnabled(tap: eventTap)
+    }
+
+    func accessibilityTrusted(prompt: Bool) -> Bool {
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: prompt] as CFDictionary
+        return AXIsProcessTrustedWithOptions(options)
+    }
+
+    func createEventTap() -> Bool {
+        setupEventTap()
+    }
+
+    func reenableEventTap() -> Bool {
+        guard let eventTap, runLoopSource != nil else { return false }
+        CGEvent.tapEnable(tap: eventTap, enable: true)
+        return eventTapIsUsable
+    }
+
+    func teardownEventTap() {
+        if let runLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+            self.runLoopSource = nil
+        }
+        if let eventTap {
+            CGEvent.tapEnable(tap: eventTap, enable: false)
+            self.eventTap = nil
         }
     }
 }

@@ -58,6 +58,10 @@ struct SettingsGeneralTab: View {
             )
 
             if config.appSwitcherEnabled {
+                SettingsAppSwitcherHealthRow(service: AppSwitcherService.shared)
+            }
+
+            if config.appSwitcherEnabled {
                 SettingsSubsection(title: "App Switcher") {
                     SettingsToggle(
                         label: "Cmd+Scroll to Open",
@@ -164,5 +168,49 @@ struct SettingsGeneralTab: View {
                 .buttonStyle(SettingsButtonStyle())
             }
         }
+    }
+}
+
+/// Compact event-tap health and recovery controls for the Cmd+Tab switcher.
+struct SettingsAppSwitcherHealthRow: View {
+    @ObservedObject var service: AppSwitcherService
+
+    private var statusColor: Color {
+        switch service.health {
+        case .running: return .green
+        case .permissionRequired, .failed: return .orange
+        case .recovering, .starting: return .blue
+        case .disabled: return .secondary
+        }
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Status")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.primary)
+                Text(service.health.displayName)
+                    .font(.system(size: 10))
+                    .foregroundColor(statusColor)
+            }
+
+            Spacer()
+
+            if service.health == .permissionRequired {
+                Button("Open Accessibility Settings") {
+                    service.openAccessibilitySettings()
+                }
+                .buttonStyle(SettingsButtonStyle())
+            }
+
+            if service.health != .running {
+                Button("Retry") {
+                    service.retry()
+                }
+                .buttonStyle(SettingsButtonStyle())
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
