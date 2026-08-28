@@ -43,7 +43,7 @@ struct AeroSpaceSetupPromptView: View {
                     Text(setupCommand)
                         .font(.system(.caption, design: .monospaced))
                         .padding(8)
-                        .background(Color.black.opacity(0.3))
+                        .background(SettingsPalette.controlBackground.opacity(0.8))
                         .cornerRadius(6)
                         .lineLimit(1)
 
@@ -87,7 +87,7 @@ struct AeroSpaceSetupPromptView: View {
         }
         .padding(20)
         .frame(width: 480)
-        .background(Color(NSColor.windowBackgroundColor))
+        .background(SettingsPalette.background)
         .onAppear {
             ensureIntegrationFilesExist()
         }

@@ -35,7 +35,7 @@ struct SettingsMenuBarTab: View {
 
             // Space Indicators
             if config.showSpaceIndicators {
-                Divider().background(Color.white.opacity(0.1))
+                Divider().background(SettingsPalette.separator.opacity(0.6))
 
                 SettingsSubsection(title: "Space Indicators") {
                     SettingsIntSlider(
@@ -106,7 +106,7 @@ struct SettingsMenuBarTab: View {
 
             // System Status
             if config.showSystemStatus {
-                Divider().background(Color.white.opacity(0.1))
+                Divider().background(SettingsPalette.separator.opacity(0.6))
 
                 SettingsSubsection(title: "System Status") {
                     SettingsToggle(
@@ -166,7 +166,7 @@ struct SettingsMenuBarTab: View {
 
             // App Launcher
             if config.showAppLauncher {
-                Divider().background(Color.white.opacity(0.1))
+                Divider().background(SettingsPalette.separator.opacity(0.6))
 
                 SettingsSubsection(title: "App Launcher") {
                     SettingsStringListEditor(
@@ -178,7 +178,7 @@ struct SettingsMenuBarTab: View {
                 }
             }
 
-            Divider().background(Color.white.opacity(0.1))
+            Divider().background(SettingsPalette.separator.opacity(0.6))
 
             // Scroll & Interaction
             SettingsSubsection(title: "Scroll & Interaction") {
