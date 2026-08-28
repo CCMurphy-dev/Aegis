@@ -180,7 +180,7 @@ struct SpaceIndicatorView: View {
                     if config.isLiquidGlass {
                         SpacePillGlassBackground(isActive: isActive, cornerRadius: 8)
                     } else {
-                        // Use AppKit-based hover background to avoid SwiftUI state churn
+                        // Preserve the existing non-Liquid hover treatment.
                         HoverableBackground(isActive: isActive, cornerRadius: 8)
                     }
                 }
@@ -836,14 +836,26 @@ final class HoverableBackgroundView: NSView {
 
 // MARK: - Glass Pill Background (Liquid Glass theme)
 
-/// Pure SwiftUI glass pill background for the Liquid Glass theme.
-/// Uses SwiftUI's Material system to avoid nested NSVisualEffectView issues.
-/// Hover is tracked via onHover (only this small background view re-renders).
+/// Pill background shared by workspace indicators and system status. Native
+/// Liquid Glass is scoped to these small surfaces; the menu bar itself keeps
+/// its existing full-width background.
 struct SpacePillGlassBackground: View {
     let isActive: Bool
     let cornerRadius: CGFloat
     @State private var isHovered = false
     @ObservedObject private var config = AegisConfig.shared
+    @ObservedObject private var appearance = AegisSurfaceAppearance.shared
+
+    private var renderingMode: AegisSurfaceRenderingMode {
+        AegisSurfaceAppearance.pillRenderingMode(
+            theme: config.appTheme,
+            reduceTransparency: appearance.reduceTransparency,
+            nativeGlassAvailable: {
+                if #available(macOS 26.0, *) { return true }
+                return false
+            }()
+        )
+    }
 
     private var blurOpacity: Double {
         let base: Double = isActive ? 1.0 : isHovered ? 0.75 : 0.45
@@ -852,18 +864,52 @@ struct SpacePillGlassBackground: View {
 
     var body: some View {
         ZStack {
-            // Layer 1: Material blur base (SwiftUI handles nesting correctly)
+            switch renderingMode {
+            case .nativeGlass:
+                if #available(macOS 26.0, *) {
+                    AegisNativeGlassBackground(cornerRadius: cornerRadius)
+                }
+                semanticTint
+            case .legacyMaterial:
+                simulatedGlass
+            case .solid:
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(ThemeColors.background.opacity(backgroundOpacity))
+            }
+        }
+        .shadow(
+            color: .black.opacity(isActive ? 0.20 : 0.0),
+            radius: isActive ? 9 : 0,
+            x: 0,
+            y: 2
+        )
+        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isActive)
+        .animation(.easeOut(duration: 0.12), value: isHovered)
+        .onHover { isHovered = $0 }
+    }
+
+    private var backgroundOpacity: Double {
+        if isActive { return config.activeSpaceBgOpacity }
+        if isHovered { return config.hoveredSpaceBgOpacity }
+        return config.inactiveSpaceBgOpacity
+    }
+
+    private var semanticTint: some View {
+        RoundedRectangle(cornerRadius: cornerRadius)
+            .fill(ThemeColors.background.opacity(backgroundOpacity))
+    }
+
+    private var simulatedGlass: some View {
+        ZStack {
             RoundedRectangle(cornerRadius: cornerRadius)
                 .fill(.thinMaterial)
                 .opacity(blurOpacity)
 
-            // Layer 2: Active inner wet glow
             if isActive {
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .fill(Color.white.opacity(0.08))
             }
 
-            // Layer 3: Specular highlight — light hitting the top glass surface
             RoundedRectangle(cornerRadius: cornerRadius)
                 .fill(
                     LinearGradient(
@@ -876,7 +922,6 @@ struct SpacePillGlassBackground: View {
                     )
                 )
 
-            // Layer 4: Glass edge — bright top-left, dim bottom-right (3D glass edge)
             RoundedRectangle(cornerRadius: cornerRadius)
                 .strokeBorder(
                     LinearGradient(
@@ -893,15 +938,6 @@ struct SpacePillGlassBackground: View {
                     lineWidth: 1
                 )
         }
-        .shadow(
-            color: .black.opacity(isActive ? 0.20 : 0.0),
-            radius: isActive ? 9 : 0,
-            x: 0,
-            y: 2
-        )
-        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isActive)
-        .animation(.easeOut(duration: 0.12), value: isHovered)
-        .onHover { isHovered = $0 }
     }
 }
 

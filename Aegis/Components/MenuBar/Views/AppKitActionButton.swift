@@ -106,7 +106,7 @@ final class AppKitLayoutActionsButton: NSView {
     private func updateColors() {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        if config.isLiquidGlass {
+        if config.isLiquidGlass && !AegisSurfaceAppearance.shared.usesNativeGlass {
             backgroundLayer.backgroundColor = NSColor.white.withAlphaComponent(0.10).cgColor
             borderLayer.strokeColor = NSColor.white.withAlphaComponent(0.35).cgColor
             borderLayer.opacity = 1.0
@@ -148,7 +148,7 @@ final class AppKitLayoutActionsButton: NSView {
         specularLayer.endPoint = CGPoint(x: 0.5, y: 1)
         let s = config.liquidGlassSpecularOpacity
         specularLayer.colors = [NSColor.white.withAlphaComponent(s).cgColor, NSColor.clear.cgColor]
-        specularLayer.isHidden = !config.isLiquidGlass
+        specularLayer.isHidden = !config.isLiquidGlass || AegisSurfaceAppearance.shared.usesNativeGlass
         layer?.addSublayer(specularLayer)
 
         // Border layer
@@ -258,7 +258,7 @@ final class AppKitLayoutActionsButton: NSView {
         }
 
         // Background opacity
-        if config.isLiquidGlass {
+        if config.isLiquidGlass && !AegisSurfaceAppearance.shared.usesNativeGlass {
             let glassAlpha: CGFloat = (isHovered || showLabel) ? 0.18 : 0.10
             backgroundLayer.backgroundColor = NSColor.white.withAlphaComponent(glassAlpha).cgColor
             borderLayer.opacity = 1.0  // always visible in glass mode
@@ -1131,7 +1131,7 @@ final class AppKitAppLauncherButton: NSView {
     private func updateColors() {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        if config.isLiquidGlass {
+        if config.isLiquidGlass && !AegisSurfaceAppearance.shared.usesNativeGlass {
             backgroundLayer.backgroundColor = NSColor.white.withAlphaComponent(0.10).cgColor
             borderLayer.strokeColor = NSColor.white.withAlphaComponent(0.35).cgColor
             borderLayer.opacity = 1.0
@@ -1188,7 +1188,7 @@ final class AppKitAppLauncherButton: NSView {
         let s = config.liquidGlassSpecularOpacity
         specularLayer.colors = [NSColor.white.withAlphaComponent(s).cgColor, NSColor.clear.cgColor]
         specularLayer.frame = bounds
-        specularLayer.isHidden = !config.isLiquidGlass
+        specularLayer.isHidden = !config.isLiquidGlass || AegisSurfaceAppearance.shared.usesNativeGlass
         layer?.addSublayer(specularLayer)
 
         // Border layer
@@ -1256,7 +1256,7 @@ final class AppKitAppLauncherButton: NSView {
         CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
 
         // Background
-        if config.isLiquidGlass {
+        if config.isLiquidGlass && !AegisSurfaceAppearance.shared.usesNativeGlass {
             backgroundLayer.backgroundColor = NSColor.white.withAlphaComponent(isHovered ? 0.18 : 0.10).cgColor
             borderLayer.opacity = 1.0  // always visible in glass mode
         } else {
