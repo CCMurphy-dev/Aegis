@@ -23,7 +23,7 @@ struct PaneruState: Codable {
 
 struct PaneruActive: Codable {
     let displayId: Int?            // Can be null
-    let nativeWorkspaceId: Int     // Native macOS Space the active row belongs to
+    let nativeWorkspaceId: Int?    // Can be null when no row is active
     let virtualWorkspaceNumber: Int
     let focusedWindowId: Int?
     let focusedBundleId: String?

@@ -173,9 +173,16 @@ final class PaneruService {
 
     private let dataQueue = DispatchQueue(label: "com.aegis.paneru.data", attributes: .concurrent)
 
-    // Event subscription process
+    // Event subscription process.
+    // The whole subscription lifecycle (spawn / termination / reconnect) is
+    // confined to `subscriptionQueue` — it must never touch the main thread.
     private var subscriptionProcess: Process?
     private var lineBuffer = ""
+    private let subscriptionQueue = DispatchQueue(label: "com.aegis.paneru.subscription")
+    private var retryPending = false
+    private var retryAttempt = 0
+    private var subscriptionGeneration = 0
+    private static let retryBackoff: [TimeInterval] = [1, 2, 5, 10, 30]
 
     // Coalescing gate (identical pattern to RiftService)
     private enum RefreshScope: Int, Comparable {
@@ -209,7 +216,9 @@ final class PaneruService {
             await executeRefresh(scope: .all, source: "init")
         }
 
-        startSubscription()
+        subscriptionQueue.async { [weak self] in
+            self?.startSubscription()
+        }
         setupWorkspaceFallback()
         logInfo("PaneruService ready")
     }
@@ -219,21 +228,31 @@ final class PaneruService {
     }
 
     func stop() {
-        subscriptionProcess?.terminate()
-        subscriptionProcess = nil
+        // Invalidate pending retries before tearing down.
+        subscriptionQueue.sync {
+            subscriptionGeneration += 1
+            retryPending = false
+            subscriptionProcess?.terminate()
+            subscriptionProcess = nil
+        }
         NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
 
     // MARK: - Event Subscription
 
+    /// Must be called on `subscriptionQueue`.
     private func startSubscription() {
+        // Never stack subscriptions: one live process, no retry in flight.
+        guard subscriptionProcess?.isRunning != true, !retryPending else { return }
+
         guard let path = command.paneruPath else {
             logError("Cannot start Paneru event subscription: paneru not found")
             return
         }
 
         guard PaneruCommandActor.isPaneruDaemonRunning() else {
-            logWarning("Paneru daemon not running, skipping subscription (will retry via fallback)")
+            logWarning("Paneru daemon not running, will retry with backoff")
+            scheduleRetry()
             return
         }
 
@@ -245,10 +264,19 @@ final class PaneruService {
         process.standardOutput = pipe
         process.standardError = Pipe()
 
+        process.terminationHandler = { [weak self] _ in
+            self?.subscriptionQueue.async {
+                self?.handleSubscriptionTerminated()
+            }
+        }
+
         pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             guard !data.isEmpty else {
-                self?.handleSubscriptionTerminated()
+                // EOF: unregister immediately or the handler keeps firing in a
+                // busy loop. Termination itself is handled once by
+                // `terminationHandler` above.
+                handle.readabilityHandler = nil
                 return
             }
             let raw = String(decoding: data, as: UTF8.self)
@@ -256,15 +284,21 @@ final class PaneruService {
         }
 
         do {
+            lineBuffer = ""
             try process.run()
             self.subscriptionProcess = process
             logInfo("Paneru event subscription started")
         } catch {
             logError("Failed to start paneru subscribe: \(error)")
+            scheduleRetry()
         }
     }
 
     private func processIncomingData(_ raw: String) {
+        // Receiving data means the connection is healthy — reset the backoff.
+        subscriptionQueue.async { [weak self] in
+            self?.retryAttempt = 0
+        }
         lineBuffer += raw
         while let newlineIndex = lineBuffer.firstIndex(of: "\n") {
             let line = String(lineBuffer[lineBuffer.startIndex..<newlineIndex])
@@ -276,14 +310,26 @@ final class PaneruService {
         }
     }
 
+    /// Must run on `subscriptionQueue`. Single-flight: only the first
+    /// termination signal for a given process schedules a retry.
     private func handleSubscriptionTerminated() {
-        logWarning("Paneru subscription process terminated, will retry if daemon is running")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
-            guard PaneruCommandActor.isPaneruDaemonRunning() else {
-                logInfo("Paneru daemon not running, deferring subscription reconnect")
-                return
-            }
-            self?.startSubscription()
+        guard subscriptionProcess != nil else { return }
+        subscriptionProcess = nil
+        logWarning("Paneru subscription process terminated, will retry with backoff")
+        scheduleRetry()
+    }
+
+    /// Must run on `subscriptionQueue`.
+    private func scheduleRetry() {
+        guard !retryPending else { return }
+        retryPending = true
+        let delay = Self.retryBackoff[min(retryAttempt, Self.retryBackoff.count - 1)]
+        retryAttempt += 1
+        let generation = subscriptionGeneration
+        subscriptionQueue.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self = self, self.subscriptionGeneration == generation else { return }
+            self.retryPending = false
+            self.startSubscription()
         }
     }
 
@@ -303,7 +349,7 @@ final class PaneruService {
                 dataQueue.sync(flags: .barrier) { [weak self] in
                     guard let self = self else { return }
                     self.activeWorkspaceIndex = active.virtualWorkspaceNumber
-                    self.activeNativeWorkspaceId = active.nativeWorkspaceId
+                    self.activeNativeWorkspaceId = active.nativeWorkspaceId ?? 0
                 }
             }
             scheduleRefresh(scope: .workspacesAndWindows, source: "sub:virtual_workspace_changed")
@@ -447,7 +493,7 @@ final class PaneruService {
                     }
                 }
                 self.activeWorkspaceIndex = state.active.virtualWorkspaceNumber
-                self.activeNativeWorkspaceId = state.active.nativeWorkspaceId
+                self.activeNativeWorkspaceId = state.active.nativeWorkspaceId ?? 0
             }
 
             if workspacesChanged {
