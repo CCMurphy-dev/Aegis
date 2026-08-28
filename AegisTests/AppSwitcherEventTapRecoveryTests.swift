@@ -81,13 +81,13 @@ final class AppSwitcherRecoveryCoordinatorTests: XCTestCase {
 
         coordinator.start(enabled: true)
         XCTAssertEqual(coordinator.health, .permissionRequired)
-        XCTAssertEqual(runtime.prompts, [true])
+        XCTAssertEqual(runtime.prompts, [false, true])
         XCTAssertEqual(scheduler.entries.first?.delay, 2)
 
         runtime.trusted = true
         scheduler.runNext()
         XCTAssertEqual(coordinator.health, .running)
-        XCTAssertEqual(runtime.prompts, [true, false])
+        XCTAssertEqual(runtime.prompts, [false, true, false, false])
         XCTAssertEqual(runtime.createCount, 1)
     }
 

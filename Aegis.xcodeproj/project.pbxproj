@@ -10,6 +10,7 @@
 		833A42582F1921F7006F4B26 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 83SPARKLE022F15000000002 /* Sparkle */; };
 		A71000012F13893700C8A7A1 /* AppSwitcherEventTapRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A71000002F13893700C8A7A1 /* AppSwitcherEventTapRecoveryTests.swift */; };
 		A71000032F13893700C8A7A1 /* ScreenRecordingPermissionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A71000022F13893700C8A7A1 /* ScreenRecordingPermissionTests.swift */; };
+		A71000052F13893700C8A7A1 /* AccessibilityPermissionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A71000042F13893700C8A7A1 /* AccessibilityPermissionTests.swift */; };
 		83DF29F12F13893700C8A7A1 /* AppSwitcherShortcutMatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83DF29F02F13893700C8A7A1 /* AppSwitcherShortcutMatcherTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -49,6 +50,7 @@
 		83DF29D82F13893700C8A7A1 /* AegisUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AegisUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A71000002F13893700C8A7A1 /* AppSwitcherEventTapRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSwitcherEventTapRecoveryTests.swift; sourceTree = "<group>"; };
 		A71000022F13893700C8A7A1 /* ScreenRecordingPermissionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenRecordingPermissionTests.swift; sourceTree = "<group>"; };
+		A71000042F13893700C8A7A1 /* AccessibilityPermissionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityPermissionTests.swift; sourceTree = "<group>"; };
 		83DF29F02F13893700C8A7A1 /* AppSwitcherShortcutMatcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSwitcherShortcutMatcherTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -115,6 +117,7 @@
 			isa = PBXGroup;
 			children = (
 				A71000002F13893700C8A7A1 /* AppSwitcherEventTapRecoveryTests.swift */,
+				A71000042F13893700C8A7A1 /* AccessibilityPermissionTests.swift */,
 				A71000022F13893700C8A7A1 /* ScreenRecordingPermissionTests.swift */,
 				83DF29F02F13893700C8A7A1 /* AppSwitcherShortcutMatcherTests.swift */,
 			);
@@ -305,6 +308,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A71000012F13893700C8A7A1 /* AppSwitcherEventTapRecoveryTests.swift in Sources */,
+				A71000052F13893700C8A7A1 /* AccessibilityPermissionTests.swift in Sources */,
 				A71000032F13893700C8A7A1 /* ScreenRecordingPermissionTests.swift in Sources */,
 				83DF29F12F13893700C8A7A1 /* AppSwitcherShortcutMatcherTests.swift in Sources */,
 			);

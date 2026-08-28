@@ -196,9 +196,17 @@ final class AppSwitcherRecoveryCoordinator {
         }
 
         health = .starting
-        let prompt = !hasPromptedForAccessibility
-        hasPromptedForAccessibility = true
-        guard runtime.accessibilityTrusted(prompt: prompt) else {
+
+        // Check silently first. A prompt on every launch causes macOS to
+        // reopen its Accessibility UI for rebuilt local binaries, even when
+        // the user has already granted access. Only make the one explicit
+        // request allowed for this process after the silent check fails.
+        var trusted = runtime.accessibilityTrusted(prompt: false)
+        if !trusted, !hasPromptedForAccessibility {
+            hasPromptedForAccessibility = true
+            trusted = runtime.accessibilityTrusted(prompt: true)
+        }
+        guard trusted else {
             health = .permissionRequired
             beginPermissionPolling()
             return
@@ -367,6 +375,7 @@ final class AppSwitcherService: ObservableObject {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private(set) var isActive: Bool = false
+    private var suppressedKeyUps: Set<Int64> = []
 
     /// Current event-tap health, exposed to the General settings tab.
     @Published private(set) var health: AppSwitcherHealth = .disabled
@@ -690,6 +699,7 @@ final class AppSwitcherService: ObservableObject {
 
         case .keyDown:
             if let reverse = AppSwitcherShortcutMatcher.reverseDirection(for: keyCode, flags: flags) {
+                suppressedKeyUps.insert(keyCode)
                 DispatchQueue.main.async { [weak self] in
                     if self?.isActive == true {
                         self?.cycleSelection(reverse: reverse)
@@ -755,7 +765,7 @@ final class AppSwitcherService: ObservableObject {
             }
 
         case .keyUp:
-            if isActive && AppSwitcherShortcutMatcher.reverseDirection(for: keyCode, flags: flags) != nil {
+            if suppressedKeyUps.remove(keyCode) != nil {
                 return nil
             }
 
@@ -1325,7 +1335,6 @@ final class AppSwitcherService: ObservableObject {
                 // means ScreenCaptureKit itself failed. Use icons on future
                 // activations until the user explicitly retries.
                 if !captureCandidates.isEmpty && thumbnails.isEmpty {
-                    self.previewPermissionCoordinator.captureFailed()
                     self.previewHealth = self.previewPermissionCoordinator.health
                 }
 
@@ -1342,7 +1351,6 @@ final class AppSwitcherService: ObservableObject {
             }
         } catch {
             logDebug("Failed to capture window thumbnails: \(error)")
-            previewPermissionCoordinator.captureFailed()
             previewHealth = previewPermissionCoordinator.health
         }
     }
