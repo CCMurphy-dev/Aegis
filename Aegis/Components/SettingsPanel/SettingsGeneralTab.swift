@@ -87,6 +87,10 @@ struct SettingsGeneralTab: View {
                         isOn: $config.appSwitcherShowPreviews
                     )
                 }
+
+                if config.appSwitcherShowPreviews {
+                    SettingsWindowPreviewHealthRow(service: AppSwitcherService.shared)
+                }
             }
 
             Divider().background(Color.white.opacity(0.1))
@@ -207,6 +211,50 @@ struct SettingsAppSwitcherHealthRow: View {
             if service.health != .running {
                 Button("Retry") {
                     service.retry()
+                }
+                .buttonStyle(SettingsButtonStyle())
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+/// Screen Recording status for optional Cmd+Tab window thumbnails. The
+/// switcher continues to work with icons when this permission is unavailable.
+struct SettingsWindowPreviewHealthRow: View {
+    @ObservedObject var service: AppSwitcherService
+
+    private var statusColor: Color {
+        switch service.previewHealth {
+        case .active: return .green
+        case .permissionRequired, .failed: return .orange
+        case .disabled: return .secondary
+        }
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Window Previews")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.primary)
+                Text(service.previewHealth.displayName)
+                    .font(.system(size: 10))
+                    .foregroundColor(statusColor)
+            }
+
+            Spacer()
+
+            if service.previewHealth == .permissionRequired {
+                Button("Open Screen Recording Settings") {
+                    service.openScreenRecordingSettings()
+                }
+                .buttonStyle(SettingsButtonStyle())
+            }
+
+            if service.previewHealth != .active {
+                Button("Retry") {
+                    service.retryPreviewPermission()
                 }
                 .buttonStyle(SettingsButtonStyle())
             }

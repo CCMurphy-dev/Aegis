@@ -25,6 +25,94 @@ enum AppSwitcherHealth: String, CaseIterable, Equatable {
     }
 }
 
+/// Permission state for the optional ScreenCaptureKit window previews.
+/// This is deliberately separate from the Accessibility event-tap health: the
+/// switcher remains useful with app icons when Screen Recording is unavailable.
+enum AppSwitcherPreviewHealth: String, CaseIterable, Equatable {
+    case disabled
+    case permissionRequired
+    case active
+    case failed
+
+    var displayName: String {
+        switch self {
+        case .disabled: return "Disabled"
+        case .permissionRequired: return "Screen Recording required"
+        case .active: return "Active"
+        case .failed: return "Failed"
+        }
+    }
+}
+
+/// Isolates the macOS privacy API so permission behaviour is testable without
+/// exercising ScreenCaptureKit or changing the test host's TCC state.
+@MainActor
+protocol AppSwitcherPreviewPermissionRuntime: AnyObject {
+    func screenCaptureAccessIsGranted() -> Bool
+    func requestScreenCaptureAccess()
+}
+
+/// Gates thumbnail capture. macOS may show a permission panel when a process
+/// first requests Screen Recording; never repeat that request for every Cmd+Tab.
+@MainActor
+final class AppSwitcherPreviewPermissionCoordinator {
+    private weak var runtime: AppSwitcherPreviewPermissionRuntime?
+    private var requestedThisLaunch = false
+    private var captureBlocked = false
+
+    private(set) var health: AppSwitcherPreviewHealth = .disabled
+
+    init(runtime: AppSwitcherPreviewPermissionRuntime) {
+        self.runtime = runtime
+    }
+
+    /// Returns whether this activation may call ScreenCaptureKit.
+    func prepareForCapture(enabled: Bool) -> Bool {
+        guard enabled else {
+            health = .disabled
+            return false
+        }
+        guard !captureBlocked else { return false }
+        guard let runtime else {
+            health = .failed
+            captureBlocked = true
+            return false
+        }
+        guard runtime.screenCaptureAccessIsGranted() else {
+            health = .permissionRequired
+            if !requestedThisLaunch {
+                requestedThisLaunch = true
+                runtime.requestScreenCaptureAccess()
+            }
+            return false
+        }
+        health = .active
+        return true
+    }
+
+    /// Rechecks a grant after the user returns from System Settings. This never
+    /// asks macOS again: explicit permission is a user-controlled action.
+    func recheck(enabled: Bool) {
+        guard enabled else {
+            health = .disabled
+            return
+        }
+        guard !captureBlocked else { return }
+        health = runtime?.screenCaptureAccessIsGranted() == true ? .active : .permissionRequired
+    }
+
+    /// Retry clears a previous capture error but does not create another prompt.
+    func retry(enabled: Bool) {
+        captureBlocked = false
+        recheck(enabled: enabled)
+    }
+
+    func captureFailed() {
+        captureBlocked = true
+        health = .failed
+    }
+}
+
 /// Small, side-effect-free part of the event-tap recovery policy.
 /// Keeping the timings and transitions here makes the failure modes easy to
 /// exercise without creating a global event tap in a test process.
@@ -272,6 +360,7 @@ final class AppSwitcherService: ObservableObject {
 
     /// Cancellable for config observation
     private var configCancellable: AnyCancellable?
+    private var previewConfigCancellable: AnyCancellable?
 
     // MARK: - State
 
@@ -281,6 +370,15 @@ final class AppSwitcherService: ObservableObject {
 
     /// Current event-tap health, exposed to the General settings tab.
     @Published private(set) var health: AppSwitcherHealth = .disabled
+
+    /// Current Screen Recording health for optional window previews.
+    @Published private(set) var previewHealth: AppSwitcherPreviewHealth = .disabled
+
+    /// The switcher must use icons until both the preference and Screen
+    /// Recording permission are active.
+    var showingWindowPreviews: Bool {
+        config.appSwitcherShowPreviews && previewHealth == .active
+    }
 
     /// Currently selected index in the flat list of all windows
     private(set) var selectedIndex: Int = 0
@@ -344,6 +442,8 @@ final class AppSwitcherService: ObservableObject {
         onHealthChange: { [weak self] health in self?.health = health }
     )
 
+    private lazy var previewPermissionCoordinator = AppSwitcherPreviewPermissionCoordinator(runtime: self)
+
     // MARK: - Init
 
     private init() {
@@ -377,6 +477,18 @@ final class AppSwitcherService: ObservableObject {
                     self?.stop()
                 }
             }
+
+        previewConfigCancellable = config.$appSwitcherShowPreviews
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] enabled in
+                guard let self else { return }
+                self.previewPermissionCoordinator.recheck(enabled: enabled)
+                self.previewHealth = self.previewPermissionCoordinator.health
+            }
+
+        previewPermissionCoordinator.recheck(enabled: config.appSwitcherShowPreviews)
+        previewHealth = previewPermissionCoordinator.health
 
         NotificationCenter.default.addObserver(
             self,
@@ -445,9 +557,22 @@ final class AppSwitcherService: ObservableObject {
         recoveryCoordinator.retry(enabled: config.appSwitcherEnabled)
     }
 
+    /// Retry Screen Recording after the user returns from System Settings.
+    /// This only rechecks the grant, so it cannot create a repeat prompt.
+    func retryPreviewPermission() {
+        previewPermissionCoordinator.retry(enabled: config.appSwitcherShowPreviews)
+        previewHealth = previewPermissionCoordinator.health
+    }
+
     /// Opens the narrow Accessibility preference pane used by the status row.
     func openAccessibilitySettings() {
         guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    /// Opens the narrow Screen Recording preference pane used by preview status.
+    func openScreenRecordingSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") else { return }
         NSWorkspace.shared.open(url)
     }
 
@@ -456,6 +581,8 @@ final class AppSwitcherService: ObservableObject {
         // Activation is a useful, low-cost point to recover after the user
         // returns from System Settings or macOS re-enables the event tap.
         retry()
+        previewPermissionCoordinator.recheck(enabled: config.appSwitcherShowPreviews)
+        previewHealth = previewPermissionCoordinator.health
     }
 
     /// Stop intercepting Cmd+Tab
@@ -1134,7 +1261,9 @@ final class AppSwitcherService: ObservableObject {
 
     /// Capture thumbnails for all windows via ScreenCaptureKit
     private func captureWindowThumbnails() async {
-        guard config.appSwitcherShowPreviews else { return }
+        let mayCapture = previewPermissionCoordinator.prepareForCapture(enabled: config.appSwitcherShowPreviews)
+        previewHealth = previewPermissionCoordinator.health
+        guard mayCapture else { return }
 
         do {
             let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false)
@@ -1146,11 +1275,13 @@ final class AppSwitcherService: ObservableObject {
             }
 
             // Capture thumbnails concurrently
-            await withTaskGroup(of: (Int, NSImage?).self) { group in
-                for window in self.allWindows {
-                    // Skip minimized/hidden — no valid capture available
-                    if window.isMinimized || window.isHidden { continue }
+            let captureCandidates = self.allWindows.filter { window in
+                !window.isMinimized && !window.isHidden && scWindowMap[CGWindowID(window.id)] != nil
+            }
 
+            await withTaskGroup(of: (Int, NSImage?).self) { group in
+                for window in captureCandidates {
+                    // Skip minimized/hidden — no valid capture available
                     guard let scWindow = scWindowMap[CGWindowID(window.id)] else { continue }
 
                     group.addTask {
@@ -1190,6 +1321,14 @@ final class AppSwitcherService: ObservableObject {
                     if let image { thumbnails[windowId] = image }
                 }
 
+                // A successful permission preflight followed by no thumbnails
+                // means ScreenCaptureKit itself failed. Use icons on future
+                // activations until the user explicitly retries.
+                if !captureCandidates.isEmpty && thumbnails.isEmpty {
+                    self.previewPermissionCoordinator.captureFailed()
+                    self.previewHealth = self.previewPermissionCoordinator.health
+                }
+
                 // Update allWindows and spaceGroups with thumbnails
                 for i in self.allWindows.indices {
                     self.allWindows[i].thumbnail = thumbnails[self.allWindows[i].id]
@@ -1203,7 +1342,19 @@ final class AppSwitcherService: ObservableObject {
             }
         } catch {
             logDebug("Failed to capture window thumbnails: \(error)")
+            previewPermissionCoordinator.captureFailed()
+            previewHealth = previewPermissionCoordinator.health
         }
+    }
+}
+
+extension AppSwitcherService: AppSwitcherPreviewPermissionRuntime {
+    func screenCaptureAccessIsGranted() -> Bool {
+        CGPreflightScreenCaptureAccess()
+    }
+
+    func requestScreenCaptureAccess() {
+        CGRequestScreenCaptureAccess()
     }
 }
 
