@@ -133,6 +133,12 @@ final class YabaiAdapter: WindowManagerProtocol {
         yabai.floatAndCenterWindow(id)
     }
 
+    func closeWindow(_ id: Int, completion: @escaping (Result<Void, Error>) -> Void) {
+        yabai.executeYabai(args: WindowManagerCloseCommand.yabai(id).arguments) { result in
+            completion(result.map { _ in () })
+        }
+    }
+
     // MARK: - Commands — Space Management
 
     func createSpace() {
@@ -218,6 +224,7 @@ extension WindowInfo {
             pid: pid,
             title: title,
             app: app,
+            bundleIdentifier: nil,
             appName: app,   // Yabai uses bundle ID as app name
             space: space,
             frame: frame,

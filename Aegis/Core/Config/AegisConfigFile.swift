@@ -99,6 +99,7 @@ struct AegisConfigData: Codable {
     var appSwitcherShowHidden: Bool?
     var appSwitcherCmdScrollEnabled: Bool?
     var appSwitcherShowPreviews: Bool?
+    var appSwitcherKeyboardMode: String?
 
     // Behavior Flags
     var showAppNameInExpansion: Bool?
@@ -391,6 +392,10 @@ extension AegisConfig {
         if let v = data.appSwitcherShowHidden { appSwitcherShowHidden = v }
         if let v = data.appSwitcherCmdScrollEnabled { appSwitcherCmdScrollEnabled = v }
         if let v = data.appSwitcherShowPreviews { appSwitcherShowPreviews = v }
+        if let raw = data.appSwitcherKeyboardMode,
+           let mode = AppSwitcherKeyboardMode(rawValue: raw) {
+            appSwitcherKeyboardMode = mode
+        }
 
         // Behavior Flags
         if let v = data.showAppNameInExpansion { showAppNameInExpansion = v }
@@ -649,6 +654,7 @@ extension AegisConfig {
             appSwitcherShowHidden: appSwitcherShowHidden,
             appSwitcherCmdScrollEnabled: appSwitcherCmdScrollEnabled,
             appSwitcherShowPreviews: appSwitcherShowPreviews,
+            appSwitcherKeyboardMode: appSwitcherKeyboardMode.rawValue,
 
             // Behavior Flags
             showAppNameInExpansion: showAppNameInExpansion,
@@ -853,6 +859,7 @@ Only include settings you want to change - defaults are used for anything not sp
 | `appSwitcherShowMinimized` | bool | `true` | Show minimized windows in switcher |
 | `appSwitcherShowHidden` | bool | `false` | Show hidden windows in switcher |
 | `appSwitcherShowPreviews` | bool | `false` | Show window preview thumbnails instead of app icons |
+| `appSwitcherKeyboardMode` | string | `"filter"` | `"filter"` for type-to-filter, or `"actions"` for Cmd+W close and Cmd+Q quit |
 
 ---
 

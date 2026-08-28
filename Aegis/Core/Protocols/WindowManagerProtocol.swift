@@ -27,6 +27,7 @@ struct WMWindow: Identifiable {
     let pid: pid_t
     let title: String
     let app: String            // Bundle ID or process name
+    let bundleIdentifier: String?
     let appName: String        // Human-readable display name
     let space: Int             // Space index this window belongs to
     let frame: CGRect?
@@ -193,6 +194,10 @@ protocol WindowManagerProtocol: AnyObject {
     /// Float and center a window on its current space
     func floatAndCenterWindow(_ id: Int)
 
+    /// Close one exact window. Implementations must not fall back to the
+    /// focused window, because callers may be acting on a background row.
+    func closeWindow(_ id: Int, completion: @escaping (Result<Void, Error>) -> Void)
+
     // MARK: Commands — Space Management
 
     /// Create a new space on the focused display
@@ -264,6 +269,14 @@ extension WindowManagerProtocol {
 
     func moveWindowToSpaceFloatAndFocus(_ id: Int, spaceIndex: Int) {}
     func floatAndCenterWindow(_ id: Int) {}
+
+    func closeWindow(_ id: Int, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.failure(NSError(
+            domain: "WindowManager",
+            code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "Closing windows is not supported"]
+        )))
+    }
 
     func stackAllWindowsOnto(_ targetId: Int) {}
 

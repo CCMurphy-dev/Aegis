@@ -326,6 +326,10 @@ class AegisConfig: ObservableObject {
     /// Show window preview thumbnails instead of app icons in the switcher
     @Published var appSwitcherShowPreviews: Bool = false
 
+    /// Choose between the original type-to-filter behaviour and W/Q actions.
+    @Published var appSwitcherKeyboardMode: AppSwitcherKeyboardMode = .filter
+
+
     // MARK: - Behavior Flags - Menu Bar
 
     /// Show app names under window titles when expanded
@@ -969,6 +973,7 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(appSwitcherShowHidden, forKey: "appSwitcherShowHidden")
         UserDefaults.standard.set(appSwitcherCmdScrollEnabled, forKey: "appSwitcherCmdScrollEnabled")
         UserDefaults.standard.set(appSwitcherShowPreviews, forKey: "appSwitcherShowPreviews")
+        UserDefaults.standard.set(appSwitcherKeyboardMode.rawValue, forKey: "appSwitcherKeyboardMode")
 
         // Interaction Thresholds
         UserDefaults.standard.set(dragDistanceThreshold, forKey: "dragDistanceThreshold")
@@ -1298,6 +1303,10 @@ class AegisConfig: ObservableObject {
         }
         if let val = UserDefaults.standard.object(forKey: "appSwitcherShowPreviews") as? Bool {
             appSwitcherShowPreviews = val
+        }
+        if let raw = UserDefaults.standard.string(forKey: "appSwitcherKeyboardMode"),
+           let mode = AppSwitcherKeyboardMode(rawValue: raw) {
+            appSwitcherKeyboardMode = mode
         }
 
         // Interaction Thresholds
@@ -1671,6 +1680,7 @@ class AegisConfig: ObservableObject {
         appSwitcherShowHidden = false
         appSwitcherCmdScrollEnabled = false
         appSwitcherShowPreviews = false
+        appSwitcherKeyboardMode = .filter
 
         dragDistanceThreshold = 3
         swipeDestroyThreshold = -120

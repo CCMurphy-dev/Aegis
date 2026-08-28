@@ -143,6 +143,12 @@ final class RiftAdapter: WindowManagerProtocol {
         rift.toggleFloat()
     }
 
+    func closeWindow(_ id: Int, completion: @escaping (Result<Void, Error>) -> Void) {
+        rift.executeRiftCli(args: WindowManagerCloseCommand.rift(id).arguments) { result in
+            completion(result.map { _ in () })
+        }
+    }
+
     // MARK: - Commands — Space Management
 
     func createSpace() {
@@ -201,6 +207,7 @@ extension RiftWindow {
             pid: pid_t(id.pid),
             title: title,
             app: bundleId ?? appName ?? "Unknown",
+            bundleIdentifier: bundleId,
             appName: appName ?? "Unknown",
             space: spaceIndex ?? 0,
             frame: frame.cgRect,

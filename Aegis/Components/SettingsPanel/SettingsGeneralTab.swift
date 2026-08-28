@@ -59,6 +59,11 @@ struct SettingsGeneralTab: View {
 
             if config.appSwitcherEnabled {
                 SettingsSubsection(title: "App Switcher") {
+                    SettingsAppSwitcherKeyboardModePicker(
+                        label: "Keyboard Mode",
+                        selection: $config.appSwitcherKeyboardMode
+                    )
+
                     SettingsToggle(
                         label: "Cmd+Scroll to Open",
                         description: "Enable Cmd+scroll to open/cycle app switcher",

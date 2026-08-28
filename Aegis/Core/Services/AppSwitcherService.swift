@@ -18,6 +18,7 @@ final class AppSwitcherService {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private(set) var isActive: Bool = false
+    private var isActivationPending: Bool = false
 
     /// Currently selected index in the flat list of all windows
     private(set) var selectedIndex: Int = 0
@@ -69,12 +70,17 @@ final class AppSwitcherService {
     /// Scroll accumulator for Cmd+scroll activation
     private var cmdScrollAccumulator: CGFloat = 0
 
+    /// Key-up events for action keys whose key-down event Aegis consumed.
+    private var consumedActionKeyUps = AppSwitcherConsumedKeyUpPolicy()
+
     /// Cached app icons by name - persists across activations
     private var appIconCache: [String: NSImage] = [:]
 
     /// Whether the icon cache needs refreshing (set true when apps change)
     private var iconCacheNeedsRefresh: Bool = true
 
+    /// Keeps a close/quit request and its follow-up refreshes serialized.
+    private let actionRefreshCoordinator = AppSwitcherActionRefreshCoordinator()
     // MARK: - Init
 
     private init() {
@@ -190,6 +196,7 @@ final class AppSwitcherService {
         }
 
         dismissSwitcher()
+        consumedActionKeyUps.reset()
         logInfo("AppSwitcherService stopped")
     }
 
@@ -285,12 +292,14 @@ final class AppSwitcherService {
         case .keyDown:
             if cmdPressed && keyCode == tabKeyCode {
                 let shiftPressed = flags.contains(.maskShift)
-                DispatchQueue.main.async { [weak self] in
-                    if self?.isActive == true {
+                if isActive {
+                    DispatchQueue.main.async { [weak self] in
                         self?.cycleSelection(reverse: shiftPressed)
-                    } else {
-                        self?.activateSwitcher(reverse: shiftPressed)
                     }
+                } else {
+                    startActivationIfNeeded(
+                        reverse: shiftPressed
+                    )
                 }
                 return nil
             }
@@ -320,6 +329,7 @@ final class AppSwitcherService {
                 if let num = keyCodeToNumber(keyCode), num >= 1 && num <= 9 {
                     let index = num - 1
                     let count = isCommandMode ? filteredCommands.count : (searchQuery.isEmpty ? allWindows : filteredWindows).count
+                    consumedActionKeyUps.consume(keyCode)
                     if index < count {
                         DispatchQueue.main.async { [weak self] in
                             self?.selectedIndex = index
@@ -327,6 +337,39 @@ final class AppSwitcherService {
                         }
                     }
                     return nil
+                }
+            }
+
+            if AppSwitcherActivationPolicy.shouldHandleActionKeys(
+                isSwitcherActive: isActive,
+                isActivationPending: isActivationPending
+            ), cmdPressed {
+                switch AppSwitcherActionKeyPolicy.decision(
+                    for: keyCode,
+                    flags: flags,
+                    mode: config.appSwitcherKeyboardMode,
+                    isCommandMode: isCommandMode,
+                    isAutorepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0,
+                    isActivationPending: isActivationPending
+                ) {
+                case .perform(let action):
+                    consumedActionKeyUps.consume(keyCode)
+                    DispatchQueue.main.async { [weak self] in
+                        self?.performWindowAction(action)
+                    }
+                    return nil
+                case .enterCommandPalette:
+                    consumedActionKeyUps.consume(keyCode)
+                    DispatchQueue.main.async { [weak self] in
+                        self?.actionRefreshCoordinator.cancel()
+                        self?.appendSearchChar(":")
+                    }
+                    return nil
+                case .consume:
+                    consumedActionKeyUps.consume(keyCode)
+                    return nil
+                case .passThrough:
+                    break
                 }
             }
 
@@ -342,6 +385,9 @@ final class AppSwitcherService {
             if isActive && cmdPressed {
                 let shiftPressed = flags.contains(.maskShift)
                 if let char = keyCodeToChar(keyCode, shift: shiftPressed) {
+                    if config.appSwitcherKeyboardMode == .actions {
+                        consumedActionKeyUps.consume(keyCode)
+                    }
                     DispatchQueue.main.async { [weak self] in
                         self?.appendSearchChar(char)
                     }
@@ -350,6 +396,9 @@ final class AppSwitcherService {
             }
 
         case .keyUp:
+            if consumedActionKeyUps.shouldSuppressKeyUp(keyCode) {
+                return nil
+            }
             if isActive && keyCode == tabKeyCode {
                 return nil
             }
@@ -383,15 +432,14 @@ final class AppSwitcherService {
                 let steps = Int(cmdScrollAccumulator / threshold)
 
                 if steps != 0 {
-                    DispatchQueue.main.async { [weak self] in
-                        guard let self = self else { return }
-                        if self.isActive {
-                            // Already active - cycle selection
-                            self.cycleSelection(reverse: steps < 0)
-                        } else {
-                            // Not active - activate and optionally cycle
-                            self.activateSwitcher(reverse: steps < 0)
+                    if isActive {
+                        DispatchQueue.main.async { [weak self] in
+                            self?.cycleSelection(reverse: steps < 0)
                         }
+                    } else {
+                        startActivationIfNeeded(
+                            reverse: steps < 0
+                        )
                     }
 
                     // Reset accumulator (notched behavior)
@@ -535,27 +583,48 @@ final class AppSwitcherService {
 
     // MARK: - Switcher Logic
 
+    private func startActivationIfNeeded(
+        reverse: Bool
+    ) {
+        guard AppSwitcherActivationPolicy.shouldBeginActivation(
+            isSwitcherActive: isActive,
+            isActivationPending: isActivationPending
+        ) else {
+            return
+        }
+
+        isActivationPending = true
+        DispatchQueue.main.async { [weak self] in
+            self?.activateSwitcher(reverse: reverse)
+        }
+    }
+
     private func activateSwitcher(reverse: Bool) {
         logDebug("Activating app switcher")
 
         // Fetch windows from window manager
         Task {
+            let content: SwitcherContent
             if let wm = windowManager, wm.name != "Yabai" {
-                await refreshWindowsFromWM(wm)
+                content = await refreshWindowsFromWM(wm)
             } else {
-                await refreshWindowsFromYabai()
+                content = await refreshWindowsFromYabai()
             }
+
+            self.commit(content)
 
             // Capture window thumbnails if preview mode is enabled
             await captureWindowThumbnails()
 
             await MainActor.run {
                 guard !self.allWindows.isEmpty else {
+                    self.isActivationPending = false
                     logDebug("No windows to switch between")
                     return
                 }
 
                 self.isActive = true
+                self.isActivationPending = false
                 self.searchQuery = ""
                 self.filteredWindows = self.allWindows
 
@@ -585,7 +654,9 @@ final class AppSwitcherService {
     }
 
     private func dismissSwitcher() {
+        actionRefreshCoordinator.cancel()
         isActive = false
+        isActivationPending = false
         selectedIndex = 0
         searchQuery = ""
         filteredWindows = []
@@ -626,9 +697,151 @@ final class AppSwitcherService {
         windowController?.hide()
     }
 
+    // MARK: - Switcher Actions
+
+    private func performWindowAction(_ action: AppSwitcherWindowAction) {
+        guard isActive, !isCommandMode,
+              let window = currentWindowSelection(),
+              let token = actionRefreshCoordinator.begin() else {
+            return
+        }
+
+        switch action {
+        case .close:
+            guard let windowManager, let windowManagerID = window.windowManagerID else {
+                logError("Cannot close switcher fallback row without an exact window ID")
+                actionRefreshCoordinator.cancel()
+                return
+            }
+
+            windowManager.closeWindow(windowManagerID) { [weak self] result in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    switch result {
+                    case .success:
+                        self.refreshAfterWindowAction(
+                            token: token
+                        )
+                    case .failure(let error):
+                        logError("Failed to close switcher window \(windowManagerID): \(error)")
+                        self.actionRefreshCoordinator.cancel()
+                    }
+                }
+            }
+
+        case .quit:
+            guard let app = runningApplication(for: window), app.terminate() else {
+                logError("Failed to request graceful quit for \(window.appName)")
+                actionRefreshCoordinator.cancel()
+                return
+            }
+
+            refreshAfterWindowAction(
+                token: token
+            )
+        }
+    }
+
+    private func currentWindowSelection() -> SwitcherWindow? {
+        let windows = searchQuery.isEmpty ? allWindows : filteredWindows
+        guard selectedIndex >= 0, selectedIndex < windows.count else { return nil }
+        return windows[selectedIndex]
+    }
+
+    private func commit(_ content: SwitcherContent) {
+        let thumbnailsByID = Dictionary(
+            uniqueKeysWithValues: allWindows.compactMap { window in
+                window.thumbnail.map { (window.id, $0) }
+            }
+        )
+        allWindows = AppSwitcherThumbnailPolicy.merge(
+            content.allWindows,
+            thumbnailsByID: thumbnailsByID
+        )
+        spaceGroups = content.spaceGroups.map { group in
+            SpaceGroup(
+                spaceIndex: group.spaceIndex,
+                spaceLabel: group.spaceLabel,
+                isFocused: group.isFocused,
+                windows: AppSwitcherThumbnailPolicy.merge(
+                    group.windows,
+                    thumbnailsByID: thumbnailsByID
+                )
+            )
+        }
+    }
+
+    private func runningApplication(for window: SwitcherWindow) -> NSRunningApplication? {
+        guard let bundleIdentifier = window.bundleIdentifier else { return nil }
+
+        if window.pid > 0,
+           let app = NSRunningApplication(processIdentifier: window.pid),
+           AppSwitcherQuitTargetPolicy.pidMatches(
+                expectedBundleIdentifier: bundleIdentifier,
+                actualBundleIdentifier: app.bundleIdentifier
+           ) {
+            return app
+        }
+
+        guard AppSwitcherQuitTargetPolicy.mayUseBundleFallback(
+            processIdentifier: window.pid
+        ) else {
+            return nil
+        }
+
+        let apps = NSRunningApplication.runningApplications(
+            withBundleIdentifier: bundleIdentifier
+        )
+        return apps.count == 1 ? apps[0] : nil
+    }
+
+    private func refreshAfterWindowAction(
+        token: Int
+    ) {
+        actionRefreshCoordinator.scheduleRefreshes(for: token) { [weak self] finished in
+            guard let self, self.isActive else {
+                finished()
+                return
+            }
+
+            Task {
+                let content: SwitcherContent
+                if let wm = self.windowManager, wm.name != "Yabai" {
+                    content = await self.refreshWindowsFromWM(wm)
+                } else {
+                    content = await self.refreshWindowsFromYabai()
+                }
+
+                await MainActor.run {
+                    guard self.isActive, self.actionRefreshCoordinator.isCurrent(token) else {
+                        finished()
+                        return
+                    }
+
+                    let currentWindowID = self.currentWindowSelection()?.id
+                    let currentPosition = self.selectedIndex
+                    self.commit(content)
+                    self.filteredWindows = self.allWindows
+                    guard let reconciledIndex = AppSwitcherActionSelectionPolicy.index(
+                        in: self.allWindows,
+                        retaining: currentWindowID,
+                        nearestTo: currentPosition
+                    ) else {
+                        self.dismissSwitcher()
+                        finished()
+                        return
+                    }
+                    self.selectedIndex = reconciledIndex
+                    self.updateWindowWithFilter()
+                    finished()
+                }
+            }
+        }
+    }
+
     // MARK: - WM-agnostic Data
 
-    private func refreshWindowsFromWM(_ wm: WindowManagerProtocol) async {
+    private func refreshWindowsFromWM(_ wm: WindowManagerProtocol) async -> SwitcherContent {
         let excludedApps = config.excludedApps
         let showMinimized = config.appSwitcherShowMinimized
         let showHidden = config.appSwitcherShowHidden
@@ -672,6 +885,9 @@ final class AppSwitcherService {
 
                 return SwitcherWindow(
                     id: window.id,
+                    windowManagerID: window.id,
+                    pid: window.pid,
+                    bundleIdentifier: window.bundleIdentifier,
                     title: window.title,
                     appName: window.appName,
                     spaceIndex: window.space,
@@ -692,13 +908,12 @@ final class AppSwitcherService {
             flatWindows.append(contentsOf: switcherWindows)
         }
 
-        self.spaceGroups = groups
-        self.allWindows = flatWindows
+        return SwitcherContent(spaceGroups: groups, allWindows: flatWindows)
     }
 
     // MARK: - Yabai Data
 
-    private func refreshWindowsFromYabai() async {
+    private func refreshWindowsFromYabai() async -> SwitcherContent {
         do {
             // Query spaces and windows from yabai
             async let spacesJson = yabaiCommand.run(["-m", "query", "--spaces"])
@@ -773,7 +988,10 @@ final class AppSwitcherService {
 
                     return SwitcherWindow(
                         id: window.id,
-                        title: window.title,
+                        windowManagerID: window.id,
+                        pid: window.pid,
+                        bundleIdentifier: nil,
+                    title: window.title,
                         appName: window.app,
                         spaceIndex: window.space,
                         icon: icon,
@@ -793,18 +1011,17 @@ final class AppSwitcherService {
                 flatWindows.append(contentsOf: switcherWindows)
             }
 
-            self.spaceGroups = groups
-            self.allWindows = flatWindows
+            return SwitcherContent(spaceGroups: groups, allWindows: flatWindows)
 
         } catch {
             logError("Failed to query yabai: \(error)")
 
             // Fallback to running apps if yabai fails
-            await fallbackToRunningApps()
+            return await fallbackToRunningApps()
         }
     }
 
-    private func fallbackToRunningApps() async {
+    private func fallbackToRunningApps() async -> SwitcherContent {
         let runningApps = NSWorkspace.shared.runningApplications
             .filter { $0.activationPolicy == .regular }
             .sorted { app1, app2 in
@@ -817,6 +1034,9 @@ final class AppSwitcherService {
             guard let name = app.localizedName else { return nil }
             return SwitcherWindow(
                 id: Int(app.processIdentifier),
+                windowManagerID: nil,
+                pid: app.processIdentifier,
+                bundleIdentifier: app.bundleIdentifier,
                 title: name,
                 appName: name,
                 spaceIndex: 1,
@@ -827,8 +1047,10 @@ final class AppSwitcherService {
             )
         }
 
-        self.spaceGroups = [SpaceGroup(spaceIndex: 1, spaceLabel: nil, isFocused: true, windows: windows)]
-        self.allWindows = windows
+        return SwitcherContent(
+            spaceGroups: [SpaceGroup(spaceIndex: 1, spaceLabel: nil, isFocused: true, windows: windows)],
+            allWindows: windows
+        )
     }
 
     private func focusWindow(_ window: SwitcherWindow) {
@@ -939,8 +1161,31 @@ struct SpaceGroup: Identifiable {
     var windows: [SwitcherWindow]
 }
 
+private struct SwitcherContent {
+    let spaceGroups: [SpaceGroup]
+    let allWindows: [SwitcherWindow]
+}
+
+enum AppSwitcherThumbnailPolicy {
+    static func merge(
+        _ windows: [SwitcherWindow],
+        thumbnailsByID: [Int: NSImage]
+    ) -> [SwitcherWindow] {
+        windows.map { window in
+            var window = window
+            if let thumbnail = thumbnailsByID[window.id] {
+                window.thumbnail = thumbnail
+            }
+            return window
+        }
+    }
+}
+
 struct SwitcherWindow: Identifiable {
     let id: Int
+    let windowManagerID: Int?
+    let pid: pid_t
+    let bundleIdentifier: String?
     let title: String
     let appName: String
     let spaceIndex: Int

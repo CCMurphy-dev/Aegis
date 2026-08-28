@@ -81,7 +81,8 @@ final class AeroSpaceAdapter: WindowManagerProtocol {
             if window.windowId == focusedId {
                 wmWin = WMWindow(
                     id: wmWin.id, pid: wmWin.pid, title: wmWin.title,
-                    app: wmWin.app, appName: wmWin.appName, space: wmWin.space,
+                    app: wmWin.app, bundleIdentifier: wmWin.bundleIdentifier,
+                    appName: wmWin.appName, space: wmWin.space,
                     frame: wmWin.frame, hasFocus: true, stackIndex: wmWin.stackIndex,
                     isMinimized: wmWin.isMinimized, isHidden: wmWin.isHidden,
                     isVisible: wmWin.isVisible, isFloating: wmWin.isFloating,
@@ -160,6 +161,12 @@ final class AeroSpaceAdapter: WindowManagerProtocol {
         aero.moveWindow(windowId, toWorkspace: spaceIndex)
     }
 
+    func closeWindow(_ id: Int, completion: @escaping (Result<Void, Error>) -> Void) {
+        aero.executeRawCommand(args: WindowManagerCloseCommand.aeroSpace(id).arguments) { result in
+            completion(result.map { _ in () })
+        }
+    }
+
     // MARK: - Commands — Space Management
 
     func createSpace() {
@@ -192,20 +199,20 @@ final class AeroSpaceAdapter: WindowManagerProtocol {
 
 extension ASWindow {
     func toWMWindow(spaceIndex: Int?) -> WMWindow {
-        // Resolve PID from bundle ID — needed for AXObserver (window title tracking)
-        let pid: pid_t = {
-            if let bundleId = appBundleId,
-               let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first {
-                return app.processIdentifier
-            }
-            return 0
-        }()
+        let owner = AeroSpaceWindowOwnerPolicy.resolve(
+            bundleIdentifier: appBundleId,
+            processIdentifiers: appBundleId.map {
+                NSRunningApplication.runningApplications(withBundleIdentifier: $0)
+                    .map(\.processIdentifier)
+            } ?? []
+        )
 
         return WMWindow(
             id: windowId,
-            pid: pid,
+            pid: owner.pid,
             title: windowTitle,
             app: appBundleId ?? appName,
+            bundleIdentifier: owner.bundleIdentifier,
             appName: appName,
             space: spaceIndex ?? 0,
             frame: nil,
@@ -217,5 +224,23 @@ extension ASWindow {
             isFloating: false,       // AeroSpace doesn't expose floating state in list-windows
             isFullscreen: false
         )
+    }
+}
+
+struct AeroSpaceWindowOwner: Equatable {
+    let pid: pid_t
+    let bundleIdentifier: String?
+}
+
+enum AeroSpaceWindowOwnerPolicy {
+    static func resolve(
+        bundleIdentifier: String?,
+        processIdentifiers: [pid_t]
+    ) -> AeroSpaceWindowOwner {
+        guard let bundleIdentifier, processIdentifiers.count == 1,
+              let pid = processIdentifiers.first else {
+            return AeroSpaceWindowOwner(pid: 0, bundleIdentifier: nil)
+        }
+        return AeroSpaceWindowOwner(pid: pid, bundleIdentifier: bundleIdentifier)
     }
 }
