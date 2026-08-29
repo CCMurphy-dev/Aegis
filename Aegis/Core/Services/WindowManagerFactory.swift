@@ -12,6 +12,7 @@ enum WindowManagerType: String, Codable, CaseIterable {
     case auto
     case yabai
     case rift
+    case paneru
     case aerospace
 
     var displayName: String {
@@ -19,6 +20,7 @@ enum WindowManagerType: String, Codable, CaseIterable {
         case .auto: return "Auto"
         case .yabai: return "Yabai"
         case .rift: return "Rift"
+        case .paneru: return "Paneru"
         case .aerospace: return "AeroSpace"
         }
     }
@@ -28,6 +30,7 @@ enum WindowManagerType: String, Codable, CaseIterable {
         case .auto: return "Detects which window manager is running"
         case .yabai: return "Tiling WM with BSP, float, and stack layouts"
         case .rift: return "Tiling WM with BSP, master-stack, and scrolling layouts"
+        case .paneru: return "Tiling WM with virtual workspace rows per native Space"
         case .aerospace: return "Tiling WM inspired by i3"
         }
     }
@@ -43,6 +46,8 @@ struct WindowManagerFactory {
             return YabaiAdapter(eventRouter: eventRouter)
         case .rift:
             return RiftAdapter(eventRouter: eventRouter)
+        case .paneru:
+            return PaneruAdapter(eventRouter: eventRouter)
         case .aerospace:
             return AeroSpaceAdapter(eventRouter: eventRouter)
         case .auto:
@@ -63,6 +68,11 @@ struct WindowManagerFactory {
         if isProcessRunning("rift") {
             logInfo("Auto-detected window manager: Rift")
             return RiftAdapter(eventRouter: eventRouter)
+        }
+
+        if isProcessRunning("paneru") {
+            logInfo("Auto-detected window manager: Paneru")
+            return PaneruAdapter(eventRouter: eventRouter)
         }
 
         if runningApps.contains("AeroSpace") || isProcessRunning("AeroSpace") {

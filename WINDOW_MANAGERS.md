@@ -6,6 +6,7 @@
 |---|---|---|---|
 | **Yabai** | Full support | macOS native spaces | FIFO pipe (yabai signals) |
 | **Rift** | Full support | Virtual workspaces | Mach subscription |
+| **Paneru** | Basic support | Virtual workspace rows (per native Space) | NDJSON subscription (`paneru subscribe --json`) |
 | **AeroSpace** | Full support | Virtual workspaces (string-named) | FIFO pipe (`exec-on-workspace-change`) + NSWorkspace |
 
 ## Feature Matrix
@@ -92,6 +93,16 @@
 - **Window move**: `rift-cli execute workspace move-window` with explicit `window_server_id` silently fails. Aegis focuses the window first via AXUIElement, waits 100ms, then calls `move-window` without an ID.
 - **Inactive workspace windows**: Rift's `query workspaces` only populates `windows[]` for the active workspace. Aegis maintains a global window cache (`windowToWorkspace` map) to display icons for inactive workspaces.
 - **Workspace labels**: 0-based to match Rift keybindings (Alt+0, Alt+1, etc).
+
+### Paneru-specific
+
+- **Workspace model**: One-dimensional — only the virtual rows of the CURRENT native macOS Space are shown (rows filtered by `active.native_workspace_id` from `paneru query state --json`). Trailing empty rows are kept.
+- **Complete snapshots**: `query state --json` includes full window lists for inactive rows too, so no merge cache is needed — each refresh replaces the cache wholesale.
+- **Window order**: Paneru JSON has no window frames; each row's `windows[]` array is already in strip order and is used directly.
+- **No PID in JSON**: PIDs are resolved from `bundle_id` via `NSRunningApplication.runningApplications(withBundleIdentifier:)` (needed for AXObserver window-title tracking).
+- **Window focus**: Paneru has no focus-window-by-ID command (`send-cmd window focus <id>` is silently ignored). Aegis uses the same AXUIElement raise-by-CGWindowID hack as Rift.
+- **Window move**: `send-cmd window virtualsendnum N` (don't follow) / `virtualmovenum N` (follow) operate on the FOCUSED window — Aegis focuses the target window via AXUIElement first, waits 100ms, then sends the command.
+- **Single display**: `WMSpace.display` and `getCurrentDisplays()` are hardcoded to a single synthesized display (index 1).
 
 ### Adding a new window manager
 
