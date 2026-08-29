@@ -27,6 +27,14 @@ struct RiftWorkspace: Codable {
     }
 }
 
+/// Rift only reports authoritative window data for active workspaces. An active
+/// workspace still clears cached windows when Rift reports it as empty.
+enum RiftWorkspaceRefreshCoverage {
+    static func workspaceIndices(_ workspaces: [RiftWorkspace]) -> Set<Int> {
+        Set(workspaces.lazy.filter(\.isActive).map { $0.index + 1 })
+    }
+}
+
 // MARK: - Window
 
 struct RiftWindowId: Codable, Hashable {
