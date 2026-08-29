@@ -458,8 +458,9 @@ final class RiftService {
                 logInfo("[RIFT-DEBUG] ws\(ws.index) '\(ws.name)' active=\(ws.isActive) windowCount=\(ws.windowCount) windows.count=\(ws.windows.count)")
             }
 
-            // Find which workspace indices have fresh window data (only active ws has windows populated)
-            let activeWsIndices = Set(decoded.filter { !$0.windows.isEmpty }.map { $0.index + 1 })
+            // Rift reports authoritative window data for active workspaces only.
+            // An active workspace must clear cached windows when it is empty.
+            let refreshedWsIndices = RiftWorkspaceRefreshCoverage.workspaceIndices(decoded)
 
             // Extract windows from workspaces that reported them
             var newWindows: [Int: RiftWindow] = [:]
@@ -509,7 +510,7 @@ final class RiftService {
 
                 // Remove windows from workspaces that just reported fresh data
                 for (sysId, wsIndex) in self.windowToWorkspace {
-                    if activeWsIndices.contains(wsIndex) {
+                    if refreshedWsIndices.contains(wsIndex) {
                         mergedWindows.removeValue(forKey: sysId)
                         mergedWsMap.removeValue(forKey: sysId)
                     }
@@ -542,7 +543,7 @@ final class RiftService {
 
                 // Remove windows from workspaces that reported fresh data
                 for (sysId, wsIndex) in self.windowToWorkspace {
-                    if activeWsIndices.contains(wsIndex) {
+                    if refreshedWsIndices.contains(wsIndex) {
                         self.windows.removeValue(forKey: sysId)
                         self.windowToWorkspace.removeValue(forKey: sysId)
                     }
