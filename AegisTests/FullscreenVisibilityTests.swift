@@ -2,6 +2,32 @@ import CoreGraphics
 import XCTest
 @testable import Aegis
 
+final class RiftFallbackRefreshPolicyTests: XCTestCase {
+    func testActiveSpaceChangeAlwaysRefreshesAfterRecentSubscriptionActivity() {
+        XCTAssertTrue(RiftFallbackRefreshPolicy.shouldRefresh(
+            trigger: .activeSpaceChange,
+            hasRecentSubscriptionEvent: true
+        ))
+    }
+
+    func testApplicationActivationRetainsSubscriptionDeduplication() {
+        XCTAssertFalse(RiftFallbackRefreshPolicy.shouldRefresh(
+            trigger: .applicationActivation,
+            hasRecentSubscriptionEvent: true
+        ))
+        XCTAssertTrue(RiftFallbackRefreshPolicy.shouldRefresh(
+            trigger: .applicationActivation,
+            hasRecentSubscriptionEvent: false
+        ))
+    }
+
+    func testDuplicateAndWeakerRefreshesCannotReplaceFullRefresh() {
+        XCTAssertEqual(RiftRefreshScope.all.merging(.all), .all)
+        XCTAssertEqual(RiftRefreshScope.windowsOnly.merging(.all), .all)
+        XCTAssertEqual(RiftRefreshScope.all.merging(.windowsOnly), .all)
+    }
+}
+
 final class MenuBarFullscreenVisibilityPolicyTests: XCTestCase {
     func testManagedDisplayUsesNativeFullscreenFromFocusedWorkspace() {
         XCTAssertTrue(MenuBarFullscreenVisibilityPolicy.shouldHide(

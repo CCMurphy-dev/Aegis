@@ -10,6 +10,42 @@
 import Foundation
 import AppKit
 
+enum RiftFallbackRefreshPolicy {
+    enum Trigger {
+        case activeSpaceChange
+        case applicationActivation
+    }
+
+    static func shouldRefresh(
+        trigger: Trigger,
+        hasRecentSubscriptionEvent: Bool
+    ) -> Bool {
+        switch trigger {
+        case .activeSpaceChange:
+            // The recent Rift event may only describe focus. The macOS Space
+            // notification is authoritative for native fullscreen changes.
+            return true
+        case .applicationActivation:
+            return !hasRecentSubscriptionEvent
+        }
+    }
+}
+
+enum RiftRefreshScope: Int, Comparable {
+    case none = 0
+    case windowsOnly = 1
+    case workspacesAndWindows = 2
+    case all = 3
+
+    static func < (lhs: Self, rhs: Self) -> Bool {
+        lhs.rawValue < rhs.rawValue
+    }
+
+    func merging(_ other: Self) -> Self {
+        max(self, other)
+    }
+}
+
 
 // Private API: maps AXUIElement → CGWindowID (available since macOS 10.x)
 @_silgen_name("_AXUIElementGetWindow")
@@ -182,15 +218,8 @@ final class RiftService {
     private var lineBuffer = ""
 
     // Coalescing gate (identical pattern to YabaiService)
-    private enum RefreshScope: Int, Comparable {
-        case none = 0
-        case windowsOnly = 1
-        case workspacesAndWindows = 2
-        case all = 3
-        static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
-    }
     private var coalesceTimer: DispatchWorkItem?
-    private var pendingScope: RefreshScope = .none
+    private var pendingScope: RiftRefreshScope = .none
     private var lastRefreshTime: Date = .distantPast
     private let coalesceDelay: TimeInterval = 0.03     // 30ms coalesce window
     private let debounceInterval: TimeInterval = 0.1   // 100ms post-refresh debounce
@@ -405,7 +434,11 @@ final class RiftService {
         invalidateFocusedWorkspaceCache()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
             guard let self = self else { return }
-            guard Date().timeIntervalSince(self.lastSubscriptionEventTime) >= 0.5 else { return }
+            let hasRecentSubscriptionEvent = Date().timeIntervalSince(self.lastSubscriptionEventTime) < 0.5
+            guard RiftFallbackRefreshPolicy.shouldRefresh(
+                trigger: .activeSpaceChange,
+                hasRecentSubscriptionEvent: hasRecentSubscriptionEvent
+            ) else { return }
             self.scheduleRefresh(scope: .all, source: "activeSpaceChanged")
         }
     }
@@ -417,15 +450,19 @@ final class RiftService {
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
             guard let self = self else { return }
-            guard Date().timeIntervalSince(self.lastSubscriptionEventTime) >= 0.5 else { return }
+            let hasRecentSubscriptionEvent = Date().timeIntervalSince(self.lastSubscriptionEventTime) < 0.5
+            guard RiftFallbackRefreshPolicy.shouldRefresh(
+                trigger: .applicationActivation,
+                hasRecentSubscriptionEvent: hasRecentSubscriptionEvent
+            ) else { return }
             self.scheduleRefresh(scope: .windowsOnly, source: "appChanged")
         }
     }
 
     // MARK: - Coalescing Refresh Gate
 
-    private func scheduleRefresh(scope: RefreshScope, source: String = "unknown") {
-        pendingScope = max(pendingScope, scope)
+    private func scheduleRefresh(scope: RiftRefreshScope, source: String = "unknown") {
+        pendingScope = pendingScope.merging(scope)
         coalesceTimer?.cancel()
         let work = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
@@ -437,7 +474,7 @@ final class RiftService {
         DispatchQueue.main.asyncAfter(deadline: .now() + coalesceDelay, execute: work)
     }
 
-    private func executeRefresh(scope: RefreshScope, source: String = "unknown") async {
+    private func executeRefresh(scope: RiftRefreshScope, source: String = "unknown") async {
         let now = Date()
         let timeSinceLast = now.timeIntervalSince(lastRefreshTime)
         if timeSinceLast < debounceInterval { return }
