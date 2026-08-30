@@ -4,6 +4,16 @@ import Carbon.HIToolbox
 import Combine
 import ScreenCaptureKit
 
+enum SwitcherSpaceLabelResolver {
+    static func labels(
+        for spaces: [WMSpace],
+        style: WorkspaceLabelStyle,
+        overrides: [String: String]
+    ) -> [Int: String] {
+        WorkspaceLabelFormatter.labels(for: spaces, style: style, overrides: overrides)
+    }
+}
+
 /// Service that intercepts Cmd+Tab to provide a custom app switcher
 /// Displays windows organized by space in a centered overlay
 final class AppSwitcherService {
@@ -635,6 +645,11 @@ final class AppSwitcherService {
 
         let spaces = wm.getCurrentSpaces()
         let allWMWindows = wm.getAllWindows()
+        let displayLabelsBySpaceId = SwitcherSpaceLabelResolver.labels(
+            for: spaces,
+            style: config.workspaceLabelStyle,
+            overrides: config.workspaceLabelOverrides
+        )
 
         let realWindows = allWMWindows.filter { window in
             guard !excludedApps.contains(window.app) else { return false }
@@ -684,7 +699,8 @@ final class AppSwitcherService {
 
             groups.append(SpaceGroup(
                 spaceIndex: space.index,
-                spaceLabel: space.label,
+                spaceLabel: displayLabelsBySpaceId[space.id]
+                    ?? WorkspaceLabelFormatter.numericLabel(for: space),
                 isFocused: space.isFocused,
                 windows: switcherWindows
             ))
@@ -708,6 +724,11 @@ final class AppSwitcherService {
 
             let spaces = try JSONDecoder().decode([Space].self, from: Data(spacesData.utf8))
             let windows = try JSONDecoder().decode([WindowInfo].self, from: Data(windowsData.utf8))
+            let displayLabelsBySpaceId = SwitcherSpaceLabelResolver.labels(
+                for: spaces.map { $0.toWMSpace() },
+                style: config.workspaceLabelStyle,
+                overrides: config.workspaceLabelOverrides
+            )
 
             // Filter to only real windows, excluding:
             // - Non-AXWindow roles (popups/panels)
@@ -785,7 +806,7 @@ final class AppSwitcherService {
 
                 groups.append(SpaceGroup(
                     spaceIndex: space.index,
-                    spaceLabel: space.label,
+                    spaceLabel: displayLabelsBySpaceId[space.id] ?? space.label ?? "\(space.index)",
                     isFocused: space.focused,
                     windows: switcherWindows
                 ))
@@ -937,6 +958,13 @@ struct SpaceGroup: Identifiable {
     let spaceLabel: String?
     let isFocused: Bool
     var windows: [SwitcherWindow]
+
+    var displayLabel: String {
+        guard let spaceLabel, !spaceLabel.isEmpty else {
+            return "\(spaceIndex)"
+        }
+        return spaceLabel
+    }
 }
 
 struct SwitcherWindow: Identifiable {

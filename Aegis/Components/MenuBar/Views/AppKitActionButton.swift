@@ -33,7 +33,7 @@ final class AppKitLayoutActionsButton: NSView {
     private var showLabel: Bool = false
 
     // Callbacks
-    var onRightClick: (() -> Void)?
+    var onMenuRequest: (() -> Void)?
     var onExpandedChange: ((Bool) -> Void)?
 
     // Scroll handling
@@ -59,8 +59,10 @@ final class AppKitLayoutActionsButton: NSView {
     private let labelSpacing: CGFloat = 6
 
     private let config = AegisConfig.shared
+    private var menuOnlyEnabled = false
     private var themeObserver: NSObjectProtocol?
     private var configCancellable: AnyCancellable?
+    private var menuOnlyCancellable: AnyCancellable?
 
     // Computed widths for SwiftUI layout coordination
     static let collapsedWidth: CGFloat = 8 * 2 + 16  // horizontalPadding * 2 + iconSize = 32
@@ -89,6 +91,7 @@ final class AppKitLayoutActionsButton: NSView {
     }
 
     private func setupThemeObserver() {
+        menuOnlyEnabled = config.contextButtonMenuOnly
         themeObserver = NotificationCenter.default.addObserver(
             forName: .themeDidChange,
             object: nil,
@@ -101,6 +104,13 @@ final class AppKitLayoutActionsButton: NSView {
             .sink { [weak self] _ in
                 self?.updateColors()
             }
+        menuOnlyCancellable = config.$contextButtonMenuOnly
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] enabled in
+                self?.applyMenuOnlyMode(enabled)
+            }
+        applyMenuOnlyMode(menuOnlyEnabled)
     }
 
     private func updateColors() {
@@ -238,13 +248,27 @@ final class AppKitLayoutActionsButton: NSView {
     // MARK: - State Updates
 
     private func updateIcon() {
-        guard selectedIndex < actions.count else { return }
+        guard selectedIndex < actions.count || menuOnlyEnabled else { return }
         // Disable animations for instant icon swap during scroll
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        iconLayer.string = actions[selectedIndex].icon
-        labelLayer.string = actions[selectedIndex].label
+        iconLayer.string = menuOnlyEnabled ? "≡" : actions[selectedIndex].icon
+        labelLayer.string = menuOnlyEnabled ? "Menu" : actions[selectedIndex].label
         CATransaction.commit()
+    }
+
+    private func applyMenuOnlyMode(_ enabled: Bool) {
+        menuOnlyEnabled = enabled
+        guard enabled else {
+            updateIcon()
+            return
+        }
+
+        hideWorkItem?.cancel()
+        hideWorkItem = nil
+        scrollAccumulator = 0
+        setLabelVisible(false, animated: false)
+        updateIcon()
     }
 
     private func updateHoverState(animated: Bool = true) {
@@ -325,18 +349,31 @@ final class AppKitLayoutActionsButton: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        // Execute current action
-        guard selectedIndex < actions.count else { return }
-        actions[selectedIndex].execute()
+        switch ContextButtonInteractionPolicy.primaryClick(menuOnly: menuOnlyEnabled) {
+        case .requestMenu:
+            onMenuRequest?()
+        case .selectAction:
+            guard selectedIndex < actions.count else { return }
+            actions[selectedIndex].execute()
+        case .ignore:
+            break
+        }
     }
 
     override func rightMouseDown(with event: NSEvent) {
-        onRightClick?()
+        if ContextButtonInteractionPolicy.rightClick() == .requestMenu {
+            onMenuRequest?()
+        }
     }
 
     // MARK: - Scroll Handling
 
     override func scrollWheel(with event: NSEvent) {
+        guard ContextButtonInteractionPolicy.scroll(menuOnly: menuOnlyEnabled) != .ignore else {
+            scrollAccumulator = 0
+            return
+        }
+
         // Ignore momentum phase - only respond to direct user input
         guard event.phase == .began || event.phase == .changed || event.phase == [] else {
             return
@@ -449,7 +486,7 @@ struct AppKitLayoutActionsButtonWrapper: NSViewRepresentable {
         actions.append(.init(label: "New Space", icon: "+", execute: { onSpaceCreate() }))
         button.configure(actions: actions)
 
-        button.onRightClick = {
+        button.onMenuRequest = {
             context.coordinator.showContextMenu(button: button)
         }
 

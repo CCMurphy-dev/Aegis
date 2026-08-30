@@ -15,6 +15,12 @@ struct SettingsMenuBarTab: View {
                 )
 
                 SettingsToggle(
+                    label: "Menu-Only Context Button",
+                    description: "Open the full context menu on click instead of cycling actions",
+                    isOn: $config.contextButtonMenuOnly
+                )
+
+                SettingsToggle(
                     label: "Space Indicators",
                     description: "Show space indicator buttons (Yabai integration)",
                     isOn: $config.showSpaceIndicators
@@ -49,6 +55,23 @@ struct SettingsMenuBarTab: View {
                         label: "Show App Names",
                         description: "Display app names under window titles when expanded",
                         isOn: $config.showAppNameInExpansion
+                    )
+
+                    SettingsToggle(
+                        label: "Hide Empty Workspaces",
+                        description: "Hide inactive workspaces with no managed windows",
+                        isOn: $config.hideEmptyWorkspaces
+                    )
+
+                    SettingsWorkspaceLabelStylePicker(
+                        label: "Workspace Labels",
+                        selection: $config.workspaceLabelStyle
+                    )
+
+                    SettingsStringDictionaryEditor(
+                        label: "Workspace Label Overrides",
+                        description: "Optional labels keyed by the original workspace label (for example, 0 → Flow)",
+                        items: $config.workspaceLabelOverrides
                     )
 
                     SettingsToggle(

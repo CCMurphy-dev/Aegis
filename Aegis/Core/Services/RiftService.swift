@@ -458,8 +458,13 @@ final class RiftService {
                 logInfo("[RIFT-DEBUG] ws\(ws.index) '\(ws.name)' active=\(ws.isActive) windowCount=\(ws.windowCount) windows.count=\(ws.windows.count)")
             }
 
-            // Find which workspace indices have fresh window data (only active ws has windows populated)
-            let activeWsIndices = Set(decoded.filter { !$0.windows.isEmpty }.map { $0.index + 1 })
+            // Rift omits window records for inactive workspaces. A reported zero
+            // is still authoritative and must clear a stale cached window list.
+            let workspaceIndicesWithAuthoritativeWindowData = Set(
+                decoded
+                    .filter(RiftWorkspaceWindowCachePolicy.hasAuthoritativeWindowData)
+                    .map { $0.index + 1 }
+            )
 
             // Extract windows from workspaces that reported them
             var newWindows: [Int: RiftWindow] = [:]
@@ -484,19 +489,18 @@ final class RiftService {
             }
 
             // Check if workspaces changed
+            let currentWorkspaceSnapshots = Dictionary(uniqueKeysWithValues: decoded.map { workspace in
+                (workspace.index + 1, RiftWorkspaceChangeSnapshot(workspace: workspace))
+            })
             let workspacesChanged = dataQueue.sync { [weak self] () -> Bool in
                 guard let self = self else { return false }
-                let oldIds = Set(self.workspaces.keys)
-                let newIds = Set(decoded.map { $0.index + 1 })
-                if oldIds != newIds { return true }
-                for ws in decoded {
-                    let key = ws.index + 1
-                    if let old = self.workspaces[key],
-                       old.isActive != ws.isActive || old.layoutMode != ws.layoutMode {
-                        return true
-                    }
+                let previousWorkspaceSnapshots = self.workspaces.mapValues {
+                    RiftWorkspaceChangeSnapshot(workspace: $0)
                 }
-                return false
+                return RiftWorkspaceChangeDetector.hasChanges(
+                    previous: previousWorkspaceSnapshots,
+                    current: currentWorkspaceSnapshots
+                )
             }
 
             // Check if windows changed
@@ -509,7 +513,7 @@ final class RiftService {
 
                 // Remove windows from workspaces that just reported fresh data
                 for (sysId, wsIndex) in self.windowToWorkspace {
-                    if activeWsIndices.contains(wsIndex) {
+                    if workspaceIndicesWithAuthoritativeWindowData.contains(wsIndex) {
                         mergedWindows.removeValue(forKey: sysId)
                         mergedWsMap.removeValue(forKey: sysId)
                     }
@@ -542,7 +546,7 @@ final class RiftService {
 
                 // Remove windows from workspaces that reported fresh data
                 for (sysId, wsIndex) in self.windowToWorkspace {
-                    if activeWsIndices.contains(wsIndex) {
+                    if workspaceIndicesWithAuthoritativeWindowData.contains(wsIndex) {
                         self.windows.removeValue(forKey: sysId)
                         self.windowToWorkspace.removeValue(forKey: sysId)
                     }
@@ -635,7 +639,7 @@ final class RiftService {
                     name: ws.name,
                     layoutMode: ws.layoutMode,
                     isActive: ws.isActive,
-                    windowCount: cachedWindows.count,
+                    windowCount: ws.windowCount,
                     windows: Array(cachedWindows)
                 )
             }

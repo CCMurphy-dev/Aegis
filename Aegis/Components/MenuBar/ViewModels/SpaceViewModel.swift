@@ -14,6 +14,7 @@ final class SpaceViewModel: ObservableObject, Identifiable {
     let spaceId: Int
 
     @Published private(set) var space: WMSpace
+    @Published private(set) var displayLabel: String
     @Published private(set) var windowIcons: [WindowIcon] = []
     @Published private(set) var allWindowIcons: [WindowIcon] = []
     @Published private(set) var focusedIndex: Int?
@@ -24,14 +25,16 @@ final class SpaceViewModel: ObservableObject, Identifiable {
     init(space: WMSpace) {
         self.spaceId = space.id
         self.space = space
+        self.displayLabel = WorkspaceLabelFormatter.numericLabel(for: space)
     }
 
     /// Update from parent - only publishes if data actually changed
-    func update(space: WMSpace, windowIcons: [WindowIcon], allWindowIcons: [WindowIcon],
+    func update(space: WMSpace, displayLabel: String, windowIcons: [WindowIcon], allWindowIcons: [WindowIcon],
                 focusedIndex: Int?, isActive: Bool) {
         // Only trigger @Published updates when values actually change
         // This is the key optimization - unchanged properties don't trigger view rebuilds
         if self.space != space { self.space = space }
+        if self.displayLabel != displayLabel { self.displayLabel = displayLabel }
         if self.windowIcons != windowIcons { self.windowIcons = windowIcons }
         if self.allWindowIcons != allWindowIcons { self.allWindowIcons = allWindowIcons }
         if self.focusedIndex != focusedIndex { self.focusedIndex = focusedIndex }

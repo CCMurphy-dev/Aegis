@@ -57,6 +57,9 @@ class MenuBarViewModel: ObservableObject {
     /// Pre-computed focused window index per space
     private var focusedIndexBySpace: [Int: Int] = [:]
 
+    /// Last confirmed occupancy, retained across incomplete WM refreshes.
+    private var knownWindowCounts: [Int: Int] = [:]
+
     // MARK: - Services & Timers
 
     let windowManager: WindowManagerProtocol  // Made public for context menu
@@ -117,14 +120,33 @@ class MenuBarViewModel: ObservableObject {
     /// Internal method that performs the actual update
     private func performUpdate() {
         // Fetch data from window manager
-        var allSpaces = windowManager.getCurrentSpaces()
+        let displays = windowManager.getCurrentDisplays()
+        let allSpaces = windowManager.getCurrentSpaces()
 
         // Apply display filtering if in perMonitor mode
+        var displayedSpaces = allSpaces
         if spaceFilterMode == .perMonitor, let displayIdx = displayIndex {
-            allSpaces = allSpaces.filter { $0.display == displayIdx }
+            displayedSpaces = allSpaces.filter { $0.display == displayIdx }
         }
 
-        spaces = allSpaces
+        // Labels are resolved from the complete workspace list first. This
+        // keeps name prefixes and explicit labels stable while empty spaces
+        // appear and disappear from the bar.
+        let labelsBySpaceId = WorkspaceLabelFormatter.labels(
+            for: allSpaces,
+            style: AegisConfig.shared.workspaceLabelStyle,
+            overrides: AegisConfig.shared.workspaceLabelOverrides
+        )
+        let currentSpaceIds = Set(allSpaces.map(\.id))
+        knownWindowCounts = knownWindowCounts.filter { currentSpaceIds.contains($0.key) }
+        for space in allSpaces where space.windowCountIsKnown {
+            knownWindowCounts[space.id] = space.windowCount
+        }
+        spaces = WorkspaceVisibilityPolicy.visibleSpaces(
+            displayedSpaces,
+            hideEmpty: AegisConfig.shared.hideEmptyWorkspaces,
+            previousCounts: knownWindowCounts
+        )
 
         // Pre-compute fullscreen state and notify coordinator on change
         if let focusedSpace = spaces.first(where: { $0.isFocused }) {
@@ -207,6 +229,7 @@ class MenuBarViewModel: ObservableObject {
         // Each SpaceViewModel only publishes if its data changed
         spaceStore.update(
             spaces: spaces,
+            displayLabelsBySpaceId: labelsBySpaceId,
             windowIconsBySpace: windowIconsBySpace,
             allWindowIconsBySpace: allWindowIconsBySpace,
             focusedIndexBySpace: focusedIndexBySpace,

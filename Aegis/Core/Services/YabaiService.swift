@@ -11,6 +11,7 @@ final class YabaiService {
 
     private var spaces: [Int: Space] = [:]
     private var windows: [Int: WindowInfo] = [:]
+    private var windowSnapshotReady = false
     private var displays: [Int: Display] = [:]
 
     // Cache window order per space to prevent shuffling on focus changes
@@ -343,6 +344,7 @@ final class YabaiService {
             dataQueue.sync(flags: .barrier) { [weak self] in
                 guard let self = self else { return }
                 self.windows = Dictionary(uniqueKeysWithValues: decoded.map { ($0.id, $0) })
+                self.windowSnapshotReady = true
                 // Update window order cache when windows change
                 self.updateWindowOrderCache()
             }
@@ -364,6 +366,10 @@ final class YabaiService {
         dataQueue.sync {
             Array(spaces.values).sorted { $0.index < $1.index }
         }
+    }
+
+    var hasWindowSnapshot: Bool {
+        dataQueue.sync { windowSnapshotReady }
     }
 
     func getCurrentDisplays() -> [Display] {

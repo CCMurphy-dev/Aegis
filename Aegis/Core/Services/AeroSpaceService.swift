@@ -98,6 +98,7 @@ final class AeroSpaceService {
     private var focusedWorkspace: String = "1"
     private var focusedWindowId: Int? = nil
     private var allWindows: [Int: ASWindow] = [:]          // windowId → ASWindow
+    private var windowSnapshotReady = false
     private var windowToWorkspace: [Int: String] = [:]     // windowId → workspace name
     private var monitors: [ASMonitor] = []
 
@@ -328,12 +329,13 @@ final class AeroSpaceService {
             let windowsChanged = newWindowToWorkspace != windowToWorkspace || focusedWinId != focusedWindowId
 
             // Apply
-            dataQueue.async(flags: .barrier) { [self] in
+            dataQueue.sync(flags: .barrier) { [self] in
                 self.workspaceWindows = newWorkspaceWindows
                 self.visibleWorkspaces = sorted
                 self.focusedWorkspace = newFocused
                 self.focusedWindowId = focusedWinId
                 self.allWindows = newAllWindows
+                self.windowSnapshotReady = true
                 self.windowToWorkspace = newWindowToWorkspace
                 self.workspaceIndexMap = newIndexMap
                 self.monitors = monitorsList
@@ -413,6 +415,10 @@ final class AeroSpaceService {
 
     func getAllASWindows() -> [ASWindow] {
         dataQueue.sync { Array(allWindows.values) }
+    }
+
+    var hasWindowSnapshot: Bool {
+        dataQueue.sync { windowSnapshotReady }
     }
 
     func getWindowsForWorkspace(_ wsIndex: Int) -> [ASWindow] {

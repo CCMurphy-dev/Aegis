@@ -26,6 +26,7 @@ final class SpaceViewModelStore: ObservableObject {
     /// Only creates/destroys ViewModels when spaces are added/removed
     /// Individual SpaceViewModels handle their own change detection
     func update(spaces: [WMSpace],
+                displayLabelsBySpaceId: [Int: String],
                 windowIconsBySpace: [Int: [WindowIcon]],
                 allWindowIconsBySpace: [Int: [WindowIcon]],
                 focusedIndexBySpace: [Int: Int],
@@ -48,6 +49,7 @@ final class SpaceViewModelStore: ObservableObject {
         for space in spaces {
             viewModels[space.id]?.update(
                 space: space,
+                displayLabel: displayLabelsBySpaceId[space.id] ?? WorkspaceLabelFormatter.numericLabel(for: space),
                 windowIcons: windowIconsBySpace[space.index] ?? [],
                 allWindowIcons: allWindowIconsBySpace[space.index] ?? [],
                 focusedIndex: focusedIndexBySpace[space.index],
@@ -68,18 +70,14 @@ final class SpaceViewModelStore: ObservableObject {
         guard let fromArrayIndex = spaceIds.firstIndex(where: { viewModels[$0]?.space.index == fromDisplayIndex }),
               let toArrayIndex = spaceIds.firstIndex(where: { viewModels[$0]?.space.index == toDisplayIndex }) else { return }
 
-        // Compute base index before modifying (e.g., 5 for display 2 with spaces 5,6,7)
-        let baseIndex = spaceIds.compactMap { viewModels[$0]?.space.index }.min() ?? 1
-
         var reordered = spaceIds
         let movedId = reordered.remove(at: fromArrayIndex)
         reordered.insert(movedId, at: toArrayIndex)
         spaceIds = reordered
 
-        // Update display indices to match new positions
-        for (offset, spaceId) in reordered.enumerated() {
-            viewModels[spaceId]?.updateDisplayIndex(baseIndex + offset)
-        }
+        // `spaceIds` can be a filtered projection when empty workspaces are
+        // hidden. Keep each WM index unchanged until the next WM refresh so a
+        // visible reorder cannot collapse hidden workspace indices.
     }
 
     /// Update the title of a specific window (called when AX title change is observed)

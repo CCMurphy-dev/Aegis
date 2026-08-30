@@ -25,6 +25,9 @@ struct AegisConfigData: Codable {
     var spaceIndicatorSpacing: Double?
     var systemIconSpacing: Double?
     var systemIconSize: Double?
+    var workspaceLabelStyle: String?
+    var workspaceLabelOverrides: [String: String]?
+    var hideEmptyWorkspaces: Bool?
     var layoutButtonWidth: Double?
     var buttonLabelExpandedWidth: Double?
     var systemStatusWidth: Double?
@@ -106,6 +109,7 @@ struct AegisConfigData: Codable {
     var useSwipeToDestroySpace: Bool?
     var enableLayoutActionHaptics: Bool?
     var expandContextButtonOnScroll: Bool?
+    var contextButtonMenuOnly: Bool?
     var launchAtLogin: Bool?
 
     // Behavior Settings - Auto-Hide & Delays
@@ -317,6 +321,11 @@ extension AegisConfig {
         if let v = data.spaceIndicatorSpacing { spaceIndicatorSpacing = CGFloat(v) }
         if let v = data.systemIconSpacing { systemIconSpacing = CGFloat(v) }
         if let v = data.systemIconSize { systemIconSize = CGFloat(v) }
+        if let raw = data.workspaceLabelStyle, let style = WorkspaceLabelStyle(rawValue: raw) {
+            workspaceLabelStyle = style
+        }
+        if let v = data.workspaceLabelOverrides { workspaceLabelOverrides = v }
+        if let v = data.hideEmptyWorkspaces { hideEmptyWorkspaces = v }
         if let v = data.layoutButtonWidth { layoutButtonWidth = CGFloat(v) }
         if let v = data.buttonLabelExpandedWidth { buttonLabelExpandedWidth = CGFloat(v) }
         if let v = data.systemStatusWidth { systemStatusWidth = CGFloat(v) }
@@ -398,6 +407,7 @@ extension AegisConfig {
         if let v = data.useSwipeToDestroySpace { useSwipeToDestroySpace = v }
         if let v = data.enableLayoutActionHaptics { enableLayoutActionHaptics = v }
         if let v = data.expandContextButtonOnScroll { expandContextButtonOnScroll = v }
+        if let v = data.contextButtonMenuOnly { contextButtonMenuOnly = v }
         if let v = data.launchAtLogin { launchAtLogin = v }
 
         // Behavior Settings - Auto-Hide & Delays
@@ -575,6 +585,9 @@ extension AegisConfig {
             spaceIndicatorSpacing: Double(spaceIndicatorSpacing),
             systemIconSpacing: Double(systemIconSpacing),
             systemIconSize: Double(systemIconSize),
+            workspaceLabelStyle: workspaceLabelStyle.rawValue,
+            workspaceLabelOverrides: workspaceLabelOverrides.isEmpty ? nil : workspaceLabelOverrides,
+            hideEmptyWorkspaces: hideEmptyWorkspaces,
             layoutButtonWidth: Double(layoutButtonWidth),
             buttonLabelExpandedWidth: Double(buttonLabelExpandedWidth),
             systemStatusWidth: Double(systemStatusWidth),
@@ -656,6 +669,7 @@ extension AegisConfig {
             useSwipeToDestroySpace: useSwipeToDestroySpace,
             enableLayoutActionHaptics: enableLayoutActionHaptics,
             expandContextButtonOnScroll: expandContextButtonOnScroll,
+            contextButtonMenuOnly: contextButtonMenuOnly,
             launchAtLogin: launchAtLogin,
 
             // Behavior Settings - Auto-Hide & Delays
@@ -951,6 +965,9 @@ You can add bundle identifiers (e.g., `"com.apple.mail"`) or partial app name ma
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `maxAppIconsPerSpace` | int | `3` | Max window icons per space before overflow menu |
+| `workspaceLabelStyle` | string | `"index"` | Workspace indicator labels: `"index"` or unique name abbreviations (`"nameInitial"`) |
+| `workspaceLabelOverrides` | object | `{}` | Explicit workspace indicator labels keyed by the original workspace label |
+| `hideEmptyWorkspaces` | bool | `false` | Hide inactive workspaces with no managed windows from the menu bar |
 | `excludedApps` | [string] | `["Finder", "Aegis"]` | Base apps to hide from space indicators (launcher apps are automatically excluded) |
 | `showAppNameInExpansion` | bool | `false` | Show app name below window title when expanded |
 | `autoExpandFocusedWindow` | bool | `true` | Automatically expand the focused window's title |
@@ -965,6 +982,7 @@ You can add bundle identifiers (e.g., `"com.apple.mail"`) or partial app name ma
 | `launchAtLogin` | bool | `true` | Start Aegis when macOS starts |
 | `enableLayoutActionHaptics` | bool | `true` | Haptic feedback on layout actions |
 | `expandContextButtonOnScroll` | bool | `true` | Show label when scrolling context button (disable to save CPU) |
+| `contextButtonMenuOnly` | bool | `false` | Open the context menu on click instead of cycling actions |
 | `windowIconExpansionAutoCollapseDelay` | number | `2.0` | Seconds before expanded window collapses |
 
 ---

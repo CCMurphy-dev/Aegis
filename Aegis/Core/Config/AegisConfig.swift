@@ -34,6 +34,53 @@ struct ColorPreset: Codable, Identifiable, Equatable {
     var borderColor: String?
 }
 
+enum ContextButtonMenuOnlyPreference {
+    static let key = "contextButtonMenuOnly"
+    static let defaultValue = false
+
+    static func load(from defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: key) as? Bool ?? defaultValue
+    }
+}
+
+enum WorkspaceLabelStylePreference {
+    static let key = "workspaceLabelStyle"
+    static let defaultValue = WorkspaceLabelStyle.index
+
+    static func load(from defaults: UserDefaults = .standard) -> WorkspaceLabelStyle {
+        guard let rawValue = defaults.string(forKey: key),
+              let style = WorkspaceLabelStyle(rawValue: rawValue) else {
+            return defaultValue
+        }
+        return style
+    }
+}
+
+enum WorkspaceLabelOverridesPreference {
+    static let key = "workspaceLabelOverrides"
+    static let defaultValue: [String: String] = [:]
+
+    static func load(from defaults: UserDefaults = .standard) -> [String: String] {
+        guard let stored = defaults.dictionary(forKey: key) else {
+            return defaultValue
+        }
+        return stored.reduce(into: [:]) { result, entry in
+            if let value = entry.value as? String {
+                result[entry.key] = value
+            }
+        }
+    }
+}
+
+enum HideEmptyWorkspacesPreference {
+    static let key = "hideEmptyWorkspaces"
+    static let defaultValue = false
+
+    static func load(from defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: key) as? Bool ?? defaultValue
+    }
+}
+
 /// Centralized configuration for all Aegis UI elements, behaviors, and visual parameters
 /// This singleton provides @Published properties that can be observed by SwiftUI views
 /// and persisted via UserDefaults for user customization
@@ -74,6 +121,16 @@ class AegisConfig: ObservableObject {
 
     /// Spacing between system status icons (battery, wifi, etc.)
     @Published var systemIconSpacing: CGFloat = 12
+
+    /// How workspace indicators are labeled in the menu bar.
+    @Published var workspaceLabelStyle: WorkspaceLabelStyle = WorkspaceLabelStylePreference.defaultValue
+
+    /// Explicit workspace indicator labels, keyed by the original WM label.
+    @Published var workspaceLabelOverrides: [String: String] = WorkspaceLabelOverridesPreference.defaultValue
+
+    /// Hide inactive workspaces with no managed windows from the menu bar.
+    /// Shortcuts and context menus continue to expose every workspace.
+    @Published var hideEmptyWorkspaces: Bool = HideEmptyWorkspacesPreference.defaultValue
 
     /// Size of system status icons
     @Published var systemIconSize: CGFloat = 14
@@ -343,6 +400,9 @@ class AegisConfig: ObservableObject {
     /// Expand context button label when scrolling to select action
     /// When disabled, only the icon changes - saves CPU from SwiftUI re-renders
     @Published var expandContextButtonOnScroll: Bool = true
+
+    /// Open the context menu on primary click instead of selecting an action
+    @Published var contextButtonMenuOnly: Bool = ContextButtonMenuOnlyPreference.defaultValue
 
     /// Launch Aegis automatically when macOS starts
     @Published var launchAtLogin: Bool = true {
@@ -895,6 +955,9 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(spaceIndicatorSpacing, forKey: "spaceIndicatorSpacing")
         UserDefaults.standard.set(systemIconSpacing, forKey: "systemIconSpacing")
         UserDefaults.standard.set(systemIconSize, forKey: "systemIconSize")
+        UserDefaults.standard.set(workspaceLabelStyle.rawValue, forKey: WorkspaceLabelStylePreference.key)
+        UserDefaults.standard.set(workspaceLabelOverrides, forKey: WorkspaceLabelOverridesPreference.key)
+        UserDefaults.standard.set(hideEmptyWorkspaces, forKey: HideEmptyWorkspacesPreference.key)
         UserDefaults.standard.set(layoutButtonWidth, forKey: "layoutButtonWidth")
         UserDefaults.standard.set(buttonLabelExpandedWidth, forKey: "buttonLabelExpandedWidth")
         UserDefaults.standard.set(systemStatusWidth, forKey: "systemStatusWidth")
@@ -960,6 +1023,7 @@ class AegisConfig: ObservableObject {
         UserDefaults.standard.set(useSwipeToDestroySpace, forKey: "useSwipeToDestroySpace")
         UserDefaults.standard.set(enableLayoutActionHaptics, forKey: "enableLayoutActionHaptics")
         UserDefaults.standard.set(expandContextButtonOnScroll, forKey: "expandContextButtonOnScroll")
+        UserDefaults.standard.set(contextButtonMenuOnly, forKey: ContextButtonMenuOnlyPreference.key)
         UserDefaults.standard.set(windowIconExpansionAutoCollapseDelay, forKey: "windowIconExpansionAutoCollapseDelay")
         UserDefaults.standard.set(actionLabelAutoHideDelay, forKey: "actionLabelAutoHideDelay")
 
@@ -1105,6 +1169,9 @@ class AegisConfig: ObservableObject {
         if let val = UserDefaults.standard.object(forKey: "systemIconSize") as? Double {
             systemIconSize = CGFloat(val)
         }
+        workspaceLabelStyle = WorkspaceLabelStylePreference.load()
+        workspaceLabelOverrides = WorkspaceLabelOverridesPreference.load()
+        hideEmptyWorkspaces = HideEmptyWorkspacesPreference.load()
         if let val = UserDefaults.standard.object(forKey: "layoutButtonWidth") as? Double {
             layoutButtonWidth = CGFloat(val)
         }
@@ -1276,6 +1343,7 @@ class AegisConfig: ObservableObject {
         if let val = UserDefaults.standard.object(forKey: "expandContextButtonOnScroll") as? Bool {
             expandContextButtonOnScroll = val
         }
+        contextButtonMenuOnly = ContextButtonMenuOnlyPreference.load()
         if let val = UserDefaults.standard.object(forKey: "windowIconExpansionAutoCollapseDelay") as? Double {
             windowIconExpansionAutoCollapseDelay = val
         }
@@ -1604,6 +1672,9 @@ class AegisConfig: ObservableObject {
         spaceIndicatorSpacing = 8
         systemIconSpacing = 12
         systemIconSize = 14
+        workspaceLabelStyle = WorkspaceLabelStylePreference.defaultValue
+        workspaceLabelOverrides = WorkspaceLabelOverridesPreference.defaultValue
+        hideEmptyWorkspaces = HideEmptyWorkspacesPreference.defaultValue
         layoutButtonWidth = 32
         buttonLabelExpandedWidth = 95
         systemStatusWidth = 150
@@ -1663,6 +1734,7 @@ class AegisConfig: ObservableObject {
         useSwipeToDestroySpace = true
         enableLayoutActionHaptics = true
         expandContextButtonOnScroll = true
+        contextButtonMenuOnly = ContextButtonMenuOnlyPreference.defaultValue
         windowIconExpansionAutoCollapseDelay = 2.0
         actionLabelAutoHideDelay = 1.5
 
