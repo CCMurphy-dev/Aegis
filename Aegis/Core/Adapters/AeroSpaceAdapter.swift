@@ -102,6 +102,10 @@ final class AeroSpaceAdapter: WindowManagerProtocol {
         return window.toWMWindow(spaceIndex: aero.getWindowSpace(id))
     }
 
+    func checkAppSwitcherTarget(_ scope: WMAppSwitcherTargetScope) async -> WMAppSwitcherTargetResult {
+        await aero.checkAppSwitcherTarget(scope)
+    }
+
     func getWindowSpace(_ windowId: Int) -> Int? {
         return aero.getWindowSpace(windowId)
     }

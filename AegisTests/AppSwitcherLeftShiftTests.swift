@@ -26,6 +26,79 @@ final class AppSwitcherLeftShiftTapPolicyTests: XCTestCase {
         XCTAssertEqual(policy.flagsChanged(keyCode: AppSwitcherLeftShiftTapPolicy.leftShiftKeyCode, flags: command, enabled: true, switcherIsActive: true), .consume)
     }
 
+    func testSubThresholdScrollCancelsReverse() {
+        var policy = AppSwitcherLeftShiftTapPolicy()
+        _ = policy.flagsChanged(
+            keyCode: AppSwitcherLeftShiftTapPolicy.leftShiftKeyCode,
+            flags: commandAndShift,
+            enabled: true,
+            switcherIsActive: true
+        )
+
+        // The service calls this for every Cmd-scroll event, before deciding
+        // whether the accumulated delta is large enough to move selection.
+        policy.keyPressedWhileHeld()
+
+        XCTAssertEqual(
+            policy.flagsChanged(
+                keyCode: AppSwitcherLeftShiftTapPolicy.leftShiftKeyCode,
+                flags: command,
+                enabled: true,
+                switcherIsActive: true
+            ),
+            .consume
+        )
+    }
+
+    func testTeardownClearsSuppressedShiftRelease() {
+        var policy = AppSwitcherLeftShiftTapPolicy()
+        XCTAssertEqual(
+            policy.flagsChanged(
+                keyCode: AppSwitcherLeftShiftTapPolicy.leftShiftKeyCode,
+                flags: [.maskCommand, .maskShift],
+                enabled: true,
+                switcherIsActive: true
+            ),
+            .consume
+        )
+
+        policy.resetForTeardown()
+
+        XCTAssertEqual(
+            policy.flagsChanged(
+                keyCode: AppSwitcherLeftShiftTapPolicy.leftShiftKeyCode,
+                flags: [.maskCommand],
+                enabled: true,
+                switcherIsActive: true
+            ),
+            .ignored
+        )
+    }
+
+    func testLeftShiftReleaseIsConsumedWhileRightShiftRemainsHeld() {
+        var policy = AppSwitcherLeftShiftTapPolicy()
+        XCTAssertEqual(
+            policy.flagsChanged(
+                keyCode: AppSwitcherLeftShiftTapPolicy.leftShiftKeyCode,
+                flags: commandAndShift,
+                enabled: true,
+                switcherIsActive: true
+            ),
+            .consume
+        )
+        policy.keyPressedWhileHeld()
+        XCTAssertEqual(
+            policy.flagsChanged(
+                keyCode: AppSwitcherLeftShiftTapPolicy.leftShiftKeyCode,
+                flags: commandAndShift,
+                enabled: true,
+                switcherIsActive: true,
+                rightShiftIsHeld: true
+            ),
+            .consume
+        )
+    }
+
     func testOtherModifierChangesCancelPendingTap() {
         let modifiers: [(Int64, CGEventFlags)] = [
             (59, [.maskCommand, .maskShift, .maskControl]),

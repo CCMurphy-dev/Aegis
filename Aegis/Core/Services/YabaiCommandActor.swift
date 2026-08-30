@@ -7,6 +7,26 @@
 import Foundation
 import AppKit   // Only needed if you're using NSImage, NSWorkspace, etc.
 
+struct YabaiCLIResult {
+    let output: String
+    let terminationStatus: Int32
+}
+
+enum YabaiCLIExecutionPolicy {
+    static func result(_ response: YabaiCLIResult) -> Result<String, Error> {
+        guard response.terminationStatus == 0 else {
+            let message = response.output.trimmingCharacters(in: .whitespacesAndNewlines)
+            return .failure(NSError(
+                domain: "YabaiService",
+                code: Int(response.terminationStatus),
+                userInfo: [NSLocalizedDescriptionKey:
+                    message.isEmpty ? "yabai failed" : message]
+            ))
+        }
+        return .success(response.output)
+    }
+}
+
 actor YabaiCommandActor {
 
     static let shared = YabaiCommandActor()
@@ -18,6 +38,10 @@ actor YabaiCommandActor {
     private let maxConcurrentProcesses = 3  // Limit concurrent yabai processes
 
     func run(_ args: [String]) async throws -> String {
+        (try await runWithStatus(args)).output
+    }
+
+    func runWithStatus(_ args: [String]) async throws -> YabaiCLIResult {
         // Wait if too many processes are active
         while activeProcessCount >= maxConcurrentProcesses {
             try await Task.sleep(nanoseconds: 10_000_000) // 10ms
@@ -35,7 +59,7 @@ actor YabaiCommandActor {
         activeProcessCount += 1
 
         // Execute process
-        let result: String
+        let result: YabaiCLIResult
         do {
             result = try await withCheckedThrowingContinuation { continuation in
                 DispatchQueue.global(qos: .userInitiated).async {
@@ -53,7 +77,10 @@ actor YabaiCommandActor {
 
                         let data = pipe.fileHandleForReading.readDataToEndOfFile()
                         let output = String(decoding: data, as: UTF8.self)
-                        continuation.resume(returning: output)
+                        continuation.resume(returning: YabaiCLIResult(
+                            output: output,
+                            terminationStatus: process.terminationStatus
+                        ))
                     } catch {
                         continuation.resume(throwing: error)
                     }

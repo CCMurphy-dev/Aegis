@@ -95,6 +95,37 @@ enum WMEvent: CaseIterable {
     case displaysChanged
 }
 
+enum WMAppSwitcherTargetScope {
+    case window(id: Int)
+    /// Window-manager IDs are captured before a quit request. The process ID
+    /// remains part of the scope so adapters never broaden a check to another
+    /// process that happens to share the same application bundle.
+    case application(
+        processIdentifier: pid_t,
+        bundleIdentifier: String,
+        windowManagerIDs: Set<Int>
+    )
+}
+
+enum WMAppSwitcherTargetCheck: Equatable {
+    case present
+    case absent
+    case unavailable
+}
+
+struct WMAppSwitcherTargetResult: Equatable {
+    let check: WMAppSwitcherTargetCheck
+    let absentWindowManagerIDs: Set<Int>
+
+    init(
+        check: WMAppSwitcherTargetCheck,
+        absentWindowManagerIDs: Set<Int> = []
+    ) {
+        self.check = check
+        self.absentWindowManagerIDs = absentWindowManagerIDs
+    }
+}
+
 
 // MARK: - Protocol
 
@@ -148,6 +179,11 @@ protocol WindowManagerProtocol: AnyObject {
 
     /// Single window lookup
     func getWindow(_ id: Int) -> WMWindow?
+
+    /// Read-only confirmation for a window action. Managers must not mutate
+    /// their caches here; this is used to decide whether a switcher row may be
+    /// removed after W/Q.
+    func checkAppSwitcherTarget(_ scope: WMAppSwitcherTargetScope) async -> WMAppSwitcherTargetResult
 
     /// Which space a window is on
     func getWindowSpace(_ windowId: Int) -> Int?
@@ -286,4 +322,8 @@ extension WindowManagerProtocol {
     }
 
     func getVersion() -> String { return "Unknown" }
+
+    func checkAppSwitcherTarget(_ scope: WMAppSwitcherTargetScope) async -> WMAppSwitcherTargetResult {
+        WMAppSwitcherTargetResult(check: .unavailable)
+    }
 }

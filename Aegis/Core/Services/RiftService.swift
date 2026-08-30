@@ -15,6 +15,45 @@ import AppKit
 @_silgen_name("_AXUIElementGetWindow")
 func _AXUIElementGetWindow(_ element: AXUIElement, _ windowID: UnsafeMutablePointer<CGWindowID>) -> AXError
 
+enum RiftWindowTargetCheckPolicy {
+    static func aggregate(_ results: [WMAppSwitcherTargetCheck]) -> WMAppSwitcherTargetCheck {
+        guard !results.isEmpty else { return .unavailable }
+        if results.contains(.unavailable) { return .unavailable }
+        return results.contains(.present) ? .present : .absent
+    }
+
+    static func result(
+        _ results: [(windowManagerID: Int, check: WMAppSwitcherTargetCheck)]
+    ) -> WMAppSwitcherTargetResult {
+        WMAppSwitcherTargetResult(
+            check: aggregate(results.map(\.check)),
+            absentWindowManagerIDs: Set(results.compactMap {
+                $0.check == .absent ? $0.windowManagerID : nil
+            })
+        )
+    }
+}
+
+struct RiftCLIResult {
+    let output: String
+    let terminationStatus: Int32
+}
+
+enum RiftCLIExecutionPolicy {
+    static func result(_ response: RiftCLIResult) -> Result<String, Error> {
+        guard response.terminationStatus == 0 else {
+            let message = response.output.trimmingCharacters(in: .whitespacesAndNewlines)
+            return .failure(NSError(
+                domain: "RiftService",
+                code: Int(response.terminationStatus),
+                userInfo: [NSLocalizedDescriptionKey:
+                    message.isEmpty ? "rift-cli failed" : message]
+            ))
+        }
+        return .success(response.output)
+    }
+}
+
 // MARK: - Rift Command Actor
 
 actor RiftCommandActor {
@@ -89,6 +128,10 @@ actor RiftCommandActor {
     }
 
     func run(_ args: [String]) async throws -> String {
+        (try await runWithStatus(args)).output
+    }
+
+    func runWithStatus(_ args: [String]) async throws -> RiftCLIResult {
         guard let path = riftCliPath else {
             throw NSError(domain: "RiftService", code: -1,
                           userInfo: [NSLocalizedDescriptionKey: "rift-cli not found"])
@@ -114,7 +157,7 @@ actor RiftCommandActor {
 
         activeProcessCount += 1
 
-        let result: String
+        let result: RiftCLIResult
         do {
             result = try await withCheckedThrowingContinuation { continuation in
                 DispatchQueue.global(qos: .userInitiated).async {
@@ -132,7 +175,10 @@ actor RiftCommandActor {
 
                         let data = pipe.fileHandleForReading.readDataToEndOfFile()
                         let output = String(decoding: data, as: UTF8.self)
-                        continuation.resume(returning: output)
+                        continuation.resume(returning: RiftCLIResult(
+                            output: output,
+                            terminationStatus: process.terminationStatus
+                        ))
                     } catch {
                         continuation.resume(throwing: error)
                     }
@@ -560,8 +606,12 @@ final class RiftService {
                 for ws in decoded {
                     for window in ws.windows {
                         if let sysId = window.windowServerId {
+                            let systemID = Int(sysId)
+                            self.riftIdToSysId = self.riftIdToSysId.filter {
+                                $0.value != systemID
+                            }
                             let key = "\(window.id.pid):\(window.id.idx)"
-                            self.riftIdToSysId[key] = Int(sysId)
+                            self.riftIdToSysId[key] = systemID
                         }
                     }
                 }
@@ -658,6 +708,113 @@ final class RiftService {
 
     func getWindow(_ sysId: Int) -> RiftWindow? {
         dataQueue.sync { windows[sysId] }
+    }
+
+    /// Verify only the rows affected by the current action. Rift's workspace
+    /// snapshot may omit inactive-workspace windows, so use its stable
+    /// `{pid, idx}` identity for an exact, read-only lookup. No cache state is
+    /// changed here; the switcher decides what to display from this result.
+    func checkAppSwitcherTarget(_ scope: WMAppSwitcherTargetScope) async -> WMAppSwitcherTargetResult {
+        let candidates: [RiftWindowId: Int] = dataQueue.sync {
+            var result: [RiftWindowId: Int] = [:]
+
+            func matches(_ systemID: Int, _ riftID: RiftWindowId) -> Bool {
+                switch scope {
+                case .window(let targetID):
+                    return systemID == targetID
+                case .application(_, _, let windowManagerIDs):
+                    return !windowManagerIDs.isEmpty && windowManagerIDs.contains(systemID)
+                }
+            }
+
+            for (systemID, window) in windows where matches(systemID, window.id) {
+                result[window.id] = systemID
+            }
+
+            // Keep stale identity mappings as candidates when a fresh
+            // workspace snapshot has already dropped the cached row.
+            for (key, systemID) in riftIdToSysId {
+                guard let separator = key.firstIndex(of: ":"),
+                      let pid = Int(key[..<separator]),
+                      let idx = Int(key[key.index(after: separator)...]) else {
+                    continue
+                }
+                let riftID = RiftWindowId(pid: pid, idx: idx)
+                if matches(systemID, riftID) {
+                    result[riftID] = systemID
+                }
+            }
+
+            return result
+        }
+
+        guard !candidates.isEmpty else {
+            return WMAppSwitcherTargetResult(check: .unavailable)
+        }
+
+        let results = await withTaskGroup(of: (Int, WMAppSwitcherTargetCheck).self) { group in
+            for (id, expectedSystemID) in candidates {
+                group.addTask { [weak self] in
+                    guard let self, !Task.isCancelled else {
+                        return (expectedSystemID, .unavailable)
+                    }
+                    let check = await self.queryWindowForAppSwitcher(
+                        id,
+                        expectedSystemID: expectedSystemID,
+                        scope: scope
+                    )
+                    return (expectedSystemID, check)
+                }
+            }
+
+            var results: [(Int, WMAppSwitcherTargetCheck)] = []
+            for await result in group {
+                results.append(result)
+            }
+            return results
+        }
+        guard !Task.isCancelled else {
+            return WMAppSwitcherTargetResult(check: .unavailable)
+        }
+        return RiftWindowTargetCheckPolicy.result(results)
+    }
+
+    private func queryWindowForAppSwitcher(
+        _ id: RiftWindowId,
+        expectedSystemID: Int?,
+        scope: WMAppSwitcherTargetScope
+    ) async -> WMAppSwitcherTargetCheck {
+        guard let data = try? JSONEncoder().encode(id),
+              let argument = String(data: data, encoding: .utf8),
+              let result = try? await command.runWithStatus(["query", "window", argument]) else {
+            return .unavailable
+        }
+
+        let loweredOutput = result.output.lowercased()
+        if result.terminationStatus == 1,
+           loweredOutput.contains("window not found") {
+            return .absent
+        }
+        guard result.terminationStatus == 0 else { return .unavailable }
+
+        guard let responseData = result.output.data(using: .utf8),
+              let window = try? JSONDecoder().decode(RiftWindow.self, from: responseData),
+              window.id == id,
+              let systemID = window.windowServerId.map(Int.init),
+              expectedSystemID == systemID else {
+            return .unavailable
+        }
+
+        switch scope {
+        case .window:
+            return .present
+        case .application(let processIdentifier, let bundleIdentifier, _):
+            guard window.id.pid == Int(processIdentifier),
+                  window.bundleId == bundleIdentifier else {
+                return .unavailable
+            }
+            return .present
+        }
     }
 
     func getWindowsForWorkspace(_ wsIndex: Int) -> [RiftWindow] {
@@ -1005,8 +1162,7 @@ final class RiftService {
     func executeRiftCli(args: [String], completion: @escaping (Result<String, Error>) -> Void) {
         Task {
             do {
-                let output = try await command.run(args)
-                completion(.success(output))
+                completion(RiftCLIExecutionPolicy.result(try await command.runWithStatus(args)))
             } catch {
                 completion(.failure(error))
             }

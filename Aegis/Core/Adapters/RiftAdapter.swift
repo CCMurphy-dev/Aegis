@@ -80,6 +80,10 @@ final class RiftAdapter: WindowManagerProtocol {
         return window.toWMWindow(spaceIndex: rift.getWindowSpace(id))
     }
 
+    func checkAppSwitcherTarget(_ scope: WMAppSwitcherTargetScope) async -> WMAppSwitcherTargetResult {
+        await rift.checkAppSwitcherTarget(scope)
+    }
+
     func getWindowSpace(_ windowId: Int) -> Int? {
         return rift.getWindowSpace(windowId)
     }

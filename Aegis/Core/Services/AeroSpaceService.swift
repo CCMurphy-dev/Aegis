@@ -347,12 +347,55 @@ final class AeroSpaceService {
             if windowsChanged {
                 eventRouter.publish(.windowsChanged)
             }
-
         } catch {
             // Silent fail for poll — AeroSpace may not be running
             if source == "init" {
                 logError("AeroSpace refresh failed: \(error.localizedDescription)")
             }
+        }
+    }
+
+    /// Read the live AeroSpace window list without updating its event-driven
+    /// cache. Action rows are identified by the exact window IDs captured
+    /// before W/Q, so a save prompt or a different process cannot be removed.
+    func checkAppSwitcherTarget(_ scope: WMAppSwitcherTargetScope) async -> WMAppSwitcherTargetResult {
+        let format = "%{window-id} %{app-name} %{workspace} %{monitor-id} %{window-title} %{app-bundle-id}"
+        guard let output = try? await command.run([
+            "list-windows", "--all", "--json", "--format", format
+        ]),
+              let data = output.data(using: .utf8),
+              let windows = try? JSONDecoder().decode([ASWindow].self, from: data) else {
+            return WMAppSwitcherTargetResult(check: .unavailable)
+        }
+
+        let liveIDs = Set(windows.map(\.windowId))
+        let requestedIDs: Set<Int>
+        switch scope {
+        case .window(let id): requestedIDs = [id]
+        case .application(_, _, let windowManagerIDs): requestedIDs = windowManagerIDs
+        }
+        let absentIDs = requestedIDs.subtracting(liveIDs)
+        func result(_ check: WMAppSwitcherTargetCheck) -> WMAppSwitcherTargetResult {
+            WMAppSwitcherTargetResult(
+                check: check,
+                absentWindowManagerIDs: absentIDs
+            )
+        }
+        switch scope {
+        case .window(let id):
+            return result(liveIDs.contains(id) ? .present : .absent)
+        case .application(let processIdentifier, let bundleIdentifier, let windowManagerIDs):
+            guard !windowManagerIDs.isEmpty else { return result(.unavailable) }
+            let liveTargets = windows.filter { windowManagerIDs.contains($0.windowId) }
+            guard !liveTargets.isEmpty else { return result(.absent) }
+            guard liveTargets.allSatisfy({ $0.appBundleId != nil }) else { return result(.unavailable) }
+            guard liveTargets.contains(where: { $0.appBundleId == bundleIdentifier }) else {
+                return result(.absent)
+            }
+            let ownerStillRuns = NSRunningApplication.runningApplications(
+                withBundleIdentifier: bundleIdentifier
+            ).contains { $0.processIdentifier == processIdentifier }
+            return result(ownerStillRuns ? .present : .absent)
         }
     }
 
