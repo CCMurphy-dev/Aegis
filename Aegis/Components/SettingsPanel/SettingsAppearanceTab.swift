@@ -68,21 +68,23 @@ struct SettingsAppearanceTab: View {
                 .padding(.vertical, 4)
                 .transition(.opacity.combined(with: .move(edge: .top)))
 
-                SettingsSubsection(title: "Glass Intensity") {
-                    SettingsDoubleSlider(
-                        label: "Specular Highlight",
-                        value: $config.liquidGlassSpecularOpacity,
-                        range: 0.0...0.5,
-                        step: 0.02,
-                        unit: ""
-                    )
-                    SettingsDoubleSlider(
-                        label: "Blur Opacity",
-                        value: $config.liquidGlassBlurOpacity,
-                        range: 0.3...1.0,
-                        step: 0.05,
-                        unit: ""
-                    )
+                if #unavailable(macOS 26) {
+                    SettingsSubsection(title: "Glass Intensity") {
+                        SettingsDoubleSlider(
+                            label: "Specular Highlight",
+                            value: $config.liquidGlassSpecularOpacity,
+                            range: 0.0...0.5,
+                            step: 0.02,
+                            unit: ""
+                        )
+                        SettingsDoubleSlider(
+                            label: "Blur Opacity",
+                            value: $config.liquidGlassBlurOpacity,
+                            range: 0.3...1.0,
+                            step: 0.05,
+                            unit: ""
+                        )
+                    }
                 }
             }
 

@@ -14,20 +14,46 @@ class ClickablePanel: AegisOverlayPanel {
 /// Transparent overlay view that renders the selection highlight via CALayer
 class SelectionOverlayView: NSView {
     let selectionLayer = CALayer()
+    private var palette: AegisSurfacePalette?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.addSublayer(selectionLayer)
 
-        selectionLayer.backgroundColor = NSColor.white.withAlphaComponent(0.15).cgColor
-        selectionLayer.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
+        apply(palette: AegisSurfaceAppearance.palette(
+            theme: AegisConfig.shared.appTheme,
+            isDarkMode: ThemeManager.shared.isDarkMode,
+            customBackground: AegisConfig.shared.customBackgroundColor,
+            customForeground: AegisConfig.shared.customTextColor,
+            customBorder: AegisConfig.shared.customBorderColor
+        ))
         selectionLayer.borderWidth = 1
         selectionLayer.cornerRadius = 6
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    func apply(palette: AegisSurfacePalette) {
+        self.palette = palette
+        updateResolvedColors()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateResolvedColors()
+    }
+
+    private func updateResolvedColors() {
+        guard let palette else { return }
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            let fill = palette.selectionFill.usingColorSpace(.deviceRGB) ?? palette.selectionFill
+            let border = palette.selectionBorder.usingColorSpace(.deviceRGB) ?? palette.selectionBorder
+            selectionLayer.backgroundColor = fill.cgColor
+            selectionLayer.borderColor = border.cgColor
+        }
     }
 
     // Pass through all mouse events to underlying views
@@ -44,6 +70,9 @@ final class AppSwitcherWindowController {
     // Selection overlay view with CALayer - positioned on top of SwiftUI content
     private var selectionOverlay: SelectionOverlayView?
     private var hostingView: NSHostingView<AppSwitcherView>?
+    private var themeObserver: NSObjectProtocol?
+    private var appearanceObserver: NSObjectProtocol?
+    private var configCancellable: AnyCancellable?
 
     // Layout constants for calculating selection position
     private let iconRowHeight: CGFloat = 32
@@ -72,6 +101,41 @@ final class AppSwitcherWindowController {
     init() {
         setupWindow()
         setupCallbacks()
+        setupAppearanceObservers()
+    }
+
+    deinit {
+        if let themeObserver { NotificationCenter.default.removeObserver(themeObserver) }
+        if let appearanceObserver { NotificationCenter.default.removeObserver(appearanceObserver) }
+    }
+
+    private func setupAppearanceObservers() {
+        themeObserver = NotificationCenter.default.addObserver(
+            forName: .themeDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in self?.updateAppearance() }
+        appearanceObserver = NotificationCenter.default.addObserver(
+            forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+            object: NSWorkspace.shared,
+            queue: .main
+        ) { [weak self] _ in self?.updateAppearance() }
+        configCancellable = AegisConfig.shared.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.updateAppearance() }
+    }
+
+    private func updateAppearance() {
+        let config = AegisConfig.shared
+        let palette = AegisSurfaceAppearance.palette(
+            theme: config.appTheme,
+            isDarkMode: ThemeManager.shared.isDarkMode,
+            customBackground: config.customBackgroundColor,
+            customForeground: config.customTextColor,
+            customBorder: config.customBorderColor
+        )
+        selectionOverlay?.apply(palette: palette)
+        hostingView?.rootView = AppSwitcherView(viewModel: viewModel)
     }
 
     private func setupCallbacks() {
@@ -398,6 +462,9 @@ class AppSwitcherViewModel: ObservableObject {
 
 struct AppSwitcherView: View {
     @ObservedObject var viewModel: AppSwitcherViewModel
+    @ObservedObject private var config = AegisConfig.shared
+    @ObservedObject private var surfaceAppearance = AegisSurfaceAppearance.shared
+    @ObservedObject private var themeManager = ThemeManager.shared
 
     // Row height for mouse position calculation - must match controller constants
     private var rowHeight: CGFloat { viewModel.showPreviews ? 87 : 32 }
@@ -406,18 +473,41 @@ struct AppSwitcherView: View {
     private let dividerHeight: CGFloat = 13
     private let searchBarHeight: CGFloat = 28 + 8  // height (28) + padding (8)
 
+    private var nativeGlassAvailable: Bool {
+        if #available(macOS 26.0, *) { return true }
+        return false
+    }
+
+    private var renderingMode: AegisSurfaceRenderingMode {
+        AegisSurfaceAppearance.switcherRenderingMode(
+            theme: config.appTheme,
+            reduceTransparency: surfaceAppearance.reduceTransparency,
+            nativeGlassAvailable: nativeGlassAvailable
+        )
+    }
+
+    private var palette: AegisSurfacePalette {
+        AegisSurfaceAppearance.palette(
+            theme: config.appTheme,
+            isDarkMode: themeManager.isDarkMode,
+            customBackground: config.customBackgroundColor,
+            customForeground: config.customTextColor,
+            customBorder: config.customBorderColor
+        )
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Search bar (shown when there's a query)
             if !viewModel.searchQuery.isEmpty {
-                SearchBarView(query: viewModel.searchQuery, isCommandMode: viewModel.isCommandMode)
+                    SearchBarView(query: viewModel.searchQuery, isCommandMode: viewModel.isCommandMode, palette: palette)
                     .padding(.bottom, 8)
             }
 
             if viewModel.isCommandMode {
                 // Command palette mode
                 ForEach(Array(viewModel.commands.enumerated()), id: \.element.id) { index, command in
-                    CommandRowView(command: command, index: index)
+                    CommandRowView(command: command, index: index, palette: palette)
                 }
 
                 if viewModel.commands.isEmpty {
@@ -425,7 +515,7 @@ struct AppSwitcherView: View {
                         Spacer()
                         Text("No matching commands")
                             .font(.system(size: 11))
-                            .foregroundColor(.white.opacity(0.5))
+                            .foregroundColor(Color(nsColor: palette.secondaryForeground))
                         Spacer()
                     }
                     .padding(.vertical, 12)
@@ -437,7 +527,8 @@ struct AppSwitcherView: View {
                         group: group,
                         windowIndexMap: viewModel.windowIndexMap,
                         isLast: index == viewModel.spaceGroups.count - 1,
-                        showPreview: viewModel.showPreviews
+                        showPreview: viewModel.showPreviews,
+                        palette: palette
                     )
                 }
 
@@ -447,7 +538,7 @@ struct AppSwitcherView: View {
                         Spacer()
                         Text("No matching windows")
                             .font(.system(size: 11))
-                            .foregroundColor(.white.opacity(0.5))
+                            .foregroundColor(Color(nsColor: palette.secondaryForeground))
                         Spacer()
                     }
                     .padding(.vertical, 12)
@@ -455,14 +546,26 @@ struct AppSwitcherView: View {
             }
         }
         .padding(padding)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(.ultraThinMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
-        )
+        .background {
+            switch renderingMode {
+            case .solid:
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color(nsColor: palette.background))
+            case .legacyMaterial:
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(.thinMaterial)
+            case .nativeGlass:
+                if #available(macOS 26.0, *) {
+                    AegisNativeGlassBackground(cornerRadius: 10)
+                }
+            }
+        }
+        .overlay {
+            if renderingMode != .nativeGlass {
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(Color(nsColor: palette.border), lineWidth: 1)
+            }
+        }
         .overlay(
             MouseTrackingView(
                 onMouseMoved: { location in
@@ -671,6 +774,7 @@ struct SpaceGroupView: View {
     let windowIndexMap: [Int: Int]  // Pre-computed: window.id -> global index
     let isLast: Bool
     let showPreview: Bool
+    let palette: AegisSurfacePalette
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -679,14 +783,14 @@ struct SpaceGroupView: View {
                 VStack(spacing: 0) {
                     Text("\(group.spaceIndex)")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(group.isFocused ? .white : .white.opacity(0.5))
+                        .foregroundColor(Color(nsColor: palette.foreground).opacity(group.isFocused ? 1 : 0.5))
                         .frame(width: 20, alignment: .center)
                 }
                 .frame(width: 20)
                 .overlay(alignment: .trailing) {
                     // Vertical connector line
                     Rectangle()
-                        .fill(Color.white.opacity(0.15))
+                        .fill(Color(nsColor: palette.tertiaryForeground))
                         .frame(width: 1)
                         .padding(.vertical, 4)
                         .offset(x: 12)
@@ -696,7 +800,7 @@ struct SpaceGroupView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(group.windows) { window in
                         let globalIndex = windowIndexMap[window.id] ?? 0
-                        WindowRowView(window: window, index: globalIndex, showPreview: showPreview)
+                        WindowRowView(window: window, index: globalIndex, showPreview: showPreview, palette: palette)
                     }
                 }
             }
@@ -704,7 +808,7 @@ struct SpaceGroupView: View {
             // Divider line between space groups (except after last group)
             if !isLast {
                 Rectangle()
-                    .fill(Color.white.opacity(0.1))
+                    .fill(Color(nsColor: palette.tertiaryForeground))
                     .frame(height: 1)
                     .padding(.vertical, 6)
                     .padding(.leading, 32)
@@ -717,28 +821,29 @@ struct SpaceGroupView: View {
 struct SearchBarView: View {
     let query: String
     var isCommandMode: Bool = false
+    let palette: AegisSurfacePalette
 
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: isCommandMode ? "terminal" : "magnifyingglass")
                 .font(.system(size: 10))
-                .foregroundColor(isCommandMode ? .cyan.opacity(0.7) : .white.opacity(0.5))
+                .foregroundColor(isCommandMode ? .cyan.opacity(0.7) : Color(nsColor: palette.secondaryForeground))
 
             Text(query)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.white.opacity(0.9))
+                .foregroundColor(Color(nsColor: palette.foreground))
 
             Spacer()
 
             Text(isCommandMode ? "command mode" : "⌫ to clear")
                 .font(.system(size: 9))
-                .foregroundColor(.white.opacity(0.35))
+                .foregroundColor(Color(nsColor: palette.tertiaryForeground))
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(isCommandMode ? Color.cyan.opacity(0.08) : Color.white.opacity(0.08))
+                .fill(isCommandMode ? Color.cyan.opacity(0.08) : Color(nsColor: palette.tertiaryForeground).opacity(0.12))
         )
     }
 }
@@ -746,6 +851,7 @@ struct SearchBarView: View {
 struct CommandRowView: View {
     let command: PaletteCommand
     let index: Int
+    let palette: AegisSurfacePalette
 
     var body: some View {
         HStack(spacing: 8) {
@@ -756,27 +862,27 @@ struct CommandRowView: View {
 
             Text(command.label)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.white.opacity(0.9))
+                .foregroundColor(Color(nsColor: palette.foreground))
                 .lineLimit(1)
 
             Text(command.description)
                 .font(.system(size: 10))
-                .foregroundColor(.white.opacity(0.45))
+                .foregroundColor(Color(nsColor: palette.secondaryForeground))
                 .lineLimit(1)
 
             Spacer()
 
             Text(command.category)
                 .font(.system(size: 9, weight: .medium))
-                .foregroundColor(.white.opacity(0.3))
+                .foregroundColor(Color(nsColor: palette.tertiaryForeground))
                 .padding(.horizontal, 5)
                 .padding(.vertical, 2)
-                .background(RoundedRectangle(cornerRadius: 3).fill(Color.white.opacity(0.06)))
+                .background(RoundedRectangle(cornerRadius: 3).fill(Color(nsColor: palette.tertiaryForeground).opacity(0.12)))
 
             if index < 9 {
                 Text("⌘\(index + 1)")
                     .font(.system(size: 9, weight: .medium))
-                    .foregroundColor(.white.opacity(0.35))
+                    .foregroundColor(Color(nsColor: palette.tertiaryForeground))
             }
         }
         .padding(.horizontal, 8)
@@ -789,6 +895,7 @@ struct WindowRowView: View {
     let window: SwitcherWindow
     let index: Int
     let showPreview: Bool
+    let palette: AegisSurfacePalette
 
     var body: some View {
         if showPreview {
@@ -807,13 +914,13 @@ struct WindowRowView: View {
 
             Text(window.appName)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.white.opacity(dimmed ? 0.5 : 0.9))
+                .foregroundColor(Color(nsColor: palette.foreground).opacity(dimmed ? 0.5 : 0.9))
                 .lineLimit(1)
                 .frame(width: 90, alignment: .leading)
 
             Text(displayTitle)
                 .font(.system(size: 11))
-                .foregroundColor(.white.opacity(dimmed ? 0.4 : 0.6))
+                .foregroundColor(Color(nsColor: palette.secondaryForeground).opacity(dimmed ? 0.55 : 0.8))
                 .lineLimit(1)
 
             Spacer()
@@ -838,14 +945,14 @@ struct WindowRowView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 4))
                     .overlay(
                         RoundedRectangle(cornerRadius: 4)
-                            .strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5)
+                            .strokeBorder(Color(nsColor: palette.tertiaryForeground), lineWidth: 0.5)
                     )
                     .opacity(dimmed ? 0.5 : 1.0)
             } else {
                 // Fallback: large app icon for minimized/hidden windows
                 ZStack {
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.white.opacity(0.05))
+                        .fill(Color(nsColor: palette.tertiaryForeground).opacity(0.12))
                         .frame(width: 120, height: 75)
 
                     appIconView
@@ -861,19 +968,19 @@ struct WindowRowView: View {
 
                     Text(window.appName)
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.white.opacity(dimmed ? 0.5 : 0.9))
+                        .foregroundColor(Color(nsColor: palette.foreground).opacity(dimmed ? 0.5 : 0.9))
                         .lineLimit(1)
                 }
 
                 Text(displayTitle)
                     .font(.system(size: 10))
-                    .foregroundColor(.white.opacity(dimmed ? 0.4 : 0.55))
+                    .foregroundColor(Color(nsColor: palette.secondaryForeground).opacity(dimmed ? 0.55 : 0.8))
                     .lineLimit(2)
 
                 if window.isMinimized || window.isHidden {
                     Text(window.isMinimized ? "Minimized" : "Hidden")
                         .font(.system(size: 9))
-                        .foregroundColor(.white.opacity(0.3))
+                        .foregroundColor(Color(nsColor: palette.tertiaryForeground))
                 }
             }
 
@@ -905,13 +1012,15 @@ struct WindowRowView: View {
             } else {
                 Image(systemName: "app.fill")
                     .font(.system(size: 16))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(Color(nsColor: palette.secondaryForeground))
             }
 
             WindowStatusBadge(
                 isMinimized: window.isMinimized,
                 isHidden: window.isHidden,
-                stackIndex: 0
+                stackIndex: 0,
+                stackBackground: Color(nsColor: palette.selectionFill),
+                stackForeground: Color(nsColor: palette.foreground)
             )
         }
     }
@@ -921,7 +1030,7 @@ struct WindowRowView: View {
         if index < 9 {
             Text("⌘\(index + 1)")
                 .font(.system(size: 9, weight: .medium))
-                .foregroundColor(.white.opacity(0.35))
+                .foregroundColor(Color(nsColor: palette.tertiaryForeground))
         }
     }
 }
