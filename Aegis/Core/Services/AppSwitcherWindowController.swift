@@ -53,7 +53,7 @@ final class AppSwitcherWindowController {
     private let searchBarHeight: CGFloat = 28 + 8  // height + padding
 
     private var rowHeight: CGFloat {
-        AegisConfig.shared.appSwitcherShowPreviews ? previewRowHeight : iconRowHeight
+        AppSwitcherService.shared.showingWindowPreviews ? previewRowHeight : iconRowHeight
     }
 
     // Rapid scroll detection - disable animation during fast input
@@ -146,7 +146,7 @@ final class AppSwitcherWindowController {
         viewModel.resetMouseTracking()
 
         // Calculate window size based on content and mode
-        let showPreviews = AegisConfig.shared.appSwitcherShowPreviews
+        let showPreviews = AppSwitcherService.shared.showingWindowPreviews
         let windowWidth: CGFloat = showPreviews ? 460 : 380
         let windowHeight: CGFloat = calculateHeight(for: spaceGroups, hasSearchQuery: !searchQuery.isEmpty)
         let windowSize = NSSize(width: windowWidth, height: windowHeight)
@@ -224,7 +224,7 @@ final class AppSwitcherWindowController {
                 height += 13  // Divider line + padding (1 + 6 + 6)
             }
         }
-        let maxHeight: CGFloat = AegisConfig.shared.appSwitcherShowPreviews ? 700 : 500
+        let maxHeight: CGFloat = AppSwitcherService.shared.showingWindowPreviews ? 700 : 500
         return min(height, maxHeight)
     }
 
@@ -331,7 +331,7 @@ class AppSwitcherViewModel: ObservableObject {
     @Published var searchQuery: String = ""
 
     /// Whether to show window preview thumbnails instead of app icons
-    var showPreviews: Bool { AegisConfig.shared.appSwitcherShowPreviews }
+    var showPreviews: Bool { AppSwitcherService.shared.showingWindowPreviews }
 
     var isCommandMode: Bool { searchQuery.hasPrefix(":") }
 
