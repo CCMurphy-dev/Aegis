@@ -99,6 +99,8 @@ struct AegisConfigData: Codable {
     var appSwitcherShowHidden: Bool?
     var appSwitcherCmdScrollEnabled: Bool?
     var appSwitcherShowPreviews: Bool?
+    var appSwitcherKeyboardMode: String?
+    var appSwitcherLeftShiftReverseEnabled: Bool?
 
     // Behavior Flags
     var showAppNameInExpansion: Bool?
@@ -391,6 +393,11 @@ extension AegisConfig {
         if let v = data.appSwitcherShowHidden { appSwitcherShowHidden = v }
         if let v = data.appSwitcherCmdScrollEnabled { appSwitcherCmdScrollEnabled = v }
         if let v = data.appSwitcherShowPreviews { appSwitcherShowPreviews = v }
+        if let raw = data.appSwitcherKeyboardMode,
+           let mode = AppSwitcherKeyboardMode(rawValue: raw) {
+            appSwitcherKeyboardMode = mode
+        }
+        if let v = data.appSwitcherLeftShiftReverseEnabled { appSwitcherLeftShiftReverseEnabled = v }
 
         // Behavior Flags
         if let v = data.showAppNameInExpansion { showAppNameInExpansion = v }
@@ -649,6 +656,8 @@ extension AegisConfig {
             appSwitcherShowHidden: appSwitcherShowHidden,
             appSwitcherCmdScrollEnabled: appSwitcherCmdScrollEnabled,
             appSwitcherShowPreviews: appSwitcherShowPreviews,
+            appSwitcherKeyboardMode: appSwitcherKeyboardMode.rawValue,
+            appSwitcherLeftShiftReverseEnabled: appSwitcherLeftShiftReverseEnabled,
 
             // Behavior Flags
             showAppNameInExpansion: showAppNameInExpansion,
@@ -853,6 +862,8 @@ Only include settings you want to change - defaults are used for anything not sp
 | `appSwitcherShowMinimized` | bool | `true` | Show minimized windows in switcher |
 | `appSwitcherShowHidden` | bool | `false` | Show hidden windows in switcher |
 | `appSwitcherShowPreviews` | bool | `false` | Show window preview thumbnails instead of app icons |
+| `appSwitcherKeyboardMode` | string | `"filter"` | `"filter"` for type-to-filter, or `"actions"` for Cmd+W close and Cmd+Q quit |
+| `appSwitcherLeftShiftReverseEnabled` | bool | `false` | Tap left Shift while Cmd+Tab is open to move backward |
 
 ---
 

@@ -1105,9 +1105,9 @@ final class YabaiService {
     func executeYabai(args: [String], completion: @escaping (Result<String, Error>) -> Void) {
         Task {
             do {
-                let output = try await command.run(args)
+                let result = YabaiCLIExecutionPolicy.result(try await command.runWithStatus(args))
                 DispatchQueue.main.async {
-                    completion(.success(output))
+                    completion(result)
                 }
             } catch {
                 DispatchQueue.main.async {

@@ -59,6 +59,17 @@ struct SettingsGeneralTab: View {
 
             if config.appSwitcherEnabled {
                 SettingsSubsection(title: "App Switcher") {
+                    SettingsAppSwitcherKeyboardModePicker(
+                        label: "Keyboard Mode",
+                        selection: $config.appSwitcherKeyboardMode
+                    )
+
+                    SettingsToggle(
+                        label: "Left Shift Goes Back",
+                        description: "Tap left Shift while Cmd+Tab is open to select the previous window",
+                        isOn: $config.appSwitcherLeftShiftReverseEnabled
+                    )
+
                     SettingsToggle(
                         label: "Cmd+Scroll to Open",
                         description: "Enable Cmd+scroll to open/cycle app switcher",

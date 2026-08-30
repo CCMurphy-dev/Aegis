@@ -197,6 +197,26 @@ struct SettingsEnumPicker<T: RawRepresentable & CaseIterable & Hashable>: View w
     }
 }
 
+struct SettingsAppSwitcherKeyboardModePicker: View {
+    let label: String
+    @Binding var selection: AppSwitcherKeyboardMode
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.system(size: 12))
+                .foregroundColor(Color.white.opacity(0.9))
+
+            Picker("", selection: $selection) {
+                ForEach(AppSwitcherKeyboardMode.allCases, id: \.self) { mode in
+                    Text(mode.displayName).tag(mode)
+                }
+            }
+            .pickerStyle(SegmentedPickerStyle())
+        }
+        .padding(.vertical, 4)
+    }
+}
 /// Picker specifically for MultiMonitorMode with proper display names
 struct SettingsMultiMonitorPicker: View {
     let label: String

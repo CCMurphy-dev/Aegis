@@ -27,6 +27,7 @@ struct WMWindow: Identifiable {
     let pid: pid_t
     let title: String
     let app: String            // Bundle ID or process name
+    let bundleIdentifier: String?
     let appName: String        // Human-readable display name
     let space: Int             // Space index this window belongs to
     let frame: CGRect?
@@ -94,6 +95,37 @@ enum WMEvent: CaseIterable {
     case displaysChanged
 }
 
+enum WMAppSwitcherTargetScope {
+    case window(id: Int)
+    /// Window-manager IDs are captured before a quit request. The process ID
+    /// remains part of the scope so adapters never broaden a check to another
+    /// process that happens to share the same application bundle.
+    case application(
+        processIdentifier: pid_t,
+        bundleIdentifier: String,
+        windowManagerIDs: Set<Int>
+    )
+}
+
+enum WMAppSwitcherTargetCheck: Equatable {
+    case present
+    case absent
+    case unavailable
+}
+
+struct WMAppSwitcherTargetResult: Equatable {
+    let check: WMAppSwitcherTargetCheck
+    let absentWindowManagerIDs: Set<Int>
+
+    init(
+        check: WMAppSwitcherTargetCheck,
+        absentWindowManagerIDs: Set<Int> = []
+    ) {
+        self.check = check
+        self.absentWindowManagerIDs = absentWindowManagerIDs
+    }
+}
+
 
 // MARK: - Protocol
 
@@ -148,6 +180,11 @@ protocol WindowManagerProtocol: AnyObject {
     /// Single window lookup
     func getWindow(_ id: Int) -> WMWindow?
 
+    /// Read-only confirmation for a window action. Managers must not mutate
+    /// their caches here; this is used to decide whether a switcher row may be
+    /// removed after W/Q.
+    func checkAppSwitcherTarget(_ scope: WMAppSwitcherTargetScope) async -> WMAppSwitcherTargetResult
+
     /// Which space a window is on
     func getWindowSpace(_ windowId: Int) -> Int?
 
@@ -192,6 +229,10 @@ protocol WindowManagerProtocol: AnyObject {
 
     /// Float and center a window on its current space
     func floatAndCenterWindow(_ id: Int)
+
+    /// Close one exact window. Implementations must not fall back to the
+    /// focused window, because callers may be acting on a background row.
+    func closeWindow(_ id: Int, completion: @escaping (Result<Void, Error>) -> Void)
 
     // MARK: Commands — Space Management
 
@@ -265,6 +306,14 @@ extension WindowManagerProtocol {
     func moveWindowToSpaceFloatAndFocus(_ id: Int, spaceIndex: Int) {}
     func floatAndCenterWindow(_ id: Int) {}
 
+    func closeWindow(_ id: Int, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.failure(NSError(
+            domain: "WindowManager",
+            code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "Closing windows is not supported"]
+        )))
+    }
+
     func stackAllWindowsOnto(_ targetId: Int) {}
 
     func executeRawCommand(args: [String], completion: @escaping (Result<String, Error>) -> Void) {
@@ -273,4 +322,8 @@ extension WindowManagerProtocol {
     }
 
     func getVersion() -> String { return "Unknown" }
+
+    func checkAppSwitcherTarget(_ scope: WMAppSwitcherTargetScope) async -> WMAppSwitcherTargetResult {
+        WMAppSwitcherTargetResult(check: .unavailable)
+    }
 }
