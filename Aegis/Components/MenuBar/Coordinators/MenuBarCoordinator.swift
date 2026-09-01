@@ -1,6 +1,33 @@
 import Cocoa
 import SwiftUI
 
+/// Decides whether a resolved visibility update may reorder the bar window.
+enum MenuBarOrderingPolicy {
+    static func shouldReorder(
+        isFullscreen: Bool,
+        now: Date,
+        suppressReorderUntil: Date,
+        hasPendingSpaceUpdate: Bool
+    ) -> Bool {
+        hasPendingSpaceUpdate && !isFullscreen && now >= suppressReorderUntil
+    }
+}
+
+/// One-shot handoff from a Space update to the next resolved visibility state.
+struct MenuBarOrderingState {
+    private(set) var hasPendingSpaceUpdate = false
+
+    mutating func armForSpaceUpdate() {
+        hasPendingSpaceUpdate = true
+    }
+
+    mutating func consumeResolvedUpdate() -> Bool {
+        guard hasPendingSpaceUpdate else { return false }
+        hasPendingSpaceUpdate = false
+        return true
+    }
+}
+
 // MARK: - MenuBarCoordinator
 // Main coordinator that manages all menu bar components
 
@@ -24,6 +51,7 @@ class MenuBarCoordinator {
 
     /// Suppress window reorder after drag-initiated space moves (prevents flash from orderFront)
     private var suppressReorderUntil: Date = .distantPast
+    private var orderingState = MenuBarOrderingState()
 
 
     init(windowManager: WindowManagerProtocol,
@@ -115,8 +143,20 @@ class MenuBarCoordinator {
         windowController.createWindow(with: contentView, for: targetScreen)
 
         // Wire up fullscreen state callback (fires after performUpdate completes)
-        vm.onFullscreenStateChanged = { [weak self] isFullscreen in
-            self?.windowController.updateVisibilityForSpace(isFullscreen: isFullscreen)
+        vm.onFullscreenStateResolved = { [weak self] isFullscreen in
+            guard let self = self else { return }
+
+            // Visibility must be resolved before ordering. Ordering first can
+            // briefly expose the bar during a native fullscreen transition.
+            self.windowController.updateVisibilityForSpace(isFullscreen: isFullscreen)
+            let hasPendingSpaceUpdate = self.orderingState.consumeResolvedUpdate()
+            guard MenuBarOrderingPolicy.shouldReorder(
+                isFullscreen: isFullscreen,
+                now: Date(),
+                suppressReorderUntil: self.suppressReorderUntil,
+                hasPendingSpaceUpdate: hasPendingSpaceUpdate
+            ) else { return }
+            self.windowController.reorderWindowForSpaceTransition()
         }
 
         // Trigger initial update to compute fullscreen state
@@ -132,18 +172,15 @@ class MenuBarCoordinator {
         interactionMonitor.stopMonitoring()
         windowController.hide()
         viewModel = nil
+        orderingState = MenuBarOrderingState()
     }
 
     // MARK: - Public update methods
 
     func updateSpaces() {
-        viewModel?.updateSpaces()
-
-        // Re-order window to ensure visibility during space transitions
-        // Skip during drag-initiated space moves (orderFront causes white flash)
-        if Date() >= suppressReorderUntil {
-            windowController.reorderWindowForSpaceTransition()
-        }
+        guard let viewModel = viewModel else { return }
+        orderingState.armForSpaceUpdate()
+        viewModel.updateSpaces()
     }
 
     func updateWindows() {

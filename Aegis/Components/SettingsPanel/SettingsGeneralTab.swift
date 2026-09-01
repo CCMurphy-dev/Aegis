@@ -20,7 +20,7 @@ struct SettingsGeneralTab: View {
                 isOn: $config.enableLayoutActionHaptics
             )
 
-            Divider().background(Color.white.opacity(0.1))
+            Divider().background(SettingsPalette.separator.opacity(0.6))
 
             // Window Manager
             SettingsWindowManagerPicker(
@@ -39,7 +39,7 @@ struct SettingsGeneralTab: View {
                 SettingsYabaiSetupButton()
             }
 
-            Divider().background(Color.white.opacity(0.1))
+            Divider().background(SettingsPalette.separator.opacity(0.6))
 
             // Multi-Monitor
             SettingsMultiMonitorPicker(
@@ -48,7 +48,7 @@ struct SettingsGeneralTab: View {
                 selection: $config.multiMonitorMode
             )
 
-            Divider().background(Color.white.opacity(0.1))
+            Divider().background(SettingsPalette.separator.opacity(0.6))
 
             // App Switcher
             SettingsToggle(
@@ -85,7 +85,7 @@ struct SettingsGeneralTab: View {
                 }
             }
 
-            Divider().background(Color.white.opacity(0.1))
+            Divider().background(SettingsPalette.separator.opacity(0.6))
 
             // Command Palette
             SettingsCustomCommandsEditor(
@@ -94,7 +94,7 @@ struct SettingsGeneralTab: View {
                 commands: $config.customCommands
             )
 
-            Divider().background(Color.white.opacity(0.1))
+            Divider().background(SettingsPalette.separator.opacity(0.6))
 
             // Desktop
             SettingsSubsection(title: "Desktop") {
@@ -115,22 +115,22 @@ struct SettingsGeneralTab: View {
                 }
             }
 
-            Divider().background(Color.white.opacity(0.1))
+            Divider().background(SettingsPalette.separator.opacity(0.6))
 
             // Updates & Config
             SettingsUpdateButton(updater: updater)
 
-            Divider().background(Color.white.opacity(0.1))
+            Divider().background(SettingsPalette.separator.opacity(0.6))
 
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Config File")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(SettingsPalette.primaryText)
 
                     Text("~/.config/aegis/config.json")
                         .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(Color.white.opacity(0.5))
+                        .foregroundColor(SettingsPalette.tertiaryText)
                 }
 
                 Spacer()
@@ -146,11 +146,11 @@ struct SettingsGeneralTab: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Documentation")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(SettingsPalette.primaryText)
 
                     Text("CONFIG_OPTIONS.md")
                         .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(Color.white.opacity(0.5))
+                        .foregroundColor(SettingsPalette.tertiaryText)
                 }
 
                 Spacer()

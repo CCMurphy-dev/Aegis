@@ -26,7 +26,7 @@ struct SettingsPanelView: View {
     var body: some View {
         ZStack {
             // Background
-            Color.black.opacity(0.95)
+            SettingsPalette.background
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -34,13 +34,13 @@ struct SettingsPanelView: View {
                 header
 
                 Divider()
-                    .background(Color.white.opacity(0.2))
+                    .background(SettingsPalette.separator.opacity(0.8))
 
                 // Tab Bar
                 tabBar
 
                 Divider()
-                    .background(Color.white.opacity(0.15))
+                    .background(SettingsPalette.separator.opacity(0.7))
 
                 // Content Area
                 ScrollView {
@@ -60,7 +60,7 @@ struct SettingsPanelView: View {
                 }
 
                 Divider()
-                    .background(Color.white.opacity(0.2))
+                    .background(SettingsPalette.separator.opacity(0.8))
 
                 // Footer with actions
                 footer
@@ -75,11 +75,11 @@ struct SettingsPanelView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Aegis Settings")
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(SettingsPalette.primaryText)
 
                 Text("Changes are saved automatically")
                     .font(.system(size: 11))
-                    .foregroundColor(Color.white.opacity(0.6))
+                    .foregroundColor(SettingsPalette.secondaryText)
             }
 
             Spacer()
@@ -89,12 +89,12 @@ struct SettingsPanelView: View {
             }) {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 20))
-                    .foregroundColor(Color.white.opacity(0.6))
+                    .foregroundColor(SettingsPalette.secondaryText)
             }
             .buttonStyle(PlainButtonStyle())
         }
         .padding()
-        .background(Color.black.opacity(0.3))
+        .background(SettingsPalette.controlBackground.opacity(0.65))
     }
 
     // MARK: - Tab Bar
@@ -114,12 +114,12 @@ struct SettingsPanelView: View {
                         Text(tab.rawValue)
                             .font(.system(size: 12, weight: .medium))
                     }
-                    .foregroundColor(selectedTab == tab ? .white : Color.white.opacity(0.5))
+                    .foregroundColor(selectedTab == tab ? SettingsPalette.primaryText : SettingsPalette.secondaryText)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(
                         selectedTab == tab
-                            ? Color.white.opacity(0.1)
+                            ? SettingsPalette.primaryText.opacity(0.1)
                             : Color.clear
                     )
                     .cornerRadius(6)
@@ -133,7 +133,7 @@ struct SettingsPanelView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(Color.black.opacity(0.2))
+        .background(SettingsPalette.controlBackground.opacity(0.5))
     }
 
     // MARK: - Footer
@@ -157,7 +157,7 @@ struct SettingsPanelView: View {
             .buttonStyle(SettingsPrimaryButtonStyle())
         }
         .padding()
-        .background(Color.black.opacity(0.3))
+        .background(SettingsPalette.controlBackground.opacity(0.65))
     }
 }
 
@@ -176,7 +176,7 @@ struct SettingsSubsection<Content: View>: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(Color.white.opacity(0.7))
+                .foregroundColor(SettingsPalette.secondaryText)
                 .textCase(.uppercase)
                 .tracking(0.5)
 
@@ -194,10 +194,10 @@ struct SettingsButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 12, weight: .medium))
-            .foregroundColor(.white)
+            .foregroundColor(SettingsPalette.primaryText)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Color.white.opacity(configuration.isPressed ? 0.15 : 0.1))
+            .background(SettingsPalette.primaryText.opacity(configuration.isPressed ? 0.15 : 0.1))
             .cornerRadius(6)
     }
 }

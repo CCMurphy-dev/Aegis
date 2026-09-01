@@ -223,7 +223,8 @@ extension RiftDisplay {
             index: index,
             frame: frame.cgRect,
             spaces: activeSpaceIds.map { Int($0) } + inactiveSpaceIds.map { Int($0) },
-            hasFocus: isActiveContext
+            hasFocus: isActiveContext,
+            spaceState: RiftDisplaySpaceStateClassifier.state(for: self)
         )
     }
 }

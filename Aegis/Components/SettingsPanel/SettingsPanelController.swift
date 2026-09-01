@@ -23,7 +23,7 @@ class SettingsPanelController {
         window.contentViewController = hostingController
         window.isReleasedWhenClosed = false
         window.level = .floating
-        window.backgroundColor = NSColor.black.withAlphaComponent(0.95)
+        Self.configureSettingsWindow(window)
         window.isMovableByWindowBackground = true
         window.minSize = NSSize(width: 600, height: 700)
         window.maxSize = NSSize(width: 900, height: 1200)
@@ -31,6 +31,16 @@ class SettingsPanelController {
         window.center()
 
         return window
+    }
+
+    /// Keep the panel opaque and let AppKit resolve the native dynamic colors.
+    /// The nil appearance is important: the settings window follows macOS,
+    /// independently of Aegis's menu-bar theme.
+    static func configureSettingsWindow(_ window: NSWindow) {
+        window.backgroundColor = SettingsPalette.windowBackground
+        window.isOpaque = true
+        window.alphaValue = 1
+        window.appearance = nil
     }
 
     /// Shows the Settings Panel window

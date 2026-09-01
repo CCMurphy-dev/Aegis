@@ -26,7 +26,7 @@ struct SettingsNotchHUDTab: View {
             }
 
             if config.showNotchHUD {
-                Divider().background(Color.white.opacity(0.1))
+                Divider().background(SettingsPalette.separator.opacity(0.6))
 
                 // Volume & Brightness
                 SettingsSubsection(title: "Volume & Brightness") {
@@ -58,7 +58,7 @@ struct SettingsNotchHUDTab: View {
                     }
                 }
 
-                Divider().background(Color.white.opacity(0.1))
+                Divider().background(SettingsPalette.separator.opacity(0.6))
 
                 // Media (Now Playing)
                 SettingsSubsection(title: "Media (Now Playing)") {
@@ -118,7 +118,7 @@ struct SettingsNotchHUDTab: View {
                     }
                 }
 
-                Divider().background(Color.white.opacity(0.1))
+                Divider().background(SettingsPalette.separator.opacity(0.6))
 
                 // Bluetooth Devices
                 SettingsSubsection(title: "Bluetooth Devices") {
@@ -146,7 +146,7 @@ struct SettingsNotchHUDTab: View {
                     }
                 }
 
-                Divider().background(Color.white.opacity(0.1))
+                Divider().background(SettingsPalette.separator.opacity(0.6))
 
                 // Focus Mode
                 SettingsSubsection(title: "Focus Mode") {
@@ -167,7 +167,7 @@ struct SettingsNotchHUDTab: View {
                     }
                 }
 
-                Divider().background(Color.white.opacity(0.1))
+                Divider().background(SettingsPalette.separator.opacity(0.6))
 
                 // Notifications
                 SettingsSubsection(title: "Notifications") {
@@ -203,7 +203,7 @@ struct SettingsNotchHUDTab: View {
                     }
                 }
 
-                Divider().background(Color.white.opacity(0.1))
+                Divider().background(SettingsPalette.separator.opacity(0.6))
 
                 // Fine Tuning: HUD Layout
                 SettingsCollapsibleSection(title: "Fine Tuning: HUD Layout", icon: "rectangle.center.inset.filled", initiallyExpanded: false) {

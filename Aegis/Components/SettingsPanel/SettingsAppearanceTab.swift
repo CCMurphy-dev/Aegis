@@ -53,10 +53,10 @@ struct SettingsAppearanceTab: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Liquid Glass")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(SettingsPalette.primaryText)
                         Text("macOS 26 Tahoe aesthetic — refractive blur with specular glass edges")
                             .font(.system(size: 10))
-                            .foregroundColor(Color.white.opacity(0.55))
+                            .foregroundColor(SettingsPalette.secondaryText)
                             .fixedSize(horizontal: false, vertical: true)
                         if #unavailable(macOS 26) {
                             Text("Uses ultraThinMaterial on your current macOS version")
@@ -86,7 +86,7 @@ struct SettingsAppearanceTab: View {
                 }
             }
 
-            Divider().background(Color.white.opacity(0.1))
+            Divider().background(SettingsPalette.separator.opacity(0.6))
 
             // Custom Colors
             if config.appTheme == .custom {
@@ -104,7 +104,7 @@ struct SettingsAppearanceTab: View {
                         hex: $config.customBorderColor
                     )
 
-                    Divider().background(Color.white.opacity(0.1))
+                    Divider().background(SettingsPalette.separator.opacity(0.6))
 
                     // Save current colors as preset
                     HStack {
@@ -164,7 +164,7 @@ struct SettingsAppearanceTab: View {
                     }
                 }
 
-                Divider().background(Color.white.opacity(0.1))
+                Divider().background(SettingsPalette.separator.opacity(0.6))
             }
 
             // Opacity (hidden for Liquid Glass)
@@ -195,7 +195,7 @@ struct SettingsAppearanceTab: View {
                     )
                 }
 
-                Divider().background(Color.white.opacity(0.1))
+                Divider().background(SettingsPalette.separator.opacity(0.6))
 
                 SettingsCollapsibleSection(title: "Button & Text Opacity", icon: "circle.lefthalf.filled", initiallyExpanded: false) {
                     SettingsDoubleSlider(label: "Active Button BG", value: $config.activeButtonBgOpacity, range: 0.0...0.5, step: 0.02, unit: "")
@@ -212,7 +212,7 @@ struct SettingsAppearanceTab: View {
                     SettingsDoubleSlider(label: "Backdrop Blur", value: $config.buttonBackdropBlurOpacity, range: 0.0...1.0, step: 0.05, unit: "")
                 }
 
-                Divider().background(Color.white.opacity(0.1))
+                Divider().background(SettingsPalette.separator.opacity(0.6))
             }
 
             // Fine Tuning sections

@@ -98,6 +98,87 @@ struct RiftDisplay: Codable {
     }
 }
 
+/// The display fields that affect native-space visibility and display-local
+/// menu bars. Space IDs are sets because Rift does not promise an ordering for
+/// the active/inactive lists.
+struct RiftDisplayChangeSnapshot: Equatable {
+    let screenId: UInt32
+    let uuid: String
+    let space: UInt64?
+    let isActiveSpace: Bool
+    let isActiveContext: Bool
+    let activeSpaceIds: Set<UInt64>
+    let inactiveSpaceIds: Set<UInt64>
+
+    var isUnknown: Bool {
+        space == nil && screenId == 0 && uuid.isEmpty
+            && activeSpaceIds.isEmpty && inactiveSpaceIds.isEmpty
+    }
+
+    init(display: RiftDisplay) {
+        self.screenId = display.screenId
+        self.uuid = display.uuid
+        self.space = display.space
+        self.isActiveSpace = display.isActiveSpace
+        self.isActiveContext = display.isActiveContext
+        self.activeSpaceIds = Set(display.activeSpaceIds)
+        self.inactiveSpaceIds = Set(display.inactiveSpaceIds)
+    }
+}
+
+/// A native Space notification can arrive before Rift has a useful display
+/// snapshot. Retry while the snapshot is still the pre-transition value or is
+/// unknown; stop retrying as soon as Rift reports a different known snapshot.
+enum RiftActiveSpaceRetryPolicy {
+    static func shouldRetry(
+        baseline: [Int: RiftDisplayChangeSnapshot],
+        current: [Int: RiftDisplayChangeSnapshot]
+    ) -> Bool {
+        current.isEmpty || current.values.contains(where: { $0.isUnknown }) || current == baseline
+    }
+}
+
+/// Pure change detection for the display state used by menu-bar visibility.
+enum RiftDisplayChangeDetector {
+    static func hasChanges(
+        previous: [Int: RiftDisplayChangeSnapshot],
+        current: [Int: RiftDisplayChangeSnapshot]
+    ) -> Bool {
+        guard previous.count == current.count,
+              Set(previous.keys) == Set(current.keys) else {
+            return true
+        }
+        return current.contains { key, snapshot in
+            previous[key] != snapshot
+        }
+    }
+}
+
+/// Converts Rift's native-space fields into the WM-neutral visibility state.
+enum RiftDisplaySpaceStateClassifier {
+    static func state(space: UInt64?, isActiveSpace: Bool) -> WMDisplaySpaceState {
+        if space == nil {
+            return .nativeFullscreen
+        }
+        return isActiveSpace ? .managed : .unmanaged
+    }
+
+    static func state(for display: RiftDisplay) -> WMDisplaySpaceState {
+        // A completely empty record is a startup/reconnect placeholder, not
+        // evidence that a real display entered native fullscreen. A real
+        // null-space display retains its screen identity or space-id sets and
+        // is still classified as native fullscreen.
+        if display.space == nil,
+           display.screenId == 0,
+           display.uuid.isEmpty,
+           display.activeSpaceIds.isEmpty,
+           display.inactiveSpaceIds.isEmpty {
+            return .unknown
+        }
+        return state(space: display.space, isActiveSpace: display.isActiveSpace)
+    }
+}
+
 // MARK: - Event
 
 struct RiftWorkspaceIdRef: Codable {

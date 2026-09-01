@@ -2,6 +2,32 @@ import SwiftUI
 import AppKit
 import Combine
 
+/// Pure fullscreen visibility decision used by each display's menu bar.
+///
+/// Native-space state is display-scoped. The focused WM workspace is used only
+/// for a display that the WM confirms is managed, so Rift's fullscreen layout
+/// (which still has a managed native space) does not hide the menu bar.
+enum MenuBarFullscreenVisibilityPolicy {
+    static func shouldHide(
+        displayState: WMDisplaySpaceState,
+        focusedSpaceIsFullscreen: Bool,
+        hasFocusedSpace: Bool,
+        previousValue: Bool
+    ) -> Bool {
+        switch displayState {
+        case .nativeFullscreen, .unmanaged:
+            return true
+        case .managed:
+            return hasFocusedSpace && focusedSpaceIsFullscreen
+        case .unknown:
+            // During display/space transitions there may be no focused WM
+            // space for one refresh. Preserve the last decision until the WM
+            // provides enough information to make a safe change.
+            return hasFocusedSpace ? focusedSpaceIsFullscreen : previousValue
+        }
+    }
+}
+
 // MARK: - Menu Bar ViewModel
 // State-only view model for menu bar data
 // Uses split state architecture for optimized re-renders
@@ -36,8 +62,8 @@ class MenuBarViewModel: ObservableObject {
     /// Whether the focused space is fullscreen (pre-computed during performUpdate)
     private(set) var isFocusedSpaceFullscreen: Bool = false
 
-    /// Called by performUpdate when fullscreen state changes
-    var onFullscreenStateChanged: ((Bool) -> Void)?
+    /// Called by performUpdate after each coherent update resolves visibility.
+    var onFullscreenStateResolved: ((Bool) -> Void)?
 
     /// Seed the initial fullscreen state so the change-detection diff works correctly
     /// after a rebuild. Called by the coordinator immediately after show().
@@ -117,6 +143,7 @@ class MenuBarViewModel: ObservableObject {
     /// Internal method that performs the actual update
     private func performUpdate() {
         // Fetch data from window manager
+        let displays = windowManager.getCurrentDisplays()
         var allSpaces = windowManager.getCurrentSpaces()
 
         // Apply display filtering if in perMonitor mode
@@ -126,20 +153,21 @@ class MenuBarViewModel: ObservableObject {
 
         spaces = allSpaces
 
-        // Pre-compute fullscreen state and notify coordinator on change
-        if let focusedSpace = spaces.first(where: { $0.isFocused }) {
-            let wasFullscreen = isFocusedSpaceFullscreen
-            isFocusedSpaceFullscreen = focusedSpace.isFullscreen || focusedSpace.layoutType == .fullscreen
-            if isFocusedSpaceFullscreen != wasFullscreen {
-                onFullscreenStateChanged?(isFocusedSpaceFullscreen)
-            }
-        } else if isFocusedSpaceFullscreen {
-            // No focused space found (e.g. during display transition) — assume we left fullscreen
-            // so the window becomes interactive again (resets ignoresMouseEvents)
-            isFocusedSpaceFullscreen = false
-            onFullscreenStateChanged?(false)
-        }
-
+        // Pre-compute fullscreen state and notify coordinator on change. Native
+        // fullscreen and unmanaged native spaces are display-local; a managed
+        // display delegates to the focused WM space's native-fullscreen bit.
+        let focusedSpace = spaces.first(where: { $0.isFocused })
+        let focusedSpaceIsFullscreen = focusedSpace?.isFullscreen ?? false
+        let displayToUse = displayIndex.flatMap { index in
+            displays.first(where: { $0.index == index })
+        } ?? displays.first(where: { $0.hasFocus })
+        let displayState = displayToUse?.spaceState ?? .unknown
+        isFocusedSpaceFullscreen = MenuBarFullscreenVisibilityPolicy.shouldHide(
+            displayState: displayState,
+            focusedSpaceIsFullscreen: focusedSpaceIsFullscreen,
+            hasFocusedSpace: focusedSpace != nil,
+            previousValue: isFocusedSpaceFullscreen
+        )
         // Fetch all windows once — reused for focused window check, launcher detection, and title observer
         let allWindows = windowManager.getAllWindows()
         let focusedWindow = allWindows.first { $0.hasFocus }
@@ -216,6 +244,10 @@ class MenuBarViewModel: ObservableObject {
         // Clear expanded window if it no longer exists
         sharedState.cleanupExpandedWindowIfNeeded(allWindowIds: allWindowIds)
 
+        // Report the resolved state for every coherent update. The coordinator
+        // needs this even when the Boolean did not change, such as after a
+        // space transition or a newly created window.
+        onFullscreenStateResolved?(isFocusedSpaceFullscreen)
     }
 
     /// Schedule a coalesced update - multiple calls within the coalesce window

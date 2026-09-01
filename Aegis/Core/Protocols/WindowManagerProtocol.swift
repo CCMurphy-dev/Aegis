@@ -39,6 +39,22 @@ struct WMWindow: Identifiable {
     let isFullscreen: Bool     // Native macOS fullscreen
 }
 
+/// Describes which kind of macOS native space is currently represented by a
+/// display. Window managers that cannot provide this distinction should leave
+/// it as `.unknown`.
+enum WMDisplaySpaceState: Equatable {
+    /// The display has a managed native space. The WM's focused workspace is
+    /// authoritative for fullscreen-within-the-WM state.
+    case managed
+    /// The display is showing a native macOS fullscreen space.
+    case nativeFullscreen
+    /// The display has a native space, but it is not currently managed by the
+    /// window manager.
+    case unmanaged
+    /// The window manager has not provided enough information yet.
+    case unknown
+}
+
 struct WMDisplay: Identifiable, Equatable {
     let id: Int
     let uuid: String
@@ -46,6 +62,26 @@ struct WMDisplay: Identifiable, Equatable {
     let frame: CGRect
     let spaces: [Int]          // Space indices on this display
     let hasFocus: Bool
+    let spaceState: WMDisplaySpaceState
+
+    init(
+        id: Int,
+        uuid: String,
+        index: Int,
+        frame: CGRect,
+        spaces: [Int],
+        hasFocus: Bool,
+        spaceState: WMDisplaySpaceState = .unknown
+    ) {
+        self.id = id
+        self.uuid = uuid
+        self.index = index
+        self.frame = frame
+        self.spaces = spaces
+        self.hasFocus = hasFocus
+        self.spaceState = spaceState
+    }
+
 }
 
 enum WMLayoutType: String {

@@ -15,11 +15,11 @@ struct SettingsSlider: View {
             HStack {
                 Text(label)
                     .font(.system(size: 12))
-                    .foregroundColor(Color.white.opacity(0.9))
+                    .foregroundColor(SettingsPalette.primaryText.opacity(0.9))
                 Spacer()
                 Text("\(value, specifier: "%.1f")\(unit)")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(Color.white.opacity(0.7))
+                    .foregroundColor(SettingsPalette.secondaryText)
                     .frame(minWidth: 50, alignment: .trailing)
             }
 
@@ -53,11 +53,11 @@ struct SettingsDoubleSlider: View {
             HStack {
                 Text(label)
                     .font(.system(size: 12))
-                    .foregroundColor(Color.white.opacity(0.9))
+                    .foregroundColor(SettingsPalette.primaryText.opacity(0.9))
                 Spacer()
                 Text("\(value, specifier: precision)\(unit)")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(Color.white.opacity(0.7))
+                    .foregroundColor(SettingsPalette.secondaryText)
                     .frame(minWidth: 50, alignment: .trailing)
             }
 
@@ -80,11 +80,11 @@ struct SettingsIntSlider: View {
             HStack {
                 Text(label)
                     .font(.system(size: 12))
-                    .foregroundColor(Color.white.opacity(0.9))
+                    .foregroundColor(SettingsPalette.primaryText.opacity(0.9))
                 Spacer()
                 Text("\(value)\(unit)")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(Color.white.opacity(0.7))
+                    .foregroundColor(SettingsPalette.secondaryText)
                     .frame(minWidth: 50, alignment: .trailing)
             }
 
@@ -116,12 +116,12 @@ struct SettingsToggle: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(label)
                         .font(.system(size: 12))
-                        .foregroundColor(Color.white.opacity(0.9))
+                        .foregroundColor(SettingsPalette.primaryText.opacity(0.9))
 
                     if let description = description {
                         Text(description)
                             .font(.system(size: 10))
-                            .foregroundColor(Color.white.opacity(0.6))
+                            .foregroundColor(SettingsPalette.secondaryText)
                     }
                 }
 
@@ -156,7 +156,7 @@ struct SettingsSectionHeader: View {
 
             Text(title)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(SettingsPalette.primaryText)
 
             Spacer()
         }
@@ -169,7 +169,7 @@ struct SettingsSectionHeader: View {
 struct SettingsDivider: View {
     var body: some View {
         Divider()
-            .background(Color.white.opacity(0.2))
+            .background(SettingsPalette.separator.opacity(0.8))
             .padding(.vertical, 8)
     }
 }
@@ -183,7 +183,7 @@ struct SettingsEnumPicker<T: RawRepresentable & CaseIterable & Hashable>: View w
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
                 .font(.system(size: 12))
-                .foregroundColor(Color.white.opacity(0.9))
+                .foregroundColor(SettingsPalette.primaryText.opacity(0.9))
 
             Picker("", selection: $selection) {
                 ForEach(Array(T.allCases), id: \.self) { option in
@@ -214,12 +214,12 @@ struct SettingsMultiMonitorPicker: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
                     .font(.system(size: 12))
-                    .foregroundColor(Color.white.opacity(0.9))
+                    .foregroundColor(SettingsPalette.primaryText.opacity(0.9))
 
                 if let description = description {
                     Text(description)
                         .font(.system(size: 10))
-                        .foregroundColor(Color.white.opacity(0.6))
+                        .foregroundColor(SettingsPalette.secondaryText)
                 }
             }
 
@@ -234,7 +234,7 @@ struct SettingsMultiMonitorPicker: View {
             // Show description of selected mode
             Text(selection.description)
                 .font(.system(size: 10))
-                .foregroundColor(Color.white.opacity(0.5))
+                .foregroundColor(SettingsPalette.tertiaryText)
                 .italic()
         }
         .padding(.vertical, 4)
@@ -258,12 +258,12 @@ struct SettingsWindowManagerPicker: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
                     .font(.system(size: 12))
-                    .foregroundColor(Color.white.opacity(0.9))
+                    .foregroundColor(SettingsPalette.primaryText.opacity(0.9))
 
                 if let description = description {
                     Text(description)
                         .font(.system(size: 10))
-                        .foregroundColor(Color.white.opacity(0.6))
+                        .foregroundColor(SettingsPalette.secondaryText)
                 }
             }
 
@@ -277,7 +277,7 @@ struct SettingsWindowManagerPicker: View {
 
             Text(selection.description)
                 .font(.system(size: 10))
-                .foregroundColor(Color.white.opacity(0.5))
+                .foregroundColor(SettingsPalette.tertiaryText)
                 .italic()
 
             Text("Requires restart to take effect")
@@ -297,11 +297,11 @@ struct SettingsInfoText: View {
         HStack {
             Text(label)
                 .font(.system(size: 12))
-                .foregroundColor(Color.white.opacity(0.7))
+                .foregroundColor(SettingsPalette.secondaryText)
             Spacer()
             Text(value)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundColor(Color.white.opacity(0.9))
+                .foregroundColor(SettingsPalette.primaryText.opacity(0.9))
         }
         .padding(.vertical, 4)
     }
@@ -357,11 +357,11 @@ struct SettingsUpdateButton: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Check for Updates")
                     .font(.system(size: 12))
-                    .foregroundColor(Color.white.opacity(0.9))
+                    .foregroundColor(SettingsPalette.primaryText.opacity(0.9))
 
                 Text("Current version: v\(updater.currentVersion)")
                     .font(.system(size: 10))
-                    .foregroundColor(Color.white.opacity(0.6))
+                    .foregroundColor(SettingsPalette.secondaryText)
             }
 
             Spacer()
@@ -400,7 +400,7 @@ struct SettingsYabaiSetupButton: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Yabai Integration")
                     .font(.system(size: 12))
-                    .foregroundColor(Color.white.opacity(0.9))
+                    .foregroundColor(SettingsPalette.primaryText.opacity(0.9))
 
                 Text(statusText)
                     .font(.system(size: 10))
@@ -468,7 +468,7 @@ struct SettingsWMInfoRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(wmName) Integration")
                     .font(.system(size: 12))
-                    .foregroundColor(Color.white.opacity(0.9))
+                    .foregroundColor(SettingsPalette.primaryText.opacity(0.9))
 
                 Text("Connected via event subscription")
                     .font(.system(size: 10))
@@ -504,7 +504,7 @@ struct SettingsAeroSpaceSetupButton: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("AeroSpace Integration")
                     .font(.system(size: 12))
-                    .foregroundColor(Color.white.opacity(0.9))
+                    .foregroundColor(SettingsPalette.primaryText.opacity(0.9))
 
                 Text(statusText)
                     .font(.system(size: 10))
@@ -588,7 +588,7 @@ struct SettingsCollapsibleSection<Content: View>: View {
                 HStack(spacing: 8) {
                     Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(Color.white.opacity(0.7))
+                        .foregroundColor(SettingsPalette.secondaryText)
 
                     if let icon = icon {
                         Image(systemName: icon)
@@ -598,7 +598,7 @@ struct SettingsCollapsibleSection<Content: View>: View {
 
                     Text(title)
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Color.white.opacity(0.9))
+                        .foregroundColor(SettingsPalette.primaryText.opacity(0.9))
 
                     Spacer()
                 }
@@ -637,12 +637,12 @@ struct SettingsStringListEditor: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
                     .font(.system(size: 12))
-                    .foregroundColor(Color.white.opacity(0.9))
+                    .foregroundColor(SettingsPalette.primaryText.opacity(0.9))
 
                 if let description = description {
                     Text(description)
                         .font(.system(size: 10))
-                        .foregroundColor(Color.white.opacity(0.6))
+                        .foregroundColor(SettingsPalette.secondaryText)
                 }
             }
 
@@ -651,7 +651,7 @@ struct SettingsStringListEditor: View {
                 HStack(spacing: 6) {
                     Text(item)
                         .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(Color.white.opacity(0.8))
+                        .foregroundColor(SettingsPalette.primaryText.opacity(0.8))
                         .lineLimit(1)
 
                     Spacer()
@@ -667,7 +667,7 @@ struct SettingsStringListEditor: View {
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(Color.white.opacity(0.05))
+                .background(SettingsPalette.controlBackground.opacity(0.5))
                 .cornerRadius(4)
             }
 
@@ -752,12 +752,12 @@ struct SettingsOrderEditor: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
                     .font(.system(size: 12))
-                    .foregroundColor(Color.white.opacity(0.9))
+                    .foregroundColor(SettingsPalette.primaryText.opacity(0.9))
 
                 if let description = description {
                     Text(description)
                         .font(.system(size: 10))
-                        .foregroundColor(Color.white.opacity(0.6))
+                        .foregroundColor(SettingsPalette.secondaryText)
                 }
             }
 
@@ -770,7 +770,7 @@ struct SettingsOrderEditor: View {
                                 .font(.system(size: 8, weight: .bold))
                         }
                         .buttonStyle(PlainButtonStyle())
-                        .foregroundColor(index > 0 ? Color.white.opacity(0.6) : Color.white.opacity(0.2))
+                        .foregroundColor(index > 0 ? SettingsPalette.secondaryText : SettingsPalette.tertiaryText)
                         .disabled(index == 0)
 
                         Button(action: { moveDown(index) }) {
@@ -778,26 +778,26 @@ struct SettingsOrderEditor: View {
                                 .font(.system(size: 8, weight: .bold))
                         }
                         .buttonStyle(PlainButtonStyle())
-                        .foregroundColor(index < items.count - 1 ? Color.white.opacity(0.6) : Color.white.opacity(0.2))
+                        .foregroundColor(index < items.count - 1 ? SettingsPalette.secondaryText : SettingsPalette.tertiaryText)
                         .disabled(index >= items.count - 1)
                     }
 
                     Text(displayNames[item] ?? item.capitalized)
                         .font(.system(size: 11))
-                        .foregroundColor(Color.white.opacity(0.8))
+                        .foregroundColor(SettingsPalette.primaryText.opacity(0.8))
 
                     Spacer()
 
                     Button(action: { items.remove(at: index) }) {
                         Image(systemName: "eye.slash")
                             .font(.system(size: 10))
-                            .foregroundColor(Color.white.opacity(0.4))
+                            .foregroundColor(SettingsPalette.tertiaryText)
                     }
                     .buttonStyle(PlainButtonStyle())
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
-                .background(Color.white.opacity(0.05))
+                .background(SettingsPalette.controlBackground.opacity(0.5))
                 .cornerRadius(4)
             }
 
@@ -807,7 +807,7 @@ struct SettingsOrderEditor: View {
                 HStack(spacing: 4) {
                     Text("Hidden:")
                         .font(.system(size: 10))
-                        .foregroundColor(Color.white.opacity(0.4))
+                        .foregroundColor(SettingsPalette.tertiaryText)
 
                     ForEach(hidden, id: \.self) { item in
                         Button(action: { items.append(item) }) {
@@ -864,12 +864,12 @@ struct SettingsCustomCommandsEditor: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
                     .font(.system(size: 12))
-                    .foregroundColor(Color.white.opacity(0.9))
+                    .foregroundColor(SettingsPalette.primaryText.opacity(0.9))
 
                 if let description = description {
                     Text(description)
                         .font(.system(size: 10))
-                        .foregroundColor(Color.white.opacity(0.6))
+                        .foregroundColor(SettingsPalette.secondaryText)
                 }
             }
 
@@ -879,17 +879,17 @@ struct SettingsCustomCommandsEditor: View {
                     if let iconName = cmd["icon"], !iconName.isEmpty {
                         Image(systemName: iconName)
                             .font(.system(size: 11))
-                            .foregroundColor(Color.white.opacity(0.7))
+                            .foregroundColor(SettingsPalette.secondaryText)
                             .frame(width: 16)
                     }
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(cmd["label"] ?? "")
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(Color.white.opacity(0.9))
+                            .foregroundColor(SettingsPalette.primaryText.opacity(0.9))
                         Text(cmd["command"] ?? "")
                             .font(.system(size: 10, design: .monospaced))
-                            .foregroundColor(Color.white.opacity(0.5))
+                            .foregroundColor(SettingsPalette.tertiaryText)
                             .lineLimit(1)
                     }
 
@@ -898,7 +898,7 @@ struct SettingsCustomCommandsEditor: View {
                     Button(action: { startEditing(index) }) {
                         Image(systemName: "pencil")
                             .font(.system(size: 10))
-                            .foregroundColor(Color.white.opacity(0.5))
+                            .foregroundColor(SettingsPalette.tertiaryText)
                     }
                     .buttonStyle(PlainButtonStyle())
 
@@ -911,7 +911,7 @@ struct SettingsCustomCommandsEditor: View {
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
-                .background(Color.white.opacity(0.05))
+                .background(SettingsPalette.controlBackground.opacity(0.5))
                 .cornerRadius(4)
             }
 
@@ -921,7 +921,7 @@ struct SettingsCustomCommandsEditor: View {
                     HStack(spacing: 6) {
                         Text("Label")
                             .font(.system(size: 10))
-                            .foregroundColor(Color.white.opacity(0.6))
+                            .foregroundColor(SettingsPalette.secondaryText)
                             .frame(width: 60, alignment: .trailing)
                         TextField("e.g. Restart Yabai", text: $editLabel)
                             .textFieldStyle(.roundedBorder)
@@ -930,7 +930,7 @@ struct SettingsCustomCommandsEditor: View {
                     HStack(spacing: 6) {
                         Text("Command")
                             .font(.system(size: 10))
-                            .foregroundColor(Color.white.opacity(0.6))
+                            .foregroundColor(SettingsPalette.secondaryText)
                             .frame(width: 60, alignment: .trailing)
                         TextField("e.g. yabai --restart-service", text: $editCommand)
                             .textFieldStyle(.roundedBorder)
@@ -939,7 +939,7 @@ struct SettingsCustomCommandsEditor: View {
                     HStack(spacing: 6) {
                         Text("Icon")
                             .font(.system(size: 10))
-                            .foregroundColor(Color.white.opacity(0.6))
+                            .foregroundColor(SettingsPalette.secondaryText)
                             .frame(width: 60, alignment: .trailing)
                         TextField("SF Symbol (optional)", text: $editIcon)
                             .textFieldStyle(.roundedBorder)
@@ -948,7 +948,7 @@ struct SettingsCustomCommandsEditor: View {
                     HStack(spacing: 6) {
                         Text("Description")
                             .font(.system(size: 10))
-                            .foregroundColor(Color.white.opacity(0.6))
+                            .foregroundColor(SettingsPalette.secondaryText)
                             .frame(width: 60, alignment: .trailing)
                         TextField("Optional", text: $editDescription)
                             .textFieldStyle(.roundedBorder)
@@ -960,7 +960,7 @@ struct SettingsCustomCommandsEditor: View {
                         Button("Cancel") { cancelEdit() }
                             .buttonStyle(.plain)
                             .font(.system(size: 11))
-                            .foregroundColor(Color.white.opacity(0.6))
+                            .foregroundColor(SettingsPalette.secondaryText)
                         Button(editingIndex != nil ? "Update" : "Add") { saveCommand() }
                             .buttonStyle(.plain)
                             .font(.system(size: 11, weight: .medium))
@@ -969,11 +969,11 @@ struct SettingsCustomCommandsEditor: View {
                     }
                 }
                 .padding(8)
-                .background(Color.white.opacity(0.03))
+                .background(SettingsPalette.controlBackground.opacity(0.3))
                 .cornerRadius(6)
                 .overlay(
                     RoundedRectangle(cornerRadius: 6)
-                        .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+                        .strokeBorder(SettingsPalette.separator.opacity(0.5), lineWidth: 1)
                 )
             } else {
                 Button(action: { isAdding = true }) {
@@ -1039,7 +1039,7 @@ struct SettingsCustomCommandsEditor: View {
 struct SettingsHelpers_Previews: PreviewProvider {
     static var previews: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            SettingsPalette.background.ignoresSafeArea()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
@@ -1111,7 +1111,7 @@ struct SettingsColorPicker: View {
                 .frame(width: 24, height: 24)
                 .overlay(
                     RoundedRectangle(cornerRadius: 4)
-                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                        .stroke(SettingsPalette.separator.opacity(0.8), lineWidth: 1)
                 )
 
             // Hex input field
