@@ -1,4 +1,7 @@
 import CoreGraphics
+import Cocoa
+import Foundation
+import SwiftUI
 import XCTest
 @testable import Aegis
 
@@ -107,6 +110,99 @@ final class MenuBarFullscreenVisibilityPolicyTests: XCTestCase {
             hasFocusedSpace: true,
             previousValue: true
         ))
+    }
+}
+
+final class MenuBarOrderingPolicyTests: XCTestCase {
+    private let now = Date(timeIntervalSince1970: 100)
+
+    func testFullscreenNeverReorders() {
+        XCTAssertFalse(MenuBarOrderingPolicy.shouldReorder(
+            isFullscreen: true,
+            now: now,
+            suppressReorderUntil: Date.distantPast,
+            hasPendingSpaceUpdate: true
+        ))
+    }
+
+    func testDragSuppressionBlocksNormalSpaceReorder() {
+        XCTAssertFalse(MenuBarOrderingPolicy.shouldReorder(
+            isFullscreen: false,
+            now: now,
+            suppressReorderUntil: now.addingTimeInterval(1),
+            hasPendingSpaceUpdate: true
+        ))
+    }
+
+    func testNormalSpaceReordersAfterSuppressionExpires() {
+        XCTAssertTrue(MenuBarOrderingPolicy.shouldReorder(
+            isFullscreen: false,
+            now: now,
+            suppressReorderUntil: now,
+            hasPendingSpaceUpdate: true
+        ))
+    }
+
+    func testResolvedUpdateConsumesSpaceReorderOnce() {
+        var state = MenuBarOrderingState()
+        XCTAssertFalse(state.consumeResolvedUpdate())
+
+        state.armForSpaceUpdate()
+        XCTAssertTrue(state.consumeResolvedUpdate())
+        XCTAssertFalse(state.consumeResolvedUpdate())
+    }
+
+    func testNoSpaceUpdateMeansNoReorder() {
+        XCTAssertFalse(MenuBarOrderingPolicy.shouldReorder(
+            isFullscreen: false,
+            now: now,
+            suppressReorderUntil: now,
+            hasPendingSpaceUpdate: false
+        ))
+    }
+}
+
+@MainActor
+final class MenuBarWindowControllerTests: XCTestCase {
+    private func makeController() throws -> MenuBarWindowController {
+        let controller = MenuBarWindowController()
+        controller.createWindow(with: Text("Test"), for: NSScreen.main)
+        return controller
+    }
+
+    func testNewWindowStartsTransparentAndIgnoresMouse() throws {
+        let controller = try makeController()
+        defer { controller.hide() }
+
+        let window = try XCTUnwrap(controller.window)
+        XCTAssertEqual(window.alphaValue, 0)
+        XCTAssertTrue(window.ignoresMouseEvents)
+    }
+
+    func testFullscreenResolutionKeepsWindowHiddenAndNoninteractive() throws {
+        let controller = try makeController()
+        defer { controller.hide() }
+        let window = try XCTUnwrap(controller.window)
+
+        controller.updateVisibilityForSpace(isFullscreen: true)
+        XCTAssertEqual(window.alphaValue, 0)
+        XCTAssertTrue(window.ignoresMouseEvents)
+
+        // Reordering must not make a fullscreen bar visible again.
+        controller.reorderWindowForSpaceTransition()
+        XCTAssertEqual(window.alphaValue, 0)
+        XCTAssertTrue(window.ignoresMouseEvents)
+    }
+
+    func testNormalResolutionRestoresVisibilityAndInteraction() throws {
+        let controller = try makeController()
+        defer { controller.hide() }
+        let window = try XCTUnwrap(controller.window)
+
+        controller.updateVisibilityForSpace(isFullscreen: true)
+        controller.updateVisibilityForSpace(isFullscreen: false)
+        XCTAssertEqual(window.alphaValue, 1)
+        XCTAssertFalse(window.ignoresMouseEvents)
     }
 }
 

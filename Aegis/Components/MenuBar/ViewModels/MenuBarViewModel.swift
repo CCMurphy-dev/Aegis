@@ -62,8 +62,8 @@ class MenuBarViewModel: ObservableObject {
     /// Whether the focused space is fullscreen (pre-computed during performUpdate)
     private(set) var isFocusedSpaceFullscreen: Bool = false
 
-    /// Called by performUpdate when fullscreen state changes
-    var onFullscreenStateChanged: ((Bool) -> Void)?
+    /// Called by performUpdate after each coherent update resolves visibility.
+    var onFullscreenStateResolved: ((Bool) -> Void)?
 
     /// Seed the initial fullscreen state so the change-detection diff works correctly
     /// after a rebuild. Called by the coordinator immediately after show().
@@ -162,17 +162,12 @@ class MenuBarViewModel: ObservableObject {
             displays.first(where: { $0.index == index })
         } ?? displays.first(where: { $0.hasFocus })
         let displayState = displayToUse?.spaceState ?? .unknown
-        let wasFullscreen = isFocusedSpaceFullscreen
         isFocusedSpaceFullscreen = MenuBarFullscreenVisibilityPolicy.shouldHide(
             displayState: displayState,
             focusedSpaceIsFullscreen: focusedSpaceIsFullscreen,
             hasFocusedSpace: focusedSpace != nil,
-            previousValue: wasFullscreen
+            previousValue: isFocusedSpaceFullscreen
         )
-        if isFocusedSpaceFullscreen != wasFullscreen {
-            onFullscreenStateChanged?(isFocusedSpaceFullscreen)
-        }
-
         // Fetch all windows once — reused for focused window check, launcher detection, and title observer
         let allWindows = windowManager.getAllWindows()
         let focusedWindow = allWindows.first { $0.hasFocus }
@@ -249,6 +244,10 @@ class MenuBarViewModel: ObservableObject {
         // Clear expanded window if it no longer exists
         sharedState.cleanupExpandedWindowIfNeeded(allWindowIds: allWindowIds)
 
+        // Report the resolved state for every coherent update. The coordinator
+        // needs this even when the Boolean did not change, such as after a
+        // space transition or a newly created window.
+        onFullscreenStateResolved?(isFocusedSpaceFullscreen)
     }
 
     /// Schedule a coalesced update - multiple calls within the coalesce window

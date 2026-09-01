@@ -16,6 +16,11 @@ class MenuBarWindowController: ObservableObject {
     /// Published fullscreen state that other components can observe
     @Published private(set) var currentSpaceIsFullscreen = false
 
+    /// Native-menu visibility changes must not make an unresolved window
+    /// interactive before its first coherent space update.
+    private var hasResolvedSpaceState = false
+    private var nativeMenuActive = false
+
     /// The screen this menu bar is displayed on
     private var targetScreen: NSScreen?
 
@@ -25,6 +30,8 @@ class MenuBarWindowController: ObservableObject {
         let targetScreen = screen ?? NSScreen.main
         guard let screen = targetScreen else { return }
         self.targetScreen = screen
+        hasResolvedSpaceState = false
+        nativeMenuActive = false
 
         // Menu bar window - only the interactive 40px area
         // Clicks below this window naturally pass through to windows underneath
@@ -66,7 +73,11 @@ class MenuBarWindowController: ObservableObject {
         // Keep .canJoinAllSpaces so window appears on all normal Spaces
         // We'll hide it explicitly when entering fullscreen Spaces
         menuBarWindow?.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
-        menuBarWindow?.ignoresMouseEvents = false
+        // Keep a newly created window inert until the view model resolves the
+        // display's fullscreen state. This covers launch and rebuilds that
+        // happen while the display is already in native fullscreen.
+        menuBarWindow?.alphaValue = 0
+        menuBarWindow?.ignoresMouseEvents = true
         menuBarWindow?.hasShadow = false
     }
 
@@ -85,14 +96,22 @@ class MenuBarWindowController: ObservableObject {
             menuBarWindow?.alphaValue = 1
             menuBarWindow?.ignoresMouseEvents = false
         }
+        hasResolvedSpaceState = true
+        applyNativeMenuVisibility()
     }
 
     // MARK: - Native Menu Bar Detection
     // Only hide when native menu is active, not based on mouse position
 
     func setVisibilityForNativeMenu(_ nativeMenuActive: Bool) {
-        // Only apply this logic if we're not in a fullscreen space
-        guard !currentSpaceIsFullscreen else { return }
+        self.nativeMenuActive = nativeMenuActive
+        applyNativeMenuVisibility()
+    }
+
+    private func applyNativeMenuVisibility() {
+        // Only apply this logic after the fullscreen state is resolved and if
+        // we're not in a fullscreen space.
+        guard hasResolvedSpaceState, !currentSpaceIsFullscreen else { return }
 
         if nativeMenuActive {
             // Native menu is active, hide behind it
