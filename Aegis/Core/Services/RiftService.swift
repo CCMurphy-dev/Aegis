@@ -217,13 +217,25 @@ final class RiftService {
     private var subscriptionProcess: Process?
     private var lineBuffer = ""
 
-    // Coalescing gate (identical pattern to YabaiService)
-    private var coalesceTimer: DispatchWorkItem?
-    private var pendingScope: RiftRefreshScope = .none
-    private var lastRefreshTime: Date = .distantPast
-    private let coalesceDelay: TimeInterval = 0.03     // 30ms coalesce window
-    private let debounceInterval: TimeInterval = 0.1   // 100ms post-refresh debounce
     private var lastSubscriptionEventTime: Date = .distantPast
+
+    // Every refresh enters this coordinator, including startup and fallback
+    // notifications. It guarantees one sequence at a time and keeps weaker
+    // requests pending while a stronger request is running.
+    private lazy var refreshCoordinator = RiftRefreshCoordinator { [weak self] scope, source, generation, finish in
+        guard let self else {
+            finish()
+            return
+        }
+        Task {
+            await self.executeRefresh(scope: scope, source: source, generation: generation)
+            finish()
+        }
+    }
+
+    // Each native Space notification owns a transition generation. A newer
+    // notification makes older delayed retries harmless.
+    private let transitionTracker = RiftTransitionGenerationTracker()
 
     // Focused workspace cache
     private static var cachedFocusedWorkspaceIndex = 1
@@ -241,9 +253,7 @@ final class RiftService {
         self.eventRouter = eventRouter
         logInfo("RiftService initializing")
 
-        Task {
-            await executeRefresh(scope: .all, source: "init")
-        }
+        requestRefresh(scope: .all, source: "init")
 
         startSubscription()
         setupWorkspaceFallback()
@@ -255,6 +265,8 @@ final class RiftService {
     }
 
     func stop() {
+        refreshCoordinator.stop()
+        transitionTracker.stop()
         subscriptionProcess?.terminate()
         subscriptionProcess = nil
         NSWorkspace.shared.notificationCenter.removeObserver(self)
@@ -349,14 +361,14 @@ final class RiftService {
             // native space, an unmanaged space, and a native fullscreen space.
             // Refresh the display snapshot before publishing the workspace
             // change so menu bars make their decision from the same transition.
-            scheduleRefresh(scope: .all, source: "sub:workspace_changed")
+            requestRefresh(scope: .all, source: "sub:workspace_changed")
 
         case "space_changed", "active_space_changed", "display_changed", "native_fullscreen_changed":
             // These names are accepted for newer Rift event payloads. Rift
             // versions that do not emit them still reach this path through
             // NSWorkspace.activeSpaceDidChangeNotification below.
             invalidateFocusedWorkspaceCache()
-            scheduleRefresh(scope: .all, source: "sub:\(event.type)")
+            requestRefresh(scope: .all, source: "sub:\(event.type)")
 
         case "windows_changed":
             // Use workspace index from event to map windows to correct virtual workspace
@@ -398,17 +410,17 @@ final class RiftService {
                     }
                 }
             }
-            scheduleRefresh(scope: .windowsOnly, source: "sub:windows_changed")
+            requestRefresh(scope: .windowsOnly, source: "sub:windows_changed")
 
         case "window_title_changed":
-            scheduleRefresh(scope: .windowsOnly, source: "sub:window_title_changed")
+            requestRefresh(scope: .windowsOnly, source: "sub:window_title_changed")
 
         case "stacks_changed":
-            scheduleRefresh(scope: .windowsOnly, source: "sub:stacks_changed")
+            requestRefresh(scope: .windowsOnly, source: "sub:stacks_changed")
 
         default:
             invalidateFocusedWorkspaceCache()
-            scheduleRefresh(scope: .workspacesAndWindows, source: "sub:\(event.type)")
+            requestRefresh(scope: .workspacesAndWindows, source: "sub:\(event.type)")
         }
     }
 
@@ -432,14 +444,21 @@ final class RiftService {
 
     @objc private func activeSpaceChanged(_ notification: Notification) {
         invalidateFocusedWorkspaceCache()
+        let transition = beginActiveSpaceTransition()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
             guard let self = self else { return }
-            let hasRecentSubscriptionEvent = Date().timeIntervalSince(self.lastSubscriptionEventTime) < 0.5
-            guard RiftFallbackRefreshPolicy.shouldRefresh(
-                trigger: .activeSpaceChange,
-                hasRecentSubscriptionEvent: hasRecentSubscriptionEvent
-            ) else { return }
-            self.scheduleRefresh(scope: .all, source: "activeSpaceChanged")
+            guard self.isCurrentActiveSpaceTransition(transition.generation) else { return }
+            self.requestRefresh(scope: .all, source: "activeSpaceChanged")
+            self.scheduleActiveSpaceRetry(
+                after: 0.25,
+                transition: transition,
+                source: "activeSpaceChanged.retry250"
+            )
+            self.scheduleActiveSpaceRetry(
+                after: 0.5,
+                transition: transition,
+                source: "activeSpaceChanged.retry500"
+            )
         }
     }
 
@@ -455,51 +474,79 @@ final class RiftService {
                 trigger: .applicationActivation,
                 hasRecentSubscriptionEvent: hasRecentSubscriptionEvent
             ) else { return }
-            self.scheduleRefresh(scope: .windowsOnly, source: "appChanged")
+            self.requestRefresh(scope: .windowsOnly, source: "appChanged")
         }
     }
 
-    // MARK: - Coalescing Refresh Gate
+    // MARK: - Serialized Refresh Gate
 
-    private func scheduleRefresh(scope: RiftRefreshScope, source: String = "unknown") {
-        pendingScope = pendingScope.merging(scope)
-        coalesceTimer?.cancel()
-        let work = DispatchWorkItem { [weak self] in
-            guard let self = self else { return }
-            let finalScope = self.pendingScope
-            self.pendingScope = .none
-            Task { await self.executeRefresh(scope: finalScope, source: source) }
+    private func requestRefresh(scope: RiftRefreshScope, source: String = "unknown") {
+        if Thread.isMainThread {
+            refreshCoordinator.request(scope: scope, source: source)
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                self?.refreshCoordinator.request(scope: scope, source: source)
+            }
         }
-        coalesceTimer = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + coalesceDelay, execute: work)
     }
 
-    private func executeRefresh(scope: RiftRefreshScope, source: String = "unknown") async {
-        let now = Date()
-        let timeSinceLast = now.timeIntervalSince(lastRefreshTime)
-        if timeSinceLast < debounceInterval { return }
-        lastRefreshTime = now
+    private func executeRefresh(
+        scope: RiftRefreshScope,
+        source: String = "unknown",
+        generation: UInt64
+    ) async {
+        guard refreshCoordinator.isCurrent(generation) else { return }
+        // Keep this sequential. refreshWorkspaces can publish `.spaceChanged`,
+        // and its subscribers immediately query displays. The display cache
+        // must therefore describe the same native-space transition first.
+        for operation in RiftRefreshOperationPlan.operations(for: scope) {
+            switch operation {
+            case .displays:
+                await refreshDisplays(generation: generation)
+            case .workspaces:
+                await refreshWorkspaces(generation: generation)
+            }
+        }
+    }
 
-        switch scope {
-        case .none:
-            return
-        case .windowsOnly:
-            await refreshWorkspaces() // Rift windows are embedded in workspace responses
-        case .workspacesAndWindows:
-            await refreshWorkspaces()
-        case .all:
-            // Keep this sequential. refreshWorkspaces can publish
-            // `.spaceChanged`, and its subscribers immediately query displays.
-            // The display cache must therefore describe the same native-space
-            // transition before that callback is delivered.
-            await refreshDisplays()
-            await refreshWorkspaces()
+    private typealias ActiveSpaceTransition = (
+        generation: UInt64,
+        baseline: [Int: RiftDisplayChangeSnapshot]
+    )
+
+    private func beginActiveSpaceTransition() -> ActiveSpaceTransition {
+        (transitionTracker.begin(), displaySnapshot())
+    }
+
+    private func isCurrentActiveSpaceTransition(_ generation: UInt64) -> Bool {
+        transitionTracker.isCurrent(generation)
+    }
+
+    private func scheduleActiveSpaceRetry(
+        after delay: TimeInterval,
+        transition: ActiveSpaceTransition,
+        source: String
+    ) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self,
+                  self.isCurrentActiveSpaceTransition(transition.generation),
+                  RiftActiveSpaceRetryPolicy.shouldRetry(
+                      baseline: transition.baseline,
+                      current: self.displaySnapshot()
+                  ) else { return }
+            self.requestRefresh(scope: .all, source: source)
+        }
+    }
+
+    private func displaySnapshot() -> [Int: RiftDisplayChangeSnapshot] {
+        dataQueue.sync {
+            displays.mapValues { RiftDisplayChangeSnapshot(display: $0) }
         }
     }
 
     // MARK: - Refresh Methods
 
-    private func refreshWorkspaces() async {
+    private func refreshWorkspaces(generation: UInt64) async {
         do {
             let json = try await command.run(["query", "workspaces"])
             let decoded = try JSONDecoder().decode([RiftWorkspace].self, from: Data(json.utf8))
@@ -529,7 +576,9 @@ final class RiftService {
                 // Track active workspace
                 if ws.isActive {
                     dataQueue.sync(flags: .barrier) { [weak self] in
-                        self?.activeWorkspaceIndex = wsIndex
+                        guard let self = self,
+                              self.refreshCoordinator.isCurrent(generation) else { return }
+                        self.activeWorkspaceIndex = wsIndex
                     }
                 }
             }
@@ -588,7 +637,8 @@ final class RiftService {
 
             // Write to cache (merge strategy)
             dataQueue.sync(flags: .barrier) { [weak self] in
-                guard let self = self else { return }
+                guard let self = self,
+                      self.refreshCoordinator.isCurrent(generation) else { return }
                 self.workspaces = Dictionary(uniqueKeysWithValues: decoded.map { ($0.index + 1, $0) })
 
                 // Remove windows from workspaces that reported fresh data
@@ -627,22 +677,19 @@ final class RiftService {
                 logInfo("[RIFT-DEBUG] After merge: windows.count=\(self.windows.count) wsMap=\(wsWindowCounts) activeWs=\(self.activeWorkspaceIndex)")
             }
 
+            guard refreshCoordinator.isCurrent(generation) else { return }
             if workspacesChanged {
-                DispatchQueue.main.async { [weak self] in
-                    self?.eventRouter.publish(.spaceChanged, data: [:])
-                }
+                eventRouter.publish(.spaceChanged, data: [:])
             }
             if windowsChanged {
-                DispatchQueue.main.async { [weak self] in
-                    self?.eventRouter.publish(.windowsChanged, data: [:])
-                }
+                eventRouter.publish(.windowsChanged, data: [:])
             }
         } catch {
             logError("rift workspaces query failed: \(error)")
         }
     }
 
-    private func refreshDisplays() async {
+    private func refreshDisplays(generation: UInt64) async {
         do {
             let json = try await command.run(["query", "displays"])
             let decoded = try JSONDecoder().decode([RiftDisplay].self, from: Data(json.utf8))
@@ -663,13 +710,14 @@ final class RiftService {
             }
 
             dataQueue.sync(flags: .barrier) { [weak self] in
-                self?.displays = Dictionary(uniqueKeysWithValues: decoded.map { (Int($0.screenId), $0) })
+                guard let self = self,
+                      self.refreshCoordinator.isCurrent(generation) else { return }
+                self.displays = Dictionary(uniqueKeysWithValues: decoded.map { (Int($0.screenId), $0) })
             }
 
+            guard refreshCoordinator.isCurrent(generation) else { return }
             if displaysChanged {
-                DispatchQueue.main.async { [weak self] in
-                    self?.eventRouter.publish(.displaysChanged, data: [:])
-                }
+                eventRouter.publish(.displaysChanged, data: [:])
             }
         } catch {
             logError("rift displays query failed: \(error)")
@@ -972,7 +1020,7 @@ final class RiftService {
     func createWorkspace() {
         Task {
             try? await command.run(["execute", "workspace", "create"])
-            await refreshWorkspaces()
+            requestRefresh(scope: .workspacesAndWindows, source: "createWorkspace")
         }
     }
 
@@ -981,7 +1029,7 @@ final class RiftService {
         let newLayout = focused.layoutMode == "bsp" ? "stack" : "bsp"
         Task {
             try? await command.run(["execute", "workspace", "set-layout", newLayout])
-            await refreshWorkspaces()
+            requestRefresh(scope: .workspacesAndWindows, source: "toggleLayout")
         }
     }
 
@@ -1006,7 +1054,7 @@ final class RiftService {
     func setWorkspaceLayout(_ mode: String) {
         Task {
             try? await command.run(["execute", "workspace", "set-layout", mode])
-            await refreshWorkspaces()
+            requestRefresh(scope: .workspacesAndWindows, source: "setWorkspaceLayout")
         }
     }
 
@@ -1019,7 +1067,7 @@ final class RiftService {
     func toggleSpaceActivated() {
         Task {
             try? await command.run(["execute", "toggle-space-activated"])
-            await refreshWorkspaces()
+            requestRefresh(scope: .workspacesAndWindows, source: "toggleSpaceActivated")
         }
     }
 

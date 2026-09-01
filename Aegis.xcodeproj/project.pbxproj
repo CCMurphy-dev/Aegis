@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		83DF29F92F13893700C8A7A1 /* RiftRefreshCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83DF29F82F13893700C8A7A1 /* RiftRefreshCoordinatorTests.swift */; };
 		833A42582F1921F7006F4B26 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 83SPARKLE022F15000000002 /* Sparkle */; };
 		83DF29F52F13893700C8A7A1 /* FullscreenVisibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83DF29F42F13893700C8A7A1 /* FullscreenVisibilityTests.swift */; };
 		83DF29F72F13893700C8A7A1 /* SettingsAppearanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83DF29F62F13893700C8A7A1 /* SettingsAppearanceTests.swift */; };
@@ -43,6 +44,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		83DF29F82F13893700C8A7A1 /* RiftRefreshCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftRefreshCoordinatorTests.swift; sourceTree = "<group>"; };
 		83DF29BF2F13893600C8A7A1 /* Aegis.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Aegis.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		83DF29CE2F13893700C8A7A1 /* AegisTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AegisTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		83DF29D82F13893700C8A7A1 /* AegisUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AegisUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -114,6 +116,7 @@
 			children = (
 				83DF29F42F13893700C8A7A1 /* FullscreenVisibilityTests.swift */,
 				83DF29F62F13893700C8A7A1 /* SettingsAppearanceTests.swift */,
+				83DF29F82F13893700C8A7A1 /* RiftRefreshCoordinatorTests.swift */,
 			);
 			path = AegisTests;
 			sourceTree = "<group>";
@@ -303,6 +306,7 @@
 			files = (
 				83DF29F52F13893700C8A7A1 /* FullscreenVisibilityTests.swift in Sources */,
 				83DF29F72F13893700C8A7A1 /* SettingsAppearanceTests.swift in Sources */,
+				83DF29F92F13893700C8A7A1 /* RiftRefreshCoordinatorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

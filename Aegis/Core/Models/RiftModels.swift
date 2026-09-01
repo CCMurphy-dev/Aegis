@@ -110,6 +110,11 @@ struct RiftDisplayChangeSnapshot: Equatable {
     let activeSpaceIds: Set<UInt64>
     let inactiveSpaceIds: Set<UInt64>
 
+    var isUnknown: Bool {
+        space == nil && screenId == 0 && uuid.isEmpty
+            && activeSpaceIds.isEmpty && inactiveSpaceIds.isEmpty
+    }
+
     init(display: RiftDisplay) {
         self.screenId = display.screenId
         self.uuid = display.uuid
@@ -118,6 +123,18 @@ struct RiftDisplayChangeSnapshot: Equatable {
         self.isActiveContext = display.isActiveContext
         self.activeSpaceIds = Set(display.activeSpaceIds)
         self.inactiveSpaceIds = Set(display.inactiveSpaceIds)
+    }
+}
+
+/// A native Space notification can arrive before Rift has a useful display
+/// snapshot. Retry while the snapshot is still the pre-transition value or is
+/// unknown; stop retrying as soon as Rift reports a different known snapshot.
+enum RiftActiveSpaceRetryPolicy {
+    static func shouldRetry(
+        baseline: [Int: RiftDisplayChangeSnapshot],
+        current: [Int: RiftDisplayChangeSnapshot]
+    ) -> Bool {
+        current.isEmpty || current.values.contains(where: { $0.isUnknown }) || current == baseline
     }
 }
 
