@@ -78,13 +78,13 @@ class NotchHUDController: ObservableObject {
          musicService: MediaService,
          eventRouter: EventRouter,
          windowManager: WindowManagerProtocol,
-         targetScreen: NSScreen? = nil,
+         targetScreen: NSScreen,
          isVirtualNotch: Bool = false) {
         self.systemInfoService = systemInfoService
         self.musicService = musicService
         self.eventRouter = eventRouter
         self.windowManager = windowManager
-        self.targetScreen = targetScreen ?? DisplayScreenMatcher.screenWithNotch() ?? NSScreen.main!
+        self.targetScreen = targetScreen
         self.isVirtualNotch = isVirtualNotch
 
         // Set up Yabai integration for notification clicks

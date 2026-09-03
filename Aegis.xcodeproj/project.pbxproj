@@ -60,6 +60,11 @@
 /* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		83A000032F20000000000001 /* AegisTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = AegisTests;
+			sourceTree = "<group>";
+		};
 		83DF29C12F13893600C8A7A1 /* Aegis */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -100,6 +105,7 @@
 			isa = PBXGroup;
 			children = (
 				83DF29C12F13893600C8A7A1 /* Aegis */,
+				83A000032F20000000000001 /* AegisTests */,
 				83DF29C02F13893600C8A7A1 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -154,6 +160,9 @@
 			);
 			dependencies = (
 				83DF29D02F13893700C8A7A1 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				83A000032F20000000000001 /* AegisTests */,
 			);
 			name = AegisTests;
 			packageProductDependencies = (

@@ -77,43 +77,28 @@ struct DisplayScreenMatcher {
         return screen == NSScreen.main
     }
 
-    /// Find the screen with the notch (built-in MacBook display)
-    /// Returns the screen with safeAreaInsets.top > 0, or falls back to main screen
-    static func screenWithNotch() -> NSScreen? {
-        // First, look for a screen with a notch (safeAreaInsets.top > 0)
-        for screen in NSScreen.screens {
-            if screen.safeAreaInsets.top > 0 {
-                return screen
-            }
-        }
-        // Fallback to main screen if no notch screen found (older Macs without notch)
-        return NSScreen.main
-    }
-
     /// Check if a screen has a notch
     static func hasNotch(_ screen: NSScreen) -> Bool {
         return screen.safeAreaInsets.top > 0
+    }
+
+    static func shouldIncludeScreen(
+        hasHardwareNotch: Bool,
+        showVirtualNotch: Bool
+    ) -> Bool {
+        hasHardwareNotch || showVirtualNotch
     }
 
     /// Returns all screens that should display a notch HUD.
     /// Includes screens with a hardware notch, plus external screens when showVirtualNotch is enabled.
     static func screensWithNotch() -> [NSScreen] {
         let config = AegisConfig.shared
-        var result: [NSScreen] = []
-
-        for screen in NSScreen.screens {
-            if screen.safeAreaInsets.top > 0 {
-                result.append(screen)
-            } else if config.showVirtualNotch {
-                result.append(screen)
-            }
+        return NSScreen.screens.filter { screen in
+            shouldIncludeScreen(
+                hasHardwareNotch: hasNotch(screen),
+                showVirtualNotch: config.showVirtualNotch
+            )
         }
-
-        if result.isEmpty, let main = NSScreen.main {
-            result.append(main)
-        }
-
-        return result
     }
 
     /// Get the CGDirectDisplayID for an NSScreen
