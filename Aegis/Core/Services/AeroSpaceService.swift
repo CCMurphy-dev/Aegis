@@ -56,25 +56,13 @@ actor AeroSpaceCommandActor {
                           userInfo: [NSLocalizedDescriptionKey: "AeroSpace.app not running"])
         }
 
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: path)
-        task.arguments = args
+        // Drains pipes while running and times out, so a stuck CLI can't wedge refreshes.
+        let result = try await ProcessRunner.run(path, args, timeout: 5)
+        let output = String(decoding: result.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
 
-        let stdout = Pipe()
-        let stderr = Pipe()
-        task.standardOutput = stdout
-        task.standardError = stderr
-
-        try task.run()
-        task.waitUntilExit()
-
-        let data = stdout.fileHandleForReading.readDataToEndOfFile()
-        let output = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if task.terminationStatus != 0 {
-            let errData = stderr.fileHandleForReading.readDataToEndOfFile()
-            let errStr = String(decoding: errData, as: UTF8.self)
-            throw NSError(domain: "AeroSpace", code: Int(task.terminationStatus),
+        if result.status != 0 {
+            let errStr = String(decoding: result.stderr, as: UTF8.self)
+            throw NSError(domain: "AeroSpace", code: Int(result.status),
                           userInfo: [NSLocalizedDescriptionKey: errStr.isEmpty ? output : errStr])
         }
 
