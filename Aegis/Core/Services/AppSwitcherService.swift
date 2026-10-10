@@ -235,7 +235,7 @@ final class AppSwitcherService {
             options: .defaultTap,
             eventsOfInterest: eventMask,
             callback: { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
-                guard let refcon = refcon else { return Unmanaged.passRetained(event) }
+                guard let refcon = refcon else { return Unmanaged.passUnretained(event) }
                 let service = Unmanaged<AppSwitcherService>.fromOpaque(refcon).takeUnretainedValue()
                 return service.handleEvent(proxy: proxy, type: type, event: event)
             },
@@ -260,7 +260,7 @@ final class AppSwitcherService {
             if let tap = eventTap {
                 CGEvent.tapEnable(tap: tap, enable: true)
             }
-            return Unmanaged.passRetained(event)
+            return Unmanaged.passUnretained(event)
         }
 
         let flags = event.flags
@@ -409,7 +409,7 @@ final class AppSwitcherService {
             break
         }
 
-        return Unmanaged.passRetained(event)
+        return Unmanaged.passUnretained(event)
     }
 
     private func keyCodeToNumber(_ keyCode: Int64) -> Int? {
